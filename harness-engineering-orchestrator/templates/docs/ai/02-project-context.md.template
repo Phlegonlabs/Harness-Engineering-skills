@@ -1,0 +1,20 @@
+## 2. Project Context
+
+- **Project**: [PROJECT_DISPLAY_NAME]
+- **Type**: [PROJECT_TYPE]
+- **Surface strategy**: [SURFACE_EVOLUTION_NOTE]
+- **Concept**: [PROJECT_CONCEPT]
+- **Primary problem**: [PROJECT_PROBLEM]
+- **Goal**: [PROJECT_GOAL]
+- **Delivery mode**: [GREENFIELD_MODE]
+- **AI Provider**: [AI_PROVIDER]
+- **Team size**: [TEAM_SIZE]
+- **Package manager**: Bun
+- **Agent skills**: [AGENT_SKILLS_CONTEXT]
+- **Framework bootstrap rule**: Do not install product frameworks during scaffold setup; introduce them inside milestone tasks.
+- **Local env file**: `.env.local` is scaffolded for local use and should be expanded as new integrations land.
+- **State**: `.harness/state.json`
+- **Requirements**: `docs/PRD.md` + `docs/prd/`
+- **Architecture**: `docs/ARCHITECTURE.md` + `docs/architecture/`
+- **Progress**: `docs/PROGRESS.md`
+- **Context recovery**: `docs/progress/CONTEXT_SNAPSHOT.md`

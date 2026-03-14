@@ -1,0 +1,19 @@
+## 5. Commands
+
+```bash
+bun harness:advance
+bun .harness/init.ts --from-prd
+bun .harness/state.ts --show
+bun harness:env
+bun harness:validate --phase EXECUTING
+bun harness:validate --task T001
+bun harness:validate --milestone M1
+bun harness:validate
+bun harness:resume
+bun harness:compact
+bun harness:compact --milestone
+bun harness:compact --status
+bun run check:deps
+```
+
+> `bun harness:validate` runs the full final validation; it is recommended to run it after phase / task / milestone validation.

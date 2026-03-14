@@ -1,0 +1,30 @@
+## 3. Guardrails
+
+### Dependency Direction
+
+```text
+types → config → lib → services → app
+```
+
+### Forbidden Patterns
+
+- `console.log` is forbidden
+- `: any` is forbidden
+- `@ts-ignore` is forbidden
+- `sk-...`, `Bearer ...`, `ghp_...` and similar secrets / tokens are forbidden
+- `TODO:`, `FIXME:` are treated as warnings; flagged during milestone validation
+- `eval(` is forbidden
+- `.innerHTML =` assignment is forbidden
+- `dangerouslySetInnerHTML` is forbidden
+- Hardcoded `http://` URLs (non-localhost) are forbidden
+- Direct reads of `process.env.*` are forbidden
+- Storing tokens in localStorage is forbidden
+- Committing secrets to git is forbidden
+- `git add .` is forbidden
+- Developing features on `main` is forbidden
+
+### Automated Guardian Hooks
+
+Guardians G2-G10 are enforced automatically by git hooks, Claude Code hooks, and Codex CLI hooks installed during scaffold. Manual `bun harness:validate` remains available for comprehensive validation. Hooks catch common violations at the point of action across all three surfaces.
+
+Emergency bypass: `HARNESS_HOOKS_SKIP=1 git commit ...`

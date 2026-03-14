@@ -1,0 +1,6 @@
+## 5. Worktrees
+
+```text
+./    current workspace
+[CURRENT_WORKTREE]    milestone/m1-foundation
+```

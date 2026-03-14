@@ -1,0 +1,15 @@
+export interface ScaffoldSummary {
+  name: string;
+  projectType: string;
+  description: string;
+}
+
+export const scaffoldSummary: ScaffoldSummary = {
+  name: "[PROJECT_NAME]",
+  projectType: "[PROJECT_TYPE]",
+  description: "[PROJECT_DESCRIPTION]",
+};
+
+export function getScaffoldSummary(): ScaffoldSummary {
+  return scaffoldSummary;
+}

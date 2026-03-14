@@ -1,0 +1,29 @@
+# [PROJECT_DISPLAY_NAME]
+
+[PROJECT_DESCRIPTION]
+
+## What Is [PROJECT_NAME]?
+
+[PROJECT_DESCRIPTION]
+
+Runtime auto-dispatch currently covers `project-discovery`, `MARKET_RESEARCH`, `TECH_STACK`, `prd-architect`, `scaffold-generator`, the UI design loop, `EXECUTING`, `VALIDATING`, and `context-compactor`.
+After an interactive phase is complete, advance the lifecycle with `bun harness:advance`.
+
+## Key Features
+
+- Auto-generated core documents
+- Local `.harness` runtime
+- Recoverable backlog / progress mechanism
+- Writable Harness Score
+
+## Quick Start
+
+```bash
+bun install
+bun harness:advance
+bun harness:env
+bun harness:validate --phase EXECUTING
+bun harness:resume
+```
+
+> `bun harness:validate` runs the full final validation; it is typically run after phase / task / milestone validation is complete.

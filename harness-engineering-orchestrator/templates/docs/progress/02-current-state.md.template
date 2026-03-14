@@ -1,0 +1,5 @@
+## 2. Current State
+
+- **Worktree**: `[CURRENT_WORKTREE]`
+- **Last updated**: [DATETIME]
+- **Next action**: Run `bun harness:advance` to move the phase forward, or continue the current task.

@@ -1,0 +1,38 @@
+---
+name: api-wrapper
+description: >
+  Wrap project and third-party APIs behind a stable agent-facing interface for [PROJECT_DISPLAY_NAME].
+  Use this skill when an agent surface needs typed, validated access to internal services or external APIs without scattering auth and retry logic.
+---
+
+# Harness Engineering and Orchestrator API Wrapper
+
+## Purpose
+
+This skill is the default API integration layer for agent work managed by Harness Engineering and Orchestrator in this monorepo.
+
+Use it to:
+
+- centralize auth, retries, and request validation
+- keep agent workflows on one stable interface
+- wrap workspace services before exposing them to tools or LLM-driven agents
+
+## Default Locations
+
+- `apps/agent/` for agent orchestration and tool entry points
+- `packages/shared/` for reusable schemas, contracts, and wrapper helpers
+
+## Workflow
+
+1. Read the relevant API schema, route contract, or provider docs
+2. Add or update a typed wrapper in the shared workspace
+3. Keep auth, retries, and payload shaping inside the wrapper layer
+4. Expose the wrapper to agent workflows through one stable interface
+5. Update `SKILLS.md` if a new API family or wrapper capability is introduced
+
+## Done When
+
+- API calls are routed through wrapper code instead of raw scattered requests
+- request and response shapes are validated
+- auth and retry behavior are documented or encoded in the wrapper layer
+- the agent surface can discover the wrapper from `SKILLS.md`

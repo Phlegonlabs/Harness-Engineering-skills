@@ -1,0 +1,58 @@
+## 02. Task Loop
+
+### Purpose
+
+Execute a standard functional Task and ensure each Task concludes with an Atomic Commit.
+
+### Standard Flow
+
+1. Pre-check
+2. Implementation
+3. Self-validation
+4. Atomic Commit
+5. Update `.harness/state.json`
+6. Update `docs/PROGRESS.md` + `docs/progress/`
+7. Switch to the next Task or mark the Milestone as entering Review
+
+### Implementation Rules
+
+- Dependency direction is fixed: `types → config → lib → services → app`
+- Split files immediately when they exceed 400 lines
+- Prohibited: `console.log`, `: any`, `@ts-ignore`
+- No workarounds, no unnecessary compatibility layers
+- Async logic must have error handling
+
+### Task Output Format
+
+```text
+⚙️ Executing T[ID]: [TASK_NAME]
+Goal: [What this Task should accomplish]
+PRD Reference: [PRD#F00X]
+Impact Scope: [Up to 5 files]
+
+Validation Results:
+- typecheck
+- lint
+- test
+- build
+- PRD DoD
+
+Atomic Commit:
+- Task-ID
+- Closes: PRD#F[ID]
+```
+
+### Completion Contract
+
+After completing a Task, the following two locations must be kept in sync:
+
+- `.harness/state.json`
+- `docs/PROGRESS.md` + `docs/progress/`
+
+### Milestone Review Phase Checklist
+
+When the last Task in a Milestone is complete and the Milestone enters the Review phase:
+
+1. **Update GitBook guide** — ensure the user-facing documentation in `docs/guide/` reflects all features delivered in this Milestone
+2. **Add CHANGELOG entry** — append a summary of changes to `CHANGELOG.md` under the current version/milestone heading
+3. **Update API reference** — if the Milestone introduced or modified API endpoints, update `docs/api/` or the relevant API reference documentation

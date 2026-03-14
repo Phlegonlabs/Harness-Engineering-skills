@@ -1,0 +1,46 @@
+## 6. Context Health
+
+### Why Context Management Matters
+
+Model attention begins to degrade at ~60% context usage. Proactive compaction is better than waiting for automatic compaction (75-85%), because we can control what to retain and what to discard.
+
+### After Task Completion
+
+After each task is completed, the Atomic Commit is submitted, and PROGRESS.md is updated, run:
+
+```bash
+bun harness:compact
+```
+
+This generates `docs/progress/CONTEXT_SNAPSHOT.md`, which contains three retention tiers:
+- **RETAIN**: current position, active constraints, critical decisions
+- **PREFER**: last 3 task summaries, remaining tasks, LEARNING entries
+- **SAFE TO DISCARD**: old build output, debug intermediate attempts, file contents that were read but not modified
+
+Use this snapshot as retention guidance for `/compact`.
+For future task execution, prefer `docs/PROGRESS.md` + `docs/progress/CONTEXT_SNAPSHOT.md` over scanning the full `docs/progress/` directory.
+
+### After Milestone Merge
+
+```bash
+bun harness:compact --milestone
+```
+
+Generates a milestone-level archive. It is recommended to run `/clear` to reset the conversation, then restore from the snapshot.
+
+### Check Context Health
+
+```bash
+bun harness:compact --status
+```
+
+Displays current context health recommendations and the time of the last snapshot.
+
+### Hallucination Warning Signs
+
+If the agent exhibits any of the following behaviors, run compact immediately:
+- Referencing files that do not exist
+- Repeating questions that were already confirmed
+- Forgetting the worktree location
+- Reversing the dependency direction
+- Confusing Task IDs

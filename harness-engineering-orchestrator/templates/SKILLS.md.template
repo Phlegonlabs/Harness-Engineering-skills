@@ -1,0 +1,17 @@
+# Harness Engineering and Orchestrator Skills
+
+This workspace uses the Harness Engineering and Orchestrator monorepo-first delivery model. As new surfaces are added, extend the local skill catalog instead of scattering direct API logic across apps.
+
+## Available Project-Local Skills
+
+### `api-wrapper`
+
+- Path: `skills/api-wrapper/SKILL.md`
+- Purpose: provide one stable skill contract for wrapping internal and third-party APIs used by agent surfaces
+- Use when: an agent workflow needs to call project APIs, external provider APIs, or shared workspace services
+
+## Rules
+
+- Prefer skill-based API access over raw ad hoc requests in agent workflows
+- Update this catalog whenever a new project-local skill is introduced
+- Keep new surfaces inside the same monorepo and expand skills alongside the workspace

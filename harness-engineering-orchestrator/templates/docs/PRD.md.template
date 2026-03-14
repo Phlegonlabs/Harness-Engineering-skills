@@ -1,0 +1,24 @@
+# PRD — [PROJECT_DISPLAY_NAME]
+
+> **Version**: v1.0
+> **Status**: Draft
+> **Last updated**: [DATE]
+> **Reading order**: Start with this index, then read `docs/prd/*.md` in order
+
+---
+
+## Module Index
+
+1. [01 Overview](./prd/01-overview.md)
+2. [02 Users and Design](./prd/02-users-and-design.md)
+3. [03 Requirements](./prd/03-requirements.md)
+4. [04 Non-Functional Constraints](./prd/04-non-functional.md)
+5. [05 Open Questions](./prd/05-open-questions.md)
+6. [06 Changelog](./prd/06-changelog.md)
+
+---
+
+## Notes for Orchestrator / Init
+
+- `bun .harness/init.ts --from-prd` reads all `.md` files in `docs/prd/` first, concatenating them in filename lexicographic order before parsing.
+- `docs/PRD.md` serves as the human entry point and stable link; it does not carry the full body text.

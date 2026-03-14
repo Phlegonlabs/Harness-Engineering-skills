@@ -1,0 +1,42 @@
+# [PROJECT_DISPLAY_NAME]
+
+[PROJECT_DESCRIPTION]
+
+## Start Here
+
+- Quick start: [docs/public/quick-start.md](docs/public/quick-start.md)
+- Documentation map: [docs/public/documentation-map.md](docs/public/documentation-map.md)
+- Tech stack: [docs/public/tech-stack.md](docs/public/tech-stack.md)
+
+## Core Docs
+
+- Product requirements: [docs/PRD.md](docs/PRD.md)
+- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Progress: [docs/PROGRESS.md](docs/PROGRESS.md)
+- AI workflow: [AGENTS.md](AGENTS.md)
+- GitBook: [docs/gitbook/README.md](docs/gitbook/README.md)
+
+## Workflow
+
+```bash
+bun install
+bun harness:advance
+bun .harness/state.ts --show
+bun harness:env
+bun harness:validate --phase EXECUTING
+```
+
+Harness Engineering and Orchestrator organizes requirements, architecture, progress, and validation into modular documents:
+
+- `apps/` and `packages/`: default monorepo workspace foundation
+- `docs/prd/`: requirements modules
+- `docs/architecture/`: architecture modules
+- `docs/progress/`: progress modules
+- `docs/ai/`: AI execution guidance
+
+Runtime auto-dispatch currently covers `project-discovery`, `MARKET_RESEARCH`, `TECH_STACK`, `prd-architect`, `scaffold-generator`, the UI design loop, `EXECUTING`, `VALIDATING`, and `context-compactor`.
+After an interactive phase is complete, advance the lifecycle with `bun harness:advance`.
+
+## License
+
+MIT © [YEAR] Harness Engineering and Orchestrator

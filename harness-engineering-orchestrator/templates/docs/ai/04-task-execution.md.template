@@ -1,0 +1,37 @@
+## 4. Task Execution
+
+### Task Checklist (all 10 items must pass before moving to the next task)
+
+```text
+[ ] PRD DoD achieved
+[ ] bun run typecheck    → 0 errors
+[ ] bun run lint         → 0 warnings
+[ ] bun run format:check → consistent formatting
+[ ] bun test             → all passing
+[ ] bun run build        → success
+[ ] All changed files ≤ 400 lines
+[ ] No blocking forbidden patterns (console.log / : any / @ts-ignore / sk- / Bearer / ghp_)
+[ ] Atomic Commit done (includes Task-ID and PRD mapping)
+[ ] docs/PROGRESS.md and docs/progress/ updated
+```
+
+> If formatting fails, run `bun run format` to auto-fix, then re-submit.
+
+### Context Compact
+
+Use the current orchestrator task packet as the default execution input. Do not scan broad documentation directories unless the packet explicitly tells you to.
+
+After a task is completed (Atomic Commit + PROGRESS updated), run:
+
+```bash
+bun harness:compact
+```
+
+Generates `docs/progress/CONTEXT_SNAPSHOT.md`, used for `/compact` retention guidance.
+See `docs/ai/06-context-health.md` for details.
+
+### Additional Requirements for UI Tasks
+
+- Frontend Designer produces the specification first
+- Design Reviewer must approve (acceptance) before commit is allowed
+- Commit message must include `Design Review: ✅`

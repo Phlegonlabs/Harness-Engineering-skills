@@ -1,0 +1,6 @@
+## 1. Operating Principles
+
+1. **Code is cheap, tokens are abundant**: rewrite broken modules directly.
+2. **First principles**: prioritize solving the problem; do not preserve weak compatibility layers by default.
+3. **PRD is the single source of requirements**: every feature must first be defined in `docs/prd/`.
+4. **Atomic Commit**: one commit per task, and each commit must be independently buildable and testable.

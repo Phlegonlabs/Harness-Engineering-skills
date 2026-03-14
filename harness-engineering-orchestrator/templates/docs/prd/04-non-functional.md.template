@@ -1,0 +1,25 @@
+## 5. Non-Functional Requirements
+
+- TypeScript strict mode
+- Single file should not exceed 400 lines by default
+- Use Bun as the package manager
+- GitBook, README, and ADR must stay in sync
+- Phase state must remain recoverable via `.harness/state.json`
+- `check:deps` must be executable both locally and in CI
+
+---
+
+## 6. Technical Constraints
+
+- **Package Manager**: Bun
+- **Language**: TypeScript (strict)
+- **Project type**: [PROJECT_TYPE]
+- **Delivery mode**: [GREENFIELD_MODE]
+- **AI Provider**: [AI_PROVIDER]
+- **Team size**: [TEAM_SIZE]
+- **Deployment**: To be confirmed in Phase 2
+
+### Existing Repository Inputs
+
+- **Detected dependencies**: [EXISTING_DEPENDENCY_SUMMARY]
+- **Detected scripts**: [EXISTING_SCRIPT_SUMMARY]

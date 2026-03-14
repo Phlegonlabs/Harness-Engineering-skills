@@ -1,0 +1,28 @@
+{
+  "name": "[PROJECT_NAME]",
+  "version": "0.1.0",
+  "description": "[PROJECT_DESCRIPTION]",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@latest",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "check:deps": "dependency-cruiser --config .dependency-cruiser.cjs src --output-type err-long",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "lint": "biome check src tests",
+    "format": "biome format --write src tests",
+    "format:check": "biome format src tests",
+    "test": "bun test",
+    "build": "bun build ./src/app/index.ts --outdir ./dist"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "latest",
+    "@types/node": "latest",
+    "bun-types": "latest",
+    "dependency-cruiser": "latest",
+    "typescript": "latest"
+  }
+}

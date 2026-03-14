@@ -1,0 +1,6 @@
+## 3. Task Backlog
+
+### Not Initialized Yet
+
+- [ ] Run `bun harness:advance` to move from the current phase into the execution backlog
+- [ ] When a new surface is added later, append it as a new Milestone in the same monorepo instead of starting a separate repo

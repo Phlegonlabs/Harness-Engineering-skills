@@ -1,0 +1,25 @@
+# PROGRESS.md — [PROJECT_DISPLAY_NAME]
+
+> **For the next session's agent**: Read this index first, then read `docs/progress/`, `AGENTS.md`, and LEARNING.md, then pick up from the Current Task.
+
+---
+
+## Current Summary
+
+- **Phase**: [CURRENT_PHASE]
+- **Milestone**: [CURRENT_MILESTONE]
+- **Task**: [CURRENT_TASK]
+- **Worktree**: `[CURRENT_WORKTREE]`
+- **Overall progress**: [ [PROGRESS_BAR] ] [DONE_TASKS]/[TOTAL_TASKS] Tasks ([PROGRESS_PERCENT]%)
+- **Last updated**: [DATETIME]
+
+---
+
+## Module Index
+
+1. [01 Summary](./progress/01-summary.md)
+2. [02 Current State](./progress/02-current-state.md)
+3. [03 Backlog](./progress/03-backlog.md)
+4. [04 Blockers](./progress/04-blockers.md)
+5. [05 Worktrees](./progress/05-worktrees.md)
+6. [06 Next Session](./progress/06-next-session.md)

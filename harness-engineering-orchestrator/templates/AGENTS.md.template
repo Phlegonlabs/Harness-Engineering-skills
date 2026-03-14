@@ -1,0 +1,160 @@
+# AGENTS.md — [PROJECT_DISPLAY_NAME]
+
+> Load confirmation: AGENTS.md is ready. Read this file before you start.
+> For orchestrator-dispatched Tasks, prefer the current agent packet over broad document scans.
+
+---
+
+## Human / External Tool Entry
+
+Use this file as a startup and compatibility index. Orchestrator-dispatched task agents should rely on the current packet plus `.harness/state.json`.
+
+1. `docs/PROGRESS.md` + `docs/progress/` — current phase, task, and blocked state
+2. `docs/PRD.md` + `docs/prd/` — requirements and milestone definitions
+3. `docs/ARCHITECTURE.md` + `docs/architecture/` — architecture, boundaries, and validation strategy
+4. `docs/ai/` — AI operating instructions and command index
+5. `.harness/state.json` — machine-readable state
+
+---
+
+## Core Principles
+
+1. **Code is cheap, tokens are abundant** — rewrite broken modules instead of layering workarounds
+2. **First principles** — solve the actual problem; do not preserve weak compatibility layers by default
+3. **The PRD is the source of truth** — every feature must map back to `docs/prd/`
+4. **Atomic commits** — each task must land as one independently verifiable commit
+
+Full principles: `docs/ai/01-operating-principles.md`
+
+---
+
+## Project Context
+
+- **Project**: [PROJECT_DISPLAY_NAME]
+- **Type**: [PROJECT_TYPE]
+- **Workspace base**: Monorepo (default)
+- **Surface strategy**: [SURFACE_EVOLUTION_NOTE]
+[AGENT_SKILLS_AGENTS]
+- **Starting mode**: [GREENFIELD_MODE]
+- **AI Provider**: [AI_PROVIDER]
+- **Team size**: [TEAM_SIZE]
+- **Package manager**: Bun
+- **Requirements index**: `docs/PRD.md`
+- **Architecture index**: `docs/ARCHITECTURE.md`
+- **Progress index**: `docs/PROGRESS.md`
+- **Knowledge base**: `~/.codex/LEARNING.md` / `~/.claude/LEARNING.md`
+
+Runtime auto-dispatch currently covers: `project-discovery`, `MARKET_RESEARCH`, `TECH_STACK`, `prd-architect`, `scaffold-generator`, `frontend-designer`, `execution-engine`, `code-reviewer`, `design-reviewer`, `harness-validator`, and `context-compactor`.
+After an interactive phase is complete, advance with `bun harness:advance`; keep `state.ts` for low-level mutation or tests.
+Do not install product frameworks such as Next.js or Tauri during scaffold setup. Add them only inside milestone tasks.
+`.env.local` is generated as a local-only skeleton and should be filled incrementally as integrations are introduced.
+
+Full context: `docs/ai/02-project-context.md`
+
+---
+
+## Dependency Direction (Enforced, CI Validated)
+
+```text
+types → config → lib → services → app
+```
+
+- Allowed: `services` imports `lib`, `app` imports `services`
+- Forbidden: `lib` imports `services`, `services` imports `app`
+- Forbidden: cross-layer direct access to internal implementations
+
+Full guardrails: `docs/ai/03-guardrails.md`
+
+---
+
+## Forbidden Operations
+
+- blocking: `console.log`, `: any`, `@ts-ignore`, `sk-...`, `Bearer ...`, `ghp_...`, `eval(`, `.innerHTML =`, `dangerouslySetInnerHTML`, hardcoded `http://` (non-localhost) are forbidden
+- warning: `TODO:`, `FIXME:` will be flagged during validation; clean them up
+- Direct reads of `process.env.*` are forbidden; use `config/env.ts` instead
+- Direct SQL concatenation and storing tokens in localStorage are forbidden
+- `git add .` is forbidden; developing features on `main` is forbidden
+- Committing secrets, API keys, or passwords is forbidden
+
+Full list: `docs/ai/03-guardrails.md`
+
+---
+
+## Automated Hooks
+
+Git hooks, Claude Code hooks, and Codex CLI hooks automatically enforce Guardians G2-G10:
+
+- **Pre-commit**: blocks commits on main, files > 400 lines, forbidden patterns, secrets, LEARNING.md
+- **Commit-msg**: validates Task-ID format (T001, T002, etc.) during EXECUTING phase
+- **Pre-push**: validates dependency direction (`bun run check:deps`)
+- **Post-commit**: auto-syncs AGENTS.md ↔ CLAUDE.md
+- **Claude Code**: PreToolUse blocks forbidden patterns in Write/Edit and dangerous commands in Bash
+- **Codex CLI**: execpolicy rules block `--no-verify`, `git add .`, `git add -A`; notification hooks run post-task validation
+- **Emergency bypass**: `HARNESS_HOOKS_SKIP=1 git commit ...`
+
+Re-install hooks after cloning (regenerates git hooks, Claude Code settings, and Codex CLI config): `bun harness:hooks:install`
+
+---
+
+## Task Checklist (all 10 items must pass before moving to the next task)
+
+```text
+[ ] PRD DoD achieved
+[ ] bun run typecheck    → 0 errors
+[ ] bun run lint         → 0 warnings
+[ ] bun run format:check → consistent formatting
+[ ] bun test             → all passing
+[ ] bun run build        → success
+[ ] All changed files ≤ 400 lines
+[ ] No blocking forbidden patterns (console.log / : any / @ts-ignore / sk- / Bearer / ghp_ / eval( / innerHTML / dangerouslySetInnerHTML / http://)
+[ ] Atomic Commit done (includes Task-ID and PRD mapping)
+[ ] docs/PROGRESS.md and docs/progress/ updated
+```
+
+> If formatting fails, run `bun run format` to auto-fix, then re-submit.
+
+Full execution rules: `docs/ai/04-task-execution.md`
+
+---
+
+## Context Health
+
+After each task is completed, run `bun harness:compact` to generate `docs/progress/CONTEXT_SNAPSHOT.md`.
+After a milestone merge, run `bun harness:compact --milestone`, then `/clear` is recommended.
+Task agents should prefer `.harness/state.json`, `docs/PROGRESS.md`, and `docs/progress/CONTEXT_SNAPSHOT.md` over scanning `docs/progress/`.
+
+Full details: `docs/ai/06-context-health.md`
+
+---
+
+## Common Commands
+
+```bash
+bun harness:advance
+bun .harness/state.ts --show
+bun harness:env
+bun harness:validate --phase EXECUTING
+bun harness:validate --task T001
+bun harness:validate --milestone M1
+bun harness:validate
+bun harness:resume
+bun harness:compact
+bun harness:compact --milestone
+bun harness:compact --status
+bun run check:deps
+```
+
+Full command index: `docs/ai/05-commands.md`
+
+---
+
+## Completed Milestones
+
+<!-- The Execution Engine automatically updates docs/progress/ and state after each Task / Milestone is completed -->
+
+### Pending
+- [ ] Waiting for Phase 5 to start
+
+---
+
+*This file is auto-generated by Harness Engineering and Orchestrator. Any changes must also be synced to CLAUDE.md to keep both files identical.*

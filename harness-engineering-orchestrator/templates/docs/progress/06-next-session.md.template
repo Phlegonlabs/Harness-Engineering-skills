@@ -1,0 +1,13 @@
+## 6. Next Session
+
+### With Claude Code
+
+```bash
+claude "Read docs/PROGRESS.md, docs/progress/, AGENTS.md, ~/.claude/LEARNING.md, then continue with the next Task"
+```
+
+### With Codex CLI
+
+```bash
+codex "Read docs/PROGRESS.md, docs/progress/, AGENTS.md, ~/.codex/LEARNING.md, then continue with the next Task"
+```

@@ -1,0 +1,99 @@
+import type { ProjectState } from "../../types"
+import { runBun } from "../validation/helpers"
+import { loadState, saveState, syncStateFromFilesystem } from "../validation/state"
+import { dispatch } from "./dispatcher"
+
+const AUTOFLOW_MAX_STEPS = 12
+
+function readRuntimeState(): ProjectState {
+  const loaded = loadState(true)
+  const state = syncStateFromFilesystem(loaded!)
+  saveState(state)
+  return state
+}
+
+function logStep(message: string): void {
+  console.log(`• ${message}`)
+}
+
+async function runCommand(label: string, args: string[]): Promise<boolean> {
+  logStep(label)
+  const result = await runBun(args)
+  if (result.ok) return true
+
+  if (result.output.trim()) {
+    console.error(result.output.trim())
+  }
+  return false
+}
+
+async function tryAdvance(): Promise<boolean> {
+  return runCommand("bun harness:advance", ["run", "harness:advance"])
+}
+
+function stopAtBoundary(state: ProjectState): number {
+  const next = dispatch(state)
+  console.log(`\nAutoflow stopped at phase ${state.phase}.`)
+  if (next.type === "agent" && next.agentId) {
+    console.log(`Next agent: ${next.agentId}`)
+  } else {
+    console.log(next.message)
+  }
+  return 0
+}
+
+export async function runAutoflow(): Promise<number> {
+  for (let step = 0; step < AUTOFLOW_MAX_STEPS; step++) {
+    const state = readRuntimeState()
+
+    switch (state.phase) {
+      case "DISCOVERY":
+      case "MARKET_RESEARCH":
+      case "TECH_STACK": {
+        if (!(await tryAdvance())) {
+          return stopAtBoundary(state)
+        }
+        continue
+      }
+
+      case "PRD_ARCH": {
+        if (!(await tryAdvance())) {
+          return stopAtBoundary(state)
+        }
+        continue
+      }
+
+      case "SCAFFOLD": {
+        if (!(await runCommand("bun install", ["install"]))) return 1
+        if (!(await runCommand("bun harness:env", ["run", "harness:env"]))) return 1
+        if (!(await runCommand("bun .harness/init.ts --from-prd", [".harness/init.ts", "--from-prd"]))) return 1
+        if (!(await runCommand("bun harness:validate --phase EXECUTING", ["run", "harness:validate", "--phase", "EXECUTING"]))) return 1
+        return stopAtBoundary(readRuntimeState())
+      }
+
+      case "EXECUTING": {
+        if (!state.execution.allMilestonesComplete) {
+          return stopAtBoundary(state)
+        }
+
+        if (!(await tryAdvance())) return 1
+        continue
+      }
+
+      case "VALIDATING": {
+        if (!(await tryAdvance())) {
+          return stopAtBoundary(state)
+        }
+        continue
+      }
+
+      case "COMPLETE": {
+        if (!(await runCommand("bun harness:compact:status", ["run", "harness:compact:status"]))) return 1
+        return stopAtBoundary(state)
+      }
+    }
+  }
+
+  console.error("Autoflow reached the maximum number of steps without settling.")
+  return 1
+}
