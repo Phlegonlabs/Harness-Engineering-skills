@@ -31,6 +31,15 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 4. a runnable scaffold with Harness runtime files
 5. validated implementation until the project reaches `COMPLETE`
 
+### Changes in v1.5.0
+
+- Added skill contract validation script (`scripts/check-skill-contract.mjs`) and manifest (`scripts/contract-manifest.json`)
+- Hardened runtime: `phase-structural.ts` and `phase-readiness.test.ts` coverage expanded
+- Agent registry pruned; orchestrator and project-discovery agents tightened
+- Autoflow algorithm and discovery questionnaire refined for Lite batching
+- E2E matrix (`run-matrix.ps1`) and setup core (`core.ts`) updated
+- README expanded with operator guide improvements and new reference tables
+
 ### Changes in v1.3.0
 
 - Reduced `SKILL.md` to the operating contract instead of a full manual
