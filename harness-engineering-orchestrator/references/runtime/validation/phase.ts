@@ -1,4 +1,4 @@
-import { existsSync } from "fs"
+import { existsSync } from "node:fs"
 import type { Phase, ProjectState } from "../../types"
 import { isUiProject } from "../shared"
 import { resolveToolchainCommand, runBun, runGit, runToolchainCommand } from "./helpers"
@@ -58,19 +58,13 @@ export async function validatePhaseGate(
   // Filter structural checks by level
   const structuralChecks = getPhaseStructuralChecks(phase, state)
   for (const item of structuralChecks) {
-    // Lite: skip GitBook, monorepo workspace, dep-cruiser checks
-    if (level === "lite") {
-      if (item.label.includes("gitbook") || item.label.includes("GitBook") ||
-          item.label.includes("workspace") || item.label.includes("dep-cruiser") ||
-          item.label.includes("dependency-cruiser") || item.label.includes("dep-check")) {
-        continue
-      }
+    // Lite: skip standard-level and full-level checks
+    if (level === "lite" && (item.level === "standard" || item.level === "full")) {
+      continue
     }
-    // Standard: skip GitBook, dep-cruiser optional
-    if (level === "standard") {
-      if (item.label.includes("gitbook") || item.label.includes("GitBook")) {
-        continue
-      }
+    // Standard: skip full-level checks
+    if (level === "standard" && item.level === "full") {
+      continue
     }
     check(item.ok, item.label, item.hint)
   }
@@ -94,6 +88,9 @@ export async function validatePhaseGate(
       check(build.ok, "build → success", build.ok ? undefined : build.output)
       break
     }
+
+    case "DISCOVERY":
+      break
 
     case "VALIDATING":
       break

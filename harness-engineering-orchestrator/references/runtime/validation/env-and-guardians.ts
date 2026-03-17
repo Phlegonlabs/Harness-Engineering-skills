@@ -1,5 +1,5 @@
 import type { ProjectState } from "../../types"
-import { existsSync, readFileSync } from "fs"
+import { existsSync, readFileSync } from "node:fs"
 import {
   buildForbiddenPatternRules,
   commandExists,

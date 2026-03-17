@@ -27,7 +27,7 @@ Closes: PRD#F[ID]
 ### Harness
 - [ ] All tasks have Atomic Commits (with Task-ID)
 - [ ] Review tag present in commit message (`Design Review: ✅` for UI, `Code Review: ✅` for non-UI)
-- [ ] No `console.log` / `: any` / `@ts-ignore` leftovers
+- [ ] No `console.log` / `: any` / `@ts-ignore` / `sk-` / `Bearer` / `ghp_` / `eval(` / `innerHTML` / `dangerouslySetInnerHTML` / `http://` leftovers
 - [ ] All changed files ≤ 400 lines
 - [ ] `docs/PROGRESS.md` updated
 - [ ] `AGENTS.md` and `CLAUDE.md` are in sync (if modified)

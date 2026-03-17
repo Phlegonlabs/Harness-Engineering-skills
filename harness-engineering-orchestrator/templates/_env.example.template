@@ -24,7 +24,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/[PROJECT_NAME]_dev
 
 AUTH_SECRET=your-auth-secret-here-min-32-chars
 # Generate with any secure random-string method available in your environment
-# Example: bun -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Example: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 # ── AI Provider (if used) ────────────────────────────────
 

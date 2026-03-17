@@ -18,7 +18,7 @@ The audit command produces a comprehensive project health report covering docume
 - PRD exists and contains milestones
 - Architecture doc exists and defines dependency direction
 - GitBook initialized with SUMMARY.md when required by the current harness level
-- CHANGELOG.md exists and has entries for merged milestones
+- `docs/gitbook/changelog/CHANGELOG.md` exists and has entries for merged milestones
 - README.md exists (isFinal checked in COMPLETE phase)
 
 ### 3. Guardian Compliance

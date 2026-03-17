@@ -53,8 +53,8 @@ Select scaffold templates based on the confirmed tech stack and detected ecosyst
 - [ ] `docs/PRD.md` or `docs/prd/` exists
 - [ ] `docs/ARCHITECTURE.md` or `docs/architecture/` exists
 - [ ] `docs/PROGRESS.md` or `docs/progress/` exists
-- [ ] `docs/gitbook/SUMMARY.md` exists (Standard/Full only)
-- [ ] `docs/adr/` exists (Standard/Full only)
+- [ ] `docs/gitbook/SUMMARY.md` exists (Full only)
+- [ ] `docs/adr/` exists (Full only)
 
 ### Group 4: Build Infrastructure
 
@@ -62,7 +62,7 @@ Select scaffold templates based on the confirmed tech stack and detected ecosyst
 - [ ] `package.json` has `harness:orchestrate`
 - [ ] `package.json` has `typecheck`, `format:check`, `build` scripts
 - [ ] CI/CD pipeline files exist (`.github/workflows/`) (Standard/Full)
-- [ ] PR template exists (`.github/pull_request_template.md`) (Full only)
+- [ ] PR template exists (`.github/PULL_REQUEST_TEMPLATE.md`) (Full only)
 - [ ] Workspace structure matches Architecture doc
 
 ### Group 5: Verification

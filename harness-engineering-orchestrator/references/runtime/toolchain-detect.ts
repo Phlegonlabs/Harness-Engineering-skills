@@ -46,7 +46,7 @@ export function createUnconfiguredToolchainCommand(
 }
 
 export function isConfiguredToolchainCommand(command?: Pick<ToolchainCommand, "command"> | null): boolean {
-  return Boolean(command?.command) && !command.command.includes(UNCONFIGURED_TOOLCHAIN_SENTINEL)
+  return Boolean(command?.command) && !command?.command?.includes(UNCONFIGURED_TOOLCHAIN_SENTINEL)
 }
 
 export function createUnconfiguredToolchainConfig(

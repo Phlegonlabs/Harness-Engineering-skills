@@ -19,7 +19,7 @@
 ## Workflow
 
 ```bash
-bun install
+{{install_command}}
 bun harness:orchestrate
 bun harness:advance
 bun harness:stage --status

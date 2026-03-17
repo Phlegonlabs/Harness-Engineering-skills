@@ -24,6 +24,7 @@ bun harness:compact
 bun harness:compact --milestone
 bun harness:compact --status
 bun run check:deps
+bun harness:audit
 ```
 
 > `bun harness:validate` runs the full final validation; it is recommended to run it after phase / task / milestone validation.

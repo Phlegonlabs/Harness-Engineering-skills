@@ -236,7 +236,7 @@ jobs:
       - name: Build binaries (cross-platform)
         run: <cross-platform release build command>
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true

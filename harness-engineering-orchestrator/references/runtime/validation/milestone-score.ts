@@ -160,6 +160,7 @@ export function computeHarnessScore(state: ProjectState): {
   const levelTotal = getHarnessCriticalTotal(level)
   const ignorePatterns = (state.toolchain?.ignorePatterns ?? []).filter(entry => entry !== ".harness/")
   const items: [boolean, string][] = [
+    // --- Lite (1-8) ---
     [existsSync("AGENTS.md"), "AGENTS.md is present"],
     [existsSync("CLAUDE.md"), "CLAUDE.md is present"],
     [filesShareHash("AGENTS.md", "CLAUDE.md"), "AGENTS.md == CLAUDE.md [G8]"],
@@ -168,6 +169,7 @@ export function computeHarnessScore(state: ProjectState): {
     [documentExists(PROGRESS_PATH, PROGRESS_DIR), "docs/PROGRESS.md or docs/progress/ is present"],
     [existsSync(STATE_PATH), ".harness/state.json is present"],
     [existsSync("docs/gitbook/SUMMARY.md"), "GitBook SUMMARY.md is present"],
+    // --- Standard (9-15) ---
     [state.docs.readme.exists && state.docs.readme.isFinal, "README.md is final (isFinal)"],
     [existsSync(".github/workflows/ci.yml"), "CI workflow is present"],
     [existsSync(".github/PULL_REQUEST_TEMPLATE.md"), "PR template is present"],
@@ -175,6 +177,7 @@ export function computeHarnessScore(state: ProjectState): {
     [state.scaffold?.linterConfigured ?? existsSync("biome.json"), "Linter/formatter configured"],
     [state.scaffold?.manifestExists ?? existsSync("package.json"), "Project manifest present and valid"],
     [gitignore.includes(".env"), ".gitignore includes .env [G6]"],
+    // --- Full (16-19) ---
     [
       ignorePatterns.length === 0 || ignorePatterns.some(entry => gitignore.includes(entry.replace(/^\//, ""))),
       ".gitignore includes ecosystem-specific entries [G6]",

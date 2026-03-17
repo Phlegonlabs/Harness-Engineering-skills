@@ -1,7 +1,11 @@
-import { createHash } from "crypto"
-import { extname, join } from "path"
-import { existsSync, readdirSync, readFileSync } from "fs"
-import { UNCONFIGURED_TOOLCHAIN_SENTINEL } from "../toolchain-detect.js"
+import { createHash } from "node:crypto"
+import { extname, join } from "node:path"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
+import {
+  UNCONFIGURED_TOOLCHAIN_SENTINEL,
+  createUnconfiguredToolchainCommand as _createUnconfigured,
+  isConfiguredToolchainCommand,
+} from "../toolchain-detect.js"
 
 export type ForbiddenPatternRule = {
   label: string
@@ -153,15 +157,11 @@ export function createUnconfiguredToolchainCommand(
   key: ToolchainCommandKey,
   options: { optional?: boolean } = {},
 ): ToolchainCommandSpec {
-  return {
-    command: `echo "${UNCONFIGURED_TOOLCHAIN_SENTINEL}:${key}"`,
-    label: `${key} (not configured)`,
-    optional: options.optional ?? false,
-  }
+  return _createUnconfigured(key, options.optional)
 }
 
 export function isToolchainCommandConfigured(spec?: ToolchainCommandSpec | null): boolean {
-  return Boolean(spec?.command) && !spec.command.includes(UNCONFIGURED_TOOLCHAIN_SENTINEL)
+  return isConfiguredToolchainCommand(spec)
 }
 
 export function resolveToolchainCommand(
@@ -217,7 +217,7 @@ export async function runToolchainCommand(
   }
 }
 
-/** @deprecated Use runToolchainCommand() for ecosystem-agnostic execution. */
+/** Run a bun command (used for harness's own bun scripts). */
 export async function runBun(args: string[]): Promise<{ ok: boolean; output: string }> {
   return runToolchainCommand({ command: `bun ${args.join(" ")}` })
 }

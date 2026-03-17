@@ -67,6 +67,13 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 - E2E matrix (`run-matrix.ps1`) and setup core (`core.ts`) updated
 - README expanded with operator guide improvements and new reference tables
 
+### Changes in v1.4.0
+
+- Expanded agent registry with refined agent definitions and role boundaries
+- Hardened runtime state transitions and phase-gate validation logic
+- Added observability hooks for milestone progress and task throughput tracking
+- Introduced CI release workflow for automated version tagging and artifact publishing
+
 ### Changes in v1.3.0
 
 - Reduced `SKILL.md` to the operating contract instead of a full manual

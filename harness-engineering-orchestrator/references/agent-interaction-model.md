@@ -71,12 +71,14 @@ COMPLETE       -> stage promotion guidance or context-compactor
 ```text
 1. DEPLOY_REVIEW? -> manual deploy/test/promotion guidance
 2. Backlog behind PRD? -> manual sync-backlog
-3. Milestone in REVIEW? -> manual autoflow / merge-milestone
-4. Pending scope changes? -> surface them before dispatch
-5. UI task missing design artifacts? -> frontend-designer
-6. BLOCKED task or retryCount >= 3? -> manual intervention
-7. UI task ready? -> execution-engine, then --review
-8. Non-UI task ready? -> execution-engine, then --code-review
+3. No current milestone and milestone in REVIEW? -> manual autoflow / merge-milestone
+4. Current milestone is REVIEW? -> manual merge/closeout guidance
+5. Pending scope changes? -> surface them before dispatch
+6. UI task missing design artifacts? -> frontend-designer
+7. BLOCKED task? -> surface next executable task or manual intervention
+8. retryCount >= 3? -> escalate for manual intervention
+9. UI task ready? -> execution-engine, then --review
+10. Non-UI task ready? -> execution-engine, then --code-review
 ```
 
 ## Task-Type Data Flow

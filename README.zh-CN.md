@@ -43,14 +43,14 @@ bun harness:orchestrate
 bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=true
 ```
 
-## Start Here
+## 从这里开始
 
 - 安装：`npx skills add https://github.com/Phlegonlabs/Harness-Engineering-skills --skill harness-engineering-orchestrator`
 - 最适合：希望 AI 编码 Agent 在受控 PRD-to-code 交付系统里工作，而不是依赖自由提示链的团队
 - 主力 skill：`harness-engineering-orchestrator`，覆盖 discovery、技术栈确认、PRD、架构、里程碑/任务执行和验证
 - 下一步阅读：[harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)
 
-## Featured Skill
+## 核心 Skill
 
 | Skill | 能做什么 | 适合什么场景 |
 |---|---|---|

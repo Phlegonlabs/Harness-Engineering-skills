@@ -844,7 +844,7 @@ function writeInitialState(context: Context, logger: SetupLogger, githubResult?:
       ciExists: true,
       cdExists: existsSync(".github/workflows/release.yml"),
       prTemplateExists: true,
-      depCruiserConfigured: existsSync(".dependency-cruiser.cjs"),
+      depCheckConfigured: existsSync(".dependency-cruiser.cjs"),
       githubSetup: githubResult?.repoCreated ?? current?.scaffold.githubSetup ?? false,
     },
     roadmap: current?.roadmap ?? defaults.roadmap,

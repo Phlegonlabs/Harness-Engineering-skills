@@ -178,6 +178,7 @@ bun harness:compact
 bun harness:compact --milestone
 bun harness:compact --status
 bun run check:deps
+bun harness:audit
 ```
 
 Full command index: `docs/ai/05-commands.md`

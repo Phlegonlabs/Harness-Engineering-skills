@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs"
+import { existsSync, readFileSync } from "node:fs"
 import type { Phase, ProjectState } from "../types"
 import { getAllAgentEntries } from "./orchestrator/agent-registry"
 import { architectureDefinesDependencyDirection, getPlanningDocumentIssues } from "./planning-docs"
@@ -19,11 +19,12 @@ import { filesShareHash } from "./validation/helpers"
 export type StructuralCheck = {
   hint?: string
   label: string
+  level?: "standard" | "full"
   ok: boolean
 }
 
-function check(ok: boolean, label: string, hint?: string): StructuralCheck {
-  return { hint, label, ok }
+function check(ok: boolean, label: string, hint?: string, level?: "standard" | "full"): StructuralCheck {
+  return { hint, label, level, ok }
 }
 
 function packageJsonHasScript(scriptName: string): boolean {
@@ -71,8 +72,8 @@ function scaffoldPlanningChecks(state: ProjectState): StructuralCheck[] {
       documentExists(ARCHITECTURE_PATH, ARCHITECTURE_DIR),
       "docs/ARCHITECTURE.md or docs/architecture/ is present",
     ),
-    check(state.docs.gitbook.initialized, "docs/gitbook/ is initialized"),
-    check(existsSync("docs/gitbook/SUMMARY.md"), "docs/gitbook/SUMMARY.md is present"),
+    check(state.docs.gitbook.initialized, "docs/gitbook/ is initialized", undefined, "full"),
+    check(existsSync("docs/gitbook/SUMMARY.md"), "docs/gitbook/SUMMARY.md is present", undefined, "full"),
     check(
       architectureDefinesDependencyDirection(),
       "ARCHITECTURE defines dependency direction (types → config → lib → services → app)",
@@ -146,9 +147,9 @@ function executingStructuralChecks(state: ProjectState): StructuralCheck[] {
     check(packageJsonHasScript("harness:compact"), "package.json includes harness:compact"),
     check(packageJsonHasScript("harness:compact:milestone"), "package.json includes harness:compact:milestone"),
     check(packageJsonHasScript("harness:compact:status"), "package.json includes harness:compact:status"),
-    check(packageJsonHasWorkspace("apps/*"), "package.json includes apps/* workspace"),
-    check(packageJsonHasWorkspace("packages/*"), "package.json includes packages/* workspace"),
-    check(existsSync("packages/shared/package.json"), "packages/shared/package.json is present"),
+    check(packageJsonHasWorkspace("apps/*"), "package.json includes apps/* workspace", undefined, "standard"),
+    check(packageJsonHasWorkspace("packages/*"), "package.json includes packages/* workspace", undefined, "standard"),
+    check(existsSync("packages/shared/package.json"), "packages/shared/package.json is present", undefined, "standard"),
   ]
 
   for (const workspace of surfaceWorkspaceList(state.projectInfo.types)) {

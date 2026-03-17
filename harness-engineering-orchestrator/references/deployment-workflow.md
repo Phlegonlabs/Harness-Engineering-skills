@@ -51,4 +51,4 @@ When a product stage enters `DEPLOY_REVIEW`, verify all 7 items before promoting
 | 3 | Re-run milestone validation after fixes |
 | 4 | Re-enter DEPLOY_REVIEW when all remediation tasks complete |
 
-See also: [version-history.md](./version-history.md), `harness-stage.ts`
+See also: [version-history.md](./version-history.md), `scripts/setup/core.ts`

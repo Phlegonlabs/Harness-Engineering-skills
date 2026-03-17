@@ -10,7 +10,7 @@
 [ ] Run the configured test command from the active toolchain
 [ ] Run the configured build command from the active toolchain
 [ ] All changed files ≤ 400 lines
-[ ] No blocking forbidden patterns (console.log / : any / @ts-ignore / sk- / Bearer / ghp_)
+[ ] No blocking forbidden patterns (console.log / : any / @ts-ignore / sk- / Bearer / ghp_ / eval( / innerHTML / dangerouslySetInnerHTML / http://)
 [ ] Atomic Commit done (includes Task-ID and PRD mapping)
 [ ] docs/PROGRESS.md and docs/progress/ updated
 ```
