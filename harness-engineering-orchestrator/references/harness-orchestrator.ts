@@ -3,7 +3,8 @@
  * .harness/orchestrator.ts
  *
  * Stateless CLI — reads state.json + filesystem, decides which Agent to execute next,
- * outputs formatted context for Claude Code or Codex to consume.
+ * outputs formatted context plus parallel dispatch metadata for Claude Code or Codex-native
+ * orchestration layers to consume.
  *
  * No API calls, no state modification.
  */
@@ -56,6 +57,15 @@ if (args.includes("--parallel")) {
     }
     if (d.type === "agent" && d.context) {
       console.log(d.context)
+      if (d.subagentPolicy) {
+        console.log(`Subagent Role: ${d.subagentPolicy.nativeRole}`)
+        console.log(`Write Mode: ${d.subagentPolicy.writeMode}`)
+        console.log(`Wait Strategy: ${d.subagentPolicy.waitStrategy}`)
+        console.log(`Close Strategy: ${d.subagentPolicy.closeStrategy}`)
+      }
+      if (d.activeAgent?.ownershipScope?.length) {
+        console.log(`Ownership Scope: ${d.activeAgent.ownershipScope.join(", ")}`)
+      }
     } else {
       console.log(d.message)
     }

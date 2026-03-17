@@ -1,6 +1,10 @@
 /**
- * Install git hook shims and Codex CLI config when .harness/ already exists.
+ * Install git hook shims and Codex guardrail config when .harness/ already exists.
  * For full clone recovery, prefer: bun harness:hooks:install
+ *
+ * Scope note:
+ * - This installer configures enforcement surfaces only.
+ * - Multi-agent orchestration remains in orchestrator runtime modules.
  */
 
 import { existsSync, mkdirSync, writeFileSync, chmodSync, readFileSync, statSync } from "fs"
@@ -139,11 +143,11 @@ function main(): void {
   // Claude Code settings — merge, don't overwrite
   mergeClaudeSettings(join(".claude", "settings.local.json"))
 
-  // Codex CLI config — merge to preserve user customizations
+  // Codex guardrail config — merge to preserve user customizations
   mkdirSync(".codex", { recursive: true })
   mergeCodexConfig(join(".codex", "config.toml"), CODEX_CONFIG_TOML)
 
-  // Codex rules — always overwrite (Harness-managed file)
+  // Codex execpolicy rules — always overwrite (Harness-managed guardrail file)
   mkdirSync(join(".codex", "rules"), { recursive: true })
   const rulesPath = join(".codex", "rules", "guardian.rules")
   writeFileSync(rulesPath, CODEX_GUARDIAN_RULES)

@@ -1,7 +1,7 @@
 # PROGRESS.md Template
 
-`PROGRESS.md` is the session recovery entry point. It is automatically updated after each Task is completed,
-so that reopening a Claude / Codex session at any time can resume from the last stopping point without re-explaining the state.
+`PROGRESS.md` is the main-thread recovery entry point. It is automatically updated after each Task is completed,
+so that reopening a Claude / Codex main thread at any time can resume from the last stopping point without re-explaining the state.
 
 **Actual structure**:
 
@@ -75,10 +75,15 @@ cd ~/Projects/[PROJECT_NAME]-m[N]
 claude "Read docs/PROGRESS.md, docs/progress/, AGENTS.md, ~/.claude/LEARNING.md, then continue T[ID]: [Task Name]"
 ```
 
-### Using Codex CLI
+### Using Codex CLI (main-thread)
 ```bash
 cd ~/Projects/[PROJECT_NAME]-m[N]
 codex "Read docs/PROGRESS.md, docs/progress/, AGENTS.md, ~/.codex/LEARNING.md, then continue T[ID]: [Task Name]"
+```
+
+### Codex Child Subagent (orchestrator-dispatched)
+```text
+Do not run full resume. Use only the orchestrator-provided task packet, scoped refs, and ownership boundaries.
 ```
 
 ---

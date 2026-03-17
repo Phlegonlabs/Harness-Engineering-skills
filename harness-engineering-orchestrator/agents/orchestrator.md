@@ -193,6 +193,9 @@ bun .harness/orchestrator.ts --parallel    # Dispatch eligible tasks in parallel
 - Each parallel agent receives an `affectedFiles` scope constraint
 - All state mutations use `withStateTransaction()` for OCC safety
 - `completeTask()` does not auto-advance — orchestrator re-evaluates on next cycle
+- Prefer these modes in order: read-only sidecar, scoped-write parallel task, worktree-isolated task
+- For UI work, preserve `frontend-designer -> execution-engine -> design-reviewer`; parallel dispatch cannot bypass missing design artifacts
+- For Codex, dispatch orchestrator-owned native subagents; hooks remain guardrails, not orchestration
 
 **Default is sequential.** Unless `projectInfo.concurrency` is set, the orchestrator dispatches one task at a time (backward compatible).
 

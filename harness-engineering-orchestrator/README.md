@@ -196,7 +196,7 @@ Commands below are run from the managed project checkout unless noted otherwise.
 | `bun <path-to-skill>/scripts/harness-setup.ts` | Start a new greenfield repo | Generate the Harness runtime, docs skeleton, hooks, and base workspace |
 | `bun <path-to-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=true` | Hydrate an existing repo | Add the Harness runtime around an existing codebase without replacing product code |
 | `bun harness:orchestrator` (or `bun .harness/orchestrator.ts`) | Any time during delivery | Show status and dispatch the next agent or manual action |
-| `bun .harness/orchestrator.ts --parallel` | During execution with independent tasks | Dispatch eligible tasks in parallel with file-overlap guards |
+| `bun .harness/orchestrator.ts --parallel` | During execution with eligible tasks | Dispatch read-only sidecars and scoped/write-isolated tasks with file-overlap guards |
 | `bun harness:advance` | At a phase boundary | Validate the next phase gate and advance state only if it passes |
 | `bun harness:sync-backlog` | PRD changed inside the current active stage | Append new stage/milestone/task scope without destroying completed history |
 | `bun harness:scope-change --preview` | Before applying a scope change | Preview structured scope changes without modifying state |
@@ -242,7 +242,7 @@ Use this as the practical runbook from project start to project finish.
 5. Use the orchestrator as the control tower.
    - Run `bun harness:orchestrator` (or `bun .harness/orchestrator.ts`)
    - Follow the dispatched agent or manual next action instead of guessing the next step
-   - Use `--parallel` to dispatch independent tasks concurrently when the backlog allows
+   - Use `--parallel` to dispatch read-only sidecars first, then scoped/write-isolated tasks when the backlog allows
 
 6. Execute one task at a time.
    - The current task must match its `prdRef`
@@ -268,7 +268,7 @@ Use this as the practical runbook from project start to project finish.
 
 ## Operational Features
 
-- **Parallel Execution**: File-overlap guards prevent conflicts; configurable `maxParallelTasks`. [→ reference](./references/parallel-execution.md)
+- **Parallel Execution**: Three modes (read-only sidecar, scoped-write, worktree-isolated) with file-overlap guards and orchestrator-owned Codex subagent lifecycle. [→ reference](./references/parallel-execution.md)
 - **Scope Change Protocol**: Add requirements mid-execution without interrupting running agents. [→ reference](./references/scope-change-protocol.md)
 - **Doom-Loop Detection**: 6 heuristics detect cycling behavior; auto-pause and gear-drop on trigger. [→ reference](./references/doom-loop-detection.md)
 - **Error Taxonomy**: 11 error categories with recovery strategies and escalation paths. [→ reference](./references/error-taxonomy.md)
@@ -298,7 +298,7 @@ Use this as the practical runbook from project start to project finish.
 - Only one milestone is reviewed, compacted, and merged at a time.
 - Stage completion stops at `DEPLOY_REVIEW`; the next version does not auto-start.
 - New scope inside the current version must update the PRD first, then run `bun harness:sync-backlog`.
-- Hooks continuously enforce the guardrails, while phase gates enforce boundary checks.
+- Hooks continuously enforce guardrails, while dispatch/lifecycle decisions remain orchestrator-owned.
 - Guardians G1-G12 are enforced through runtime checks, hooks, and CI depending on the rule; violations block the relevant operation until resolved.
 - Errors follow the 11-category taxonomy with automatic retries for transient failures and escalation for persistent ones.
 

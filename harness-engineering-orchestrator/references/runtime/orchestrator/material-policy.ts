@@ -1,5 +1,5 @@
 import { existsSync } from "fs"
-import type { AgentId, AgentMaterialPolicy, AgentPlatform, ProjectState, Task } from "../../types"
+import type { AgentId, AgentMaterialPolicy, AgentPlatform, Milestone, ProjectState, Task } from "../../types"
 import { getAgentEntry } from "./agent-registry"
 
 const CONTEXT_SNAPSHOT_PATH = "docs/progress/CONTEXT_SNAPSHOT.md"
@@ -25,8 +25,12 @@ function getCurrentTask(state: ProjectState): Task | undefined {
     .find(task => task.id === state.execution.currentTask)
 }
 
-function currentMilestoneSpecPath(state: ProjectState): string | undefined {
-  const milestoneId = state.execution.currentMilestone?.toLowerCase()
+function getTaskContext(state: ProjectState, taskOverride?: Task): Task | undefined {
+  return taskOverride ?? getCurrentTask(state)
+}
+
+function currentMilestoneSpecPath(state: ProjectState, milestoneOverride?: Milestone): string | undefined {
+  const milestoneId = (milestoneOverride?.id ?? state.execution.currentMilestone)?.toLowerCase()
   if (!milestoneId) return undefined
   return existingRef(`docs/design/${milestoneId}-ui-spec.md`)
 }
@@ -79,9 +83,9 @@ function commonConstraints(): string[] {
 function platformConstraints(platform: AgentPlatform): string[] {
   switch (platform) {
     case "claude-code":
-      return ["PreToolUse hooks enforce guardians at write time — if a write is rejected, fix the pattern and retry."]
+      return ["PreToolUse hooks enforce guardians at write time — if a write is rejected, fix the pattern and retry. Use worktree isolation for write-capable parallel children when needed."]
     case "codex-cli":
-      return ["Codex notify hooks detect violations after action; git pre-commit hooks are the final guardrail — verify guardian compliance before committing."]
+      return ["Codex native subagents inherit parent approvals and sandbox posture. Notify hooks and Git hooks are guardrails only — integrate results, verify guardian compliance, then close the child."]
     default:
       return []
   }
@@ -107,9 +111,14 @@ function progressRefs(): string[] {
   return existingRefs(["docs/PROGRESS.md", CONTEXT_SNAPSHOT_PATH])
 }
 
-function packetRefsFor(agentId: AgentId, state: ProjectState): { optionalRefs: string[]; requiredRefs: string[] } {
+function packetRefsFor(
+  agentId: AgentId,
+  state: ProjectState,
+  context?: { milestone?: Milestone; task?: Task },
+): { optionalRefs: string[]; requiredRefs: string[] } {
   const entry = getAgentEntry(agentId)
-  const task = getCurrentTask(state)
+  const task = getTaskContext(state, context?.task)
+  const milestone = context?.milestone
   const base = [entry?.specPath, ".harness/state.json"]
 
   switch (agentId) {
@@ -155,7 +164,7 @@ function packetRefsFor(agentId: AgentId, state: ProjectState): { optionalRefs: s
           prdRef("requirements"),
           architectureRef("frontend"),
         ]),
-        optionalRefs: existingRefs([DESIGN_SYSTEM_PATH, currentMilestoneSpecPath(state), ...progressRefs()]),
+        optionalRefs: existingRefs([DESIGN_SYSTEM_PATH, currentMilestoneSpecPath(state, milestone), ...progressRefs()]),
       }
 
     case "execution-engine": {
@@ -177,7 +186,7 @@ function packetRefsFor(agentId: AgentId, state: ProjectState): { optionalRefs: s
         optionalRefs: existingRefs([
           ...progressRefs(),
           task?.isUI ? DESIGN_SYSTEM_PATH : undefined,
-          task?.isUI ? currentMilestoneSpecPath(state) : undefined,
+          task?.isUI ? currentMilestoneSpecPath(state, milestone) : undefined,
         ]),
       }
     }
@@ -187,7 +196,7 @@ function packetRefsFor(agentId: AgentId, state: ProjectState): { optionalRefs: s
         requiredRefs: existingRefs([
           ...base,
           DESIGN_SYSTEM_PATH,
-          currentMilestoneSpecPath(state),
+          currentMilestoneSpecPath(state, milestone),
         ]),
         optionalRefs: existingRefs(progressRefs()),
       }
@@ -223,16 +232,22 @@ function packetRefsFor(agentId: AgentId, state: ProjectState): { optionalRefs: s
   }
 }
 
-export function getAgentMaterialPolicy(agentId: AgentId, state: ProjectState, platform: AgentPlatform = "unknown"): AgentMaterialPolicy {
-  const task = getCurrentTask(state)
-  const { optionalRefs, requiredRefs } = packetRefsFor(agentId, state)
+export function getAgentMaterialPolicy(
+  agentId: AgentId,
+  state: ProjectState,
+  platform: AgentPlatform = "unknown",
+  context?: { milestone?: Milestone; task?: Task },
+): AgentMaterialPolicy {
+  const task = getTaskContext(state, context?.task)
+  const milestone = context?.milestone
+  const { optionalRefs, requiredRefs } = packetRefsFor(agentId, state, context)
 
   switch (agentId) {
     case "execution-engine": {
       const conditions = task?.isUI ? ["Attach design materials only for UI tasks."] : undefined
       if (task?.isUI) {
         const designSystemExists = existsSync(DESIGN_SYSTEM_PATH)
-        const milestoneSpec = currentMilestoneSpecPath(state)
+        const milestoneSpec = currentMilestoneSpecPath(state, milestone)
         if (!designSystemExists || !milestoneSpec) {
           const warnings = conditions ?? []
           warnings.push("WARNING: Design materials incomplete for UI task — implementation may lack visual guidance.")
@@ -257,12 +272,12 @@ export function getAgentMaterialPolicy(agentId: AgentId, state: ProjectState, pl
     case "design-reviewer": {
       const conditions = ["Only valid for IN_PROGRESS UI tasks."]
       const designSystemExists = existsSync(DESIGN_SYSTEM_PATH)
-      const milestoneSpec = currentMilestoneSpecPath(state)
+      const milestoneSpec = currentMilestoneSpecPath(state, milestone)
       if (!designSystemExists) {
-        conditions.push("WARNING: DESIGN_SYSTEM.md is missing — design review may lack baseline.")
+        conditions.push("WARNING: DESIGN_SYSTEM.md is missing — design review should wait for frontend-designer.")
       }
       if (!milestoneSpec) {
-        conditions.push("WARNING: Milestone UI spec is missing — design review has no reference target.")
+        conditions.push("WARNING: Milestone UI spec is missing — design review should wait for frontend-designer.")
       }
       return {
         agentId,

@@ -79,3 +79,26 @@ How to extend the Harness Engineering Orchestrator with new agents, guardians, p
 | 4 | Add hook configuration (if applicable) | New config file for the platform |
 | 5 | Add compact output path (if applicable) | Context compactor platform-specific output |
 | 6 | Update PRD | Module 08, Module 10 |
+
+### Platform Detection Protocol
+
+Platform detection must be capability/config driven. Do not use transient session-file heuristics.
+
+Preferred signals:
+- explicit environment variables
+- runtime capability probes
+- stable workspace config files (for example `.codex/config.toml`)
+
+Avoid:
+- transient session artifacts or per-session scratch files
+
+### Subagent Lifecycle Mapping
+
+If the platform supports child agents/subagents, document how these are mapped:
+1. Spawn
+2. Optional parent follow-up
+3. Wait policy
+4. Result integration
+5. Close policy
+
+Guardrails (`notify`, `execpolicy`, git hooks) enforce constraints, but they do not replace lifecycle orchestration.

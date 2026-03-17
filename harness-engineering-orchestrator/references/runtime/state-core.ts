@@ -43,7 +43,9 @@ export function refreshDerivedState(state: ProjectState): ProjectState {
 
 export function writeState(state: ProjectState): ProjectState {
   ensureProjectDirs()
-  state.execution.stateVersion = (state.execution.stateVersion ?? 0) + 1
+  if (state.execution.stateVersion == null) {
+    state.execution.stateVersion = 0
+  }
   const normalized = refreshDerivedState(state)
   syncProgressDocuments(normalized)
   normalized.docs.progress.exists = true

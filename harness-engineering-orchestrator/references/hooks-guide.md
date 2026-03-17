@@ -12,6 +12,8 @@ The system uses a **tri-surface approach**:
 
 All three surfaces call into the same central entry point: `.harness/runtime/hooks/check-guardian.ts`.
 
+These surfaces are **guardrails only**. They do not select agents, spawn child agents, route follow-ups, or close subagents. Multi-agent orchestration is owned by the orchestrator runtime (`dispatcher.ts`, context builder, execution state).
+
 ## Architecture
 
 ```text
@@ -87,9 +89,12 @@ Codex CLI notification hooks are **non-blocking** — they receive a JSON payloa
 - `TurnAborted` / `SessionEnd` — Prints reminder to run `bun harness:compact`.
 - Unknown events — Silently ignored for forward compatibility.
 
+`session_id` in the payload is diagnostic metadata only; it is not used for platform detection or orchestration.
+
 ## Codex CLI Execpolicy Rules
 
 Execpolicy rules in `.codex/rules/guardian.rules` are **blocking** — they prevent commands from executing at the CLI level before they reach the shell.
+They are enforcement guardrails, not orchestration primitives.
 
 Rules use `prefix_rule()` entries. Codex compares the command's argv tokens against the configured prefix and applies the most restrictive matching decision:
 
@@ -155,7 +160,7 @@ This restores:
 - local Harness files from `scripts/harness-local/manifest.json`
 - `.harness/`, `AGENTS.md`, `CLAUDE.md`, `agents/`, `docs/ai/`, `docs/PROGRESS.md`, and `docs/progress/`
 - `.claude/settings.local.json` — Claude Code hook configuration
-- `.codex/config.toml` and `.codex/rules/guardian.rules` — Codex CLI hook configuration
+- `.codex/config.toml` and `.codex/rules/guardian.rules` — Codex guardrail wiring and runtime defaults
 - `.env.local` — local environment skeleton
 - `.git/hooks/*` — git hook shims
 
@@ -302,7 +307,7 @@ The three surfaces have fundamentally different execution models:
 
 - **Claude Code** — Blocking, real-time. `PreToolUse` hooks intercept before the action occurs. This is the strongest enforcement point because violations are prevented, not detected.
 - **Git hooks** — Blocking, batch. Hooks run at commit/push time, catching violations that may have been introduced during a session. This is the **final guardrail** before code enters version control.
-- **Codex CLI** — Non-blocking, asynchronous. Notification hooks run after actions complete. They cannot prevent violations but provide audit logging and user warnings. Execpolicy rules are the exception — they block specific commands before execution.
+- **Codex CLI** — Non-blocking, asynchronous for `notify`. Notification hooks run after actions complete. They cannot prevent violations but provide audit logging and user warnings. Execpolicy rules are the exception — they block specific commands before execution.
 
 This asymmetry is intentional: Claude gets the strictest enforcement (prevent at write time), Git provides the safety net (prevent at commit time), and Codex provides visibility (warn after action).
 

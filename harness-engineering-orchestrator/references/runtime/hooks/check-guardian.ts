@@ -1,5 +1,6 @@
 /**
  * Central hook entry point for guardian enforcement.
+ * This module is an enforcement surface, not a multi-agent orchestration surface.
  *
  * Three invocation modes:
  *   Git mode:   bun check-guardian.ts --hook <pre-commit|commit-msg|pre-push|post-commit> [args]

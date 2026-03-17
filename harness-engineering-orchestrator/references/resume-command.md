@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The resume script reads `.harness/state.json` and `docs/PROGRESS.md` to print a concise summary of the current project state. It is the fastest way to regain context after switching machines, starting a new session, or resuming work the next day.
+The resume script reads `.harness/state.json` and `docs/PROGRESS.md` to print a concise summary of the current project state. It is the fastest way to regain **main-thread** context after switching machines, starting a new session, or resuming work the next day.
 
 ## Invocation
 
@@ -52,9 +52,11 @@ All milestones are listed with a status icon and task completion ratio (`done/to
 
 The footer prints context-aware next-step commands:
 
-- **EXECUTING with a current task** — suggested `codex` and `claude` invocations that reference `AGENTS.md`, `PROGRESS.md`, `CONTEXT_SNAPSHOT.md`, and `state.json`
+- **EXECUTING with a current task (main-thread)** — suggested `codex` and `claude` invocations that reference `AGENTS.md`, `PROGRESS.md`, `CONTEXT_SNAPSHOT.md`, and `state.json`
 - **COMPLETE** — points to `bun .harness/orchestrator.ts` and `bun harness:compact --status`
 - **Other phases** — points to `bun .harness/orchestrator.ts` and the `--next` flag
+
+When the orchestrator dispatches Codex child subagents, those children should not perform a full resume flow. They should use only the orchestrator-provided task packet and scoped references.
 
 Validation commands (`harness:validate`, `harness:guardian`) are always printed.
 

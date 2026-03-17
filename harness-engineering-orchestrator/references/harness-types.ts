@@ -484,9 +484,14 @@ export interface GitHubState {
 
 export interface ActiveAgent {
   agentId: string          // Unique agent instance ID
+  logicalAgentId: AgentId  // Harness logical agent identity
   milestoneId: string      // Which milestone this agent is working on
   taskId: string           // Which task this agent is executing
   worktreePath: string     // Filesystem path to the worktree
+  runtimeHandle: string    // Runtime-specific child handle / ID
+  nativeRole: "default" | "worker" | "explorer" | "monitor"
+  ownershipScope: string[] // Allowed files / path globs for writes
+  status: "running" | "waiting" | "completed" | "blocked" | "closing"
   startedAt: string        // ISO timestamp
   platform: AgentPlatform  // "claude-code" | "codex-cli" | "unknown"
 }
@@ -512,6 +517,15 @@ export interface ScopeChangeRequest {
   }>
   createdAt: string
   status: "pending" | "previewed" | "applied" | "rejected"
+}
+
+export interface SubagentDispatchPolicy {
+  logicalAgentId: AgentId
+  nativeRole: "default" | "worker" | "explorer" | "monitor"
+  writeMode: "read-only" | "scoped-write" | "worktree-isolated"
+  forkContext: boolean
+  waitStrategy: "immediate" | "defer-until-blocked" | "batch"
+  closeStrategy: "close-on-integration" | "close-on-review" | "persistent-monitor"
 }
 
 // ─── Execution ────────────────────────────────────────────────────────────────

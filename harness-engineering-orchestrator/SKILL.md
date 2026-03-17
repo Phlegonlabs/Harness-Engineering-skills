@@ -31,6 +31,14 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 4. a runnable scaffold with Harness runtime files
 5. validated implementation until the project reaches `COMPLETE`
 
+### Changes in v1.6.0
+
+- Aligned Codex orchestration with the native subagent lifecycle instead of independent-session semantics
+- Added orchestrator-owned dispatch policy, active-agent ownership tracking, and parallel runtime state integrity rules
+- Preserved the UI design loop in parallel dispatch so `frontend-designer -> execution-engine -> design-reviewer` cannot be bypassed
+- Introduced launcher-facing execution contracts for `harness:orchestrate`, result integration, and child lifecycle verification
+- Added regression coverage for parallel dispatch routing and parallel execution completion semantics
+
 ### Changes in v1.5.0
 
 - Added skill contract validation script (`scripts/check-skill-contract.mjs`) and manifest (`scripts/contract-manifest.json`)
@@ -350,7 +358,14 @@ Running agents are never interrupted by scope changes — new tasks enter as PEN
 
 ### Parallel Execution
 
-When `state.projectInfo.concurrency.maxParallelTasks > 1`, the orchestrator evaluates multiple eligible tasks per dispatch cycle. File-overlap guards prevent co-dispatching tasks that touch the same files. See [references/parallel-execution.md](./references/parallel-execution.md).
+When `state.projectInfo.concurrency.maxParallelTasks > 1`, the orchestrator evaluates multiple eligible tasks per dispatch cycle.
+
+Parallel modes:
+- read-only sidecar
+- scoped-write parallel task
+- worktree-isolated task
+
+File-overlap guards prevent unsafe co-dispatching. For UI work, preserve `frontend-designer -> execution-engine -> design-reviewer` even in parallel mode. For Codex, subagents are orchestrator-owned native children; hook surfaces remain guardrails only. See [references/parallel-execution.md](./references/parallel-execution.md).
 
 ### Error Recovery
 
@@ -440,7 +455,7 @@ These files are automatically synchronized by `harness:advance`, `harness:stage 
 | G12 | Supply-Chain Drift | Dependency changes in manifest/lockfile require explicit approval | SCAFFOLD | Warning-only | Active | Active |
 
 Full gate and guardian details live in [references/gates-and-guardians/01-guardians.md](./references/gates-and-guardians/01-guardians.md).
-Guardians G2-G12 are automatically enforced by git hooks, Claude Code hooks, and Codex CLI hooks installed during scaffold. See [references/hooks-guide.md](./references/hooks-guide.md).
+Guardians G2-G12 are automatically enforced by git hooks, Claude Code hooks, and Codex CLI hooks installed during scaffold. These hook surfaces are guardrails, not the orchestration layer. See [references/hooks-guide.md](./references/hooks-guide.md).
 
 ## Metrics & Observability
 

@@ -34,17 +34,48 @@ export function registerActiveAgent(
   }
   // Remove any existing entry for the same taskId (idempotent)
   state.execution.activeAgents = state.execution.activeAgents.filter(
-    a => a.taskId !== agent.taskId,
+    a => a.taskId !== agent.taskId && a.agentId !== agent.agentId,
   )
   state.execution.activeAgents.push(agent)
+  syncExecutionPointersFromActiveAgents(state)
+}
 
-  // Sync legacy fields from first active agent
-  if (state.execution.activeAgents.length > 0) {
-    const first = state.execution.activeAgents[0]
-    state.execution.currentMilestone = first.milestoneId
-    state.execution.currentTask = first.taskId
-    state.execution.currentWorktree = first.worktreePath
+function isParallelExecutionEnabled(state: ProjectState): boolean {
+  const concurrency = state.projectInfo.concurrency
+  return (
+    (concurrency?.maxParallelTasks ?? 1) > 1 ||
+    (concurrency?.maxParallelMilestones ?? 1) > 1
+  )
+}
+
+function clearExecutionPointers(state: ProjectState): void {
+  state.execution.currentMilestone = ""
+  state.execution.currentTask = ""
+  state.execution.currentWorktree = ""
+}
+
+function syncExecutionPointersFromActiveAgents(state: ProjectState): void {
+  const activeAgents = (state.execution.activeAgents ?? []).filter(
+    agent => agent.status !== "completed" && agent.status !== "closing",
+  )
+
+  if (activeAgents.length === 0) {
+    clearExecutionPointers(state)
+    return
   }
+
+  const first = activeAgents[0]
+  state.execution.currentMilestone = first.milestoneId
+  state.execution.currentTask = first.taskId
+  state.execution.currentWorktree = first.worktreePath
+}
+
+function deregisterActiveAgentsForTask(state: ProjectState, taskId: string): void {
+  if (!state.execution.activeAgents) return
+  state.execution.activeAgents = state.execution.activeAgents.filter(
+    agent => agent.taskId !== taskId,
+  )
+  syncExecutionPointersFromActiveAgents(state)
 }
 
 export function deregisterActiveAgent(
@@ -56,17 +87,7 @@ export function deregisterActiveAgent(
     a => a.agentId !== agentId,
   )
 
-  // Sync legacy fields from first remaining agent, or clear
-  if (state.execution.activeAgents.length > 0) {
-    const first = state.execution.activeAgents[0]
-    state.execution.currentMilestone = first.milestoneId
-    state.execution.currentTask = first.taskId
-    state.execution.currentWorktree = first.worktreePath
-  } else {
-    state.execution.currentMilestone = ""
-    state.execution.currentTask = ""
-    state.execution.currentWorktree = ""
-  }
+  syncExecutionPointersFromActiveAgents(state)
 }
 
 function preserveActiveTask(state: ProjectState): boolean {
@@ -290,16 +311,18 @@ export function completeTask(taskId: string, commitHash: string): ProjectState {
     })
   }
 
-  if (state.execution.currentTask === taskId) {
-    state.execution.currentTask = ""
-  }
+  deregisterActiveAgentsForTask(state, taskId)
 
   appendWorkflowEvent(state, createTaskCompletedEvent(state.phase, location.milestone, location.task))
   refreshMilestoneStatuses(state)
   recordReviewReadyTransitions(state, previousMilestoneStatuses)
-  const nextTask = activateNextTask(state)
-  if (nextTask) {
-    appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+  if (isParallelExecutionEnabled(state)) {
+    syncExecutionPointersFromActiveAgents(state)
+  } else {
+    const nextTask = activateNextTask(state)
+    if (nextTask) {
+      appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+    }
   }
 
   // Record throughput and quality metrics after task completion
@@ -328,15 +351,17 @@ export function blockTask(taskId: string, reason: string): ProjectState {
     })
   }
 
-  if (state.execution.currentTask === taskId) {
-    state.execution.currentTask = ""
-  }
+  deregisterActiveAgentsForTask(state, taskId)
 
   appendWorkflowEvent(state, createTaskBlockedEvent(state.phase, location.milestone, location.task))
   refreshMilestoneStatuses(state)
-  const nextTask = activateNextTask(state)
-  if (nextTask) {
-    appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+  if (isParallelExecutionEnabled(state)) {
+    syncExecutionPointersFromActiveAgents(state)
+  } else {
+    const nextTask = activateNextTask(state)
+    if (nextTask) {
+      appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+    }
   }
 
   const updated = writeState(state)
@@ -361,14 +386,11 @@ export function completeMilestone(milestoneId: string, mergeCommit: string): Pro
   milestone.completedAt = milestone.completedAt ?? new Date().toISOString()
 
   if (state.execution.currentMilestone === milestoneId) {
-    state.execution.currentMilestone = ""
-    state.execution.currentTask = ""
-    state.execution.currentWorktree = ""
+    clearExecutionPointers(state)
   }
 
   refreshMilestoneStatuses(state)
   markStageDeployReview(state, milestone.productStageId)
-  const nextTask = activateNextTask(state)
   appendWorkflowEvent(state, createMilestoneMergedEvent(state.phase, milestone))
 
   const stage = state.roadmap.stages.find(candidate => candidate.id === milestone.productStageId)
@@ -382,8 +404,13 @@ export function completeMilestone(milestoneId: string, mergeCommit: string): Pro
       ),
     )
   }
-  if (nextTask) {
-    appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+  if (isParallelExecutionEnabled(state)) {
+    syncExecutionPointersFromActiveAgents(state)
+  } else {
+    const nextTask = activateNextTask(state)
+    if (nextTask) {
+      appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+    }
   }
 
   // Record all category metrics after milestone completion
@@ -429,15 +456,17 @@ export function skipTask(taskId: string, reason: string): ProjectState {
   location.task.blockedReason = reason
   location.task.completedAt = new Date().toISOString()
 
-  if (state.execution.currentTask === taskId) {
-    state.execution.currentTask = ""
-  }
+  deregisterActiveAgentsForTask(state, taskId)
 
   appendWorkflowEvent(state, createTaskSkippedEvent(state.phase, location.milestone, location.task))
   refreshMilestoneStatuses(state)
-  const nextTask = activateNextTask(state)
-  if (nextTask) {
-    appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+  if (isParallelExecutionEnabled(state)) {
+    syncExecutionPointersFromActiveAgents(state)
+  } else {
+    const nextTask = activateNextTask(state)
+    if (nextTask) {
+      appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+    }
   }
 
   const updated = writeState(state)
@@ -473,15 +502,17 @@ export function rollbackTask(taskId: string, reason: string): ProjectState {
   location.task.blockedReason = `Rollback: ${reason}`
   location.task.blockedAt = new Date().toISOString()
 
-  if (state.execution.currentTask === taskId) {
-    state.execution.currentTask = ""
-  }
+  deregisterActiveAgentsForTask(state, taskId)
 
   appendWorkflowEvent(state, createTaskBlockedEvent(state.phase, location.milestone, location.task))
   refreshMilestoneStatuses(state)
-  const nextTask = activateNextTask(state)
-  if (nextTask) {
-    appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+  if (isParallelExecutionEnabled(state)) {
+    syncExecutionPointersFromActiveAgents(state)
+  } else {
+    const nextTask = activateNextTask(state)
+    if (nextTask) {
+      appendWorkflowEvent(state, createTaskStartedEvent(state.phase, nextTask.milestone, nextTask.task))
+    }
   }
 
   const updated = writeState(state)

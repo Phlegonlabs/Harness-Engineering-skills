@@ -2,16 +2,17 @@
 
 ## Purpose
 
-Reference guide for the multi-agent parallel execution model. Covers the concurrency model, OCC mechanism, platform spawning, and merge strategy.
+Reference guide for the multi-agent parallel execution model. Covers concurrency modes, OCC mechanism, platform dispatch behavior, and merge strategy.
 
 ## Concurrency Model
 
-Two levels of parallelism:
+Three parallel modes:
 
-| Level | Scope | Mechanism |
-|-------|-------|-----------|
-| Intra-milestone | Tasks within one milestone | Shared worktree, disjoint `affectedFiles` |
-| Inter-milestone | Milestones in separate worktrees | Separate git worktrees per milestone |
+| Mode | Scope | Mechanism |
+|------|-------|-----------|
+| Read-only sidecar | Analysis/review work attached to current flow | Parent context, no writes |
+| Scoped-write parallel task | Multiple tasks within one milestone | Shared worktree only when `affectedFiles` are disjoint |
+| Worktree-isolated milestone | Milestones or risky write paths | Separate git worktrees per milestone |
 
 Default is sequential (backward compatible). Enable via `projectInfo.concurrency`:
 
@@ -71,7 +72,16 @@ If all 3 retries fail, the agent pauses and surfaces the conflict for manual res
 | Platform | Mechanism |
 |----------|-----------|
 | Claude Code | `Agent` tool with `isolation: "worktree"` |
-| Codex CLI | Independent agent sessions |
+| Codex CLI | Orchestrator-owned native subagents with parent-managed lifecycle |
+
+Codex child lifecycle:
+1. Spawn child with task packet and role hint
+2. Optional follow-up from parent orchestrator
+3. Wait only when the parent is blocked or batching integration
+4. Integrate result into parent state/context
+5. Close child and deregister active handle
+
+Hooks are not the orchestration layer. `notify` and `execpolicy` are guardrails.
 
 ## Agent Lifecycle Management
 
@@ -79,6 +89,7 @@ If all 3 retries fail, the agent pauses and surfaces the conflict for manual res
 - **Deregistration**: `deregisterActiveAgent(state, agentId)` removes from `activeAgents[]`, increments `stateVersion`
 - **Stale cleanup**: Agents older than 2x their timeout limit are auto-deregistered
 - **No auto-advance**: In parallel mode, `completeTask()` does NOT auto-call `activateNextTask()`; orchestrator re-evaluates eligible tasks on next dispatch cycle
+- **UI routing invariant**: UI tasks must preserve `frontend-designer -> execution-engine -> design-reviewer`; parallel dispatch cannot bypass design artifact creation
 
 ## Merge Strategy
 
@@ -90,6 +101,8 @@ If all 3 retries fail, the agent pauses and surfaces the conflict for manual res
 ## File Overlap Guard
 
 Two tasks sharing `affectedFiles` entries cannot run in parallel. The dispatcher checks pairwise overlap before dispatching.
+
+If overlap is uncertain or ownership scope cannot be stated clearly, keep execution sequential or move one task to a separate worktree.
 
 ## Commands
 

@@ -55,7 +55,7 @@ On milestone merge, the runtime also sends SIGTERM to any dev servers for that m
 
 ## Multi-Agent Parallel Execution
 
-When `ConcurrencyPolicy` is configured, the orchestrator can dispatch multiple agents simultaneously within the same session lifecycle.
+When `ConcurrencyPolicy` is configured, the orchestrator can dispatch multiple logical agents simultaneously. In Codex, these map to native subagents controlled by the parent orchestrator; in Claude Code, they map to compatibility-layer child runs.
 
 ### Active Agent Tracking
 
@@ -64,15 +64,20 @@ In addition to the legacy `currentMilestone/currentTask/currentWorktree` fields,
 ```typescript
 interface ActiveAgent {
   agentId: string
+  logicalAgentId: AgentId
   milestoneId: string
   taskId: string
   worktreePath: string
+  runtimeHandle: string
+  nativeRole: "default" | "worker" | "explorer" | "monitor"
+  ownershipScope: string[]
+  status: "running" | "waiting" | "completed" | "blocked" | "closing"
   startedAt: string
   platform: AgentPlatform
 }
 ```
 
-Legacy fields are populated from the first entry in `activeAgents[]` for backward compatibility.
+The runtime populates `currentMilestone/currentTask/currentWorktree` from the first live `activeAgents[]` entry for backward compatibility. Each child also carries an explicit `ownershipScope` so parallel dispatch can reject overlapping writes before launch.
 
 ### Optimistic Concurrency Control
 
@@ -92,4 +97,4 @@ When inter-milestone parallelism is active:
 
 ### Stale Agent Cleanup
 
-On each orchestrator invocation, agents older than 2x their timeout limit are deregistered from `activeAgents[]`. This prevents orphaned entries from blocking dispatch.
+On each parallel orchestrator invocation, agents older than 2x their timeout limit are dropped from `activeAgents[]`. This prevents orphaned child reservations from blocking new dispatches when a prior Codex subagent or Claude compatibility run never reported closure.

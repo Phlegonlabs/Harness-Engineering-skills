@@ -1,4 +1,3 @@
-import { existsSync } from "fs"
 import type {
   AgentId,
   AgentPacketMilestone,
@@ -15,9 +14,18 @@ import { getAgentMaterialPolicy } from "./material-policy"
 import { getPhaseReadiness } from "./phase-readiness"
 import { getCurrentProductStage } from "../stages"
 
+function hasCodexRuntimeSignals(): boolean {
+  return Boolean(
+    process.env.CODEX_THREAD_ID
+    || process.env.CODEX_MANAGED_BY_NPM
+    || process.env.CODEX_SANDBOX
+    || process.env.CODEX_HOME,
+  )
+}
+
 export function detectPlatform(): AgentPlatform {
   if (process.env.CLAUDE_CODE) return "claude-code"
-  if (existsSync(".codex/session.json")) return "codex-cli"
+  if (hasCodexRuntimeSignals()) return "codex-cli"
   return "unknown"
 }
 
@@ -66,9 +74,14 @@ function serializeTask(task?: Task): AgentPacketTask | undefined {
   }
 }
 
-function formatValidationCommand(agentId: AgentId, state: ProjectState): string {
-  const task = getCurrentTask(state)
-  const milestone = getCurrentMilestone(state)
+function formatValidationCommand(
+  agentId: AgentId,
+  state: ProjectState,
+  taskOverride?: Task,
+  milestoneOverride?: Milestone,
+): string {
+  const task = taskOverride ?? getCurrentTask(state)
+  const milestone = milestoneOverride ?? getCurrentMilestone(state)
 
   switch (agentId) {
     case "project-discovery":
@@ -130,8 +143,13 @@ function shouldIncludeCurrentPhaseOutputs(agentId: AgentId, phase: ProjectState[
   return false
 }
 
-function buildAfterCompletion(agentId: AgentId, state: ProjectState, validationCmd: string): string[] {
-  const task = getCurrentTask(state)
+function buildAfterCompletion(
+  agentId: AgentId,
+  state: ProjectState,
+  validationCmd: string,
+  taskOverride?: Task,
+): string[] {
+  const task = taskOverride ?? getCurrentTask(state)
 
   if (agentId === "project-discovery") {
     return [
@@ -256,8 +274,8 @@ export function buildAgentTaskPacket(agentId: AgentId, state: ProjectState, plat
 
   const milestone = getCurrentMilestone(state)
   const task = getCurrentTask(state)
-  const validationCmd = formatValidationCommand(agentId, state)
-  const policy = getAgentMaterialPolicy(agentId, state, platform)
+  const validationCmd = formatValidationCommand(agentId, state, task, milestone)
+  const policy = getAgentMaterialPolicy(agentId, state, platform, { milestone, task })
   const phaseReadiness = getPhaseReadiness(state)
   const phaseOutputs = shouldIncludeCurrentPhaseOutputs(agentId, state.phase)
     ? phaseReadiness
@@ -266,7 +284,7 @@ export function buildAgentTaskPacket(agentId: AgentId, state: ProjectState, plat
   return {
     agentId,
     agentName: entry.name,
-    afterCompletion: buildAfterCompletion(agentId, state, validationCmd),
+    afterCompletion: buildAfterCompletion(agentId, state, validationCmd, task),
     architectureVersion: state.docs.architecture.version,
     currentMilestone: serializeMilestone(milestone),
     currentStage: serializeStage(state),
@@ -299,8 +317,8 @@ export function buildAgentTaskPacketForTask(
     throw new Error(`Agent "${agentId}" not found in registry.`)
   }
 
-  const validationCmd = task ? `bun harness:validate --task ${task.id}` : `bun harness:validate --phase ${state.phase}`
-  const policy = getAgentMaterialPolicy(agentId, state, platform)
+  const validationCmd = formatValidationCommand(agentId, state, task, milestone)
+  const policy = getAgentMaterialPolicy(agentId, state, platform, { milestone, task })
   const phaseReadiness = getPhaseReadiness(state)
   const phaseOutputs = shouldIncludeCurrentPhaseOutputs(agentId, state.phase)
     ? phaseReadiness
@@ -312,12 +330,16 @@ export function buildAgentTaskPacketForTask(
     constraints.push(
       `Parallel execution scope: only modify files in [${task.affectedFiles.join(", ")}]`,
     )
+  } else {
+    constraints.push(
+      `Parallel execution scope: no explicit affectedFiles were declared; treat ${milestone.worktreePath} as worktree-isolated write scope.`,
+    )
   }
 
   return {
     agentId,
     agentName: entry.name,
-    afterCompletion: buildAfterCompletion(agentId, state, validationCmd),
+    afterCompletion: buildAfterCompletion(agentId, state, validationCmd, task),
     architectureVersion: state.docs.architecture.version,
     currentMilestone: serializeMilestone(milestone),
     currentStage: serializeStage(state),

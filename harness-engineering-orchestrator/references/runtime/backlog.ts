@@ -484,6 +484,7 @@ export function deriveExecutionFromPrd(baseState: ProjectState): ProjectState {
         : "EXECUTING",
     roadmap: roadmapSync.roadmap,
     execution: {
+      ...baseState.execution,
       currentMilestone: pointers.currentMilestone,
       currentTask: pointers.currentTask,
       currentWorktree: pointers.currentWorktree,
@@ -615,6 +616,7 @@ export function syncExecutionFromPrd(baseState: ProjectState): {
         : baseState.phase,
     roadmap: roadmapSync.roadmap,
     execution: {
+      ...baseState.execution,
       currentMilestone: pointers.currentMilestone,
       currentTask: pointers.currentTask,
       currentWorktree: pointers.currentWorktree,

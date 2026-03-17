@@ -95,6 +95,8 @@ Git hooks, Claude Code hooks, and Codex CLI hooks automatically enforce Guardian
 - **Codex CLI**: execpolicy rules block `--no-verify`, `git add .`, `git add -A`; notification hooks run post-task validation
 - **Emergency bypass**: `HARNESS_HOOKS_SKIP=1 git commit ...`
 
+Hook surfaces are guardrails. They do not replace orchestrator dispatch/lifecycle logic.
+
 Re-install after cloning (restores local Harness files, git hooks, Claude Code settings, and Codex CLI config): `bun harness:hooks:install`
 
 ---
@@ -107,6 +109,11 @@ When running under Codex CLI (autonomous/task mode):
 3. Before committing, run `bun harness:validate --task <TASK_ID>` to catch guardian violations early
 4. Run `bun harness:compact` before ending each session
 5. If any validation fails, stop and report — do not retry the advance
+
+When running as an orchestrator-dispatched Codex child subagent:
+1. Follow the provided task packet and ownership scope only
+2. Do not run full-project resume/scan loops
+3. Return results to orchestrator for integration and close
 
 ---
 

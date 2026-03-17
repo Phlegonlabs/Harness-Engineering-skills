@@ -6,8 +6,12 @@
 claude "Read docs/PROGRESS.md, docs/progress/, AGENTS.md, ~/.claude/LEARNING.md, then continue with the next Task"
 ```
 
-### With Codex CLI
+### With Codex CLI (Main Thread)
 
 ```bash
 codex "Read docs/PROGRESS.md, docs/progress/, AGENTS.md, ~/.codex/LEARNING.md, then continue with the next Task"
 ```
+
+### Codex Child Subagent
+
+Use orchestrator packet context only. Do not run a full resume scan inside child subagents.

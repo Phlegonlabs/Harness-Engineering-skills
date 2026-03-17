@@ -26,7 +26,7 @@ Applied to every agent regardless of identity or platform. These are the univers
 Applied based on the detected `AgentPlatform`:
 
 - **claude-code** — PreToolUse hooks enforce guardians at write time; retry on rejection.
-- **codex-cli** — Codex notify hooks detect violations after action; git pre-commit hooks are the final guardrail.
+- **codex-cli** — Codex notify/execpolicy plus git hooks enforce guardrails; child-agent lifecycle remains orchestrator-owned.
 - **unknown** — No platform-specific constraints.
 
 ### Layer 3: Agent-Specific

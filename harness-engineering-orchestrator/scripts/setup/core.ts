@@ -374,7 +374,7 @@ function installHooks(skillRoot: string, logger: SetupLogger): void {
     logger,
   )
 
-  // Codex CLI config
+  // Codex guardrail config + local runtime defaults (not orchestration lifecycle config)
   mkdirSync(".codex", { recursive: true })
   writeFileIfMissing(".codex/config.toml", CODEX_CONFIG_TOML, logger)
   mkdirSync(join(".codex", "rules"), { recursive: true })

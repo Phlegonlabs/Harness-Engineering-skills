@@ -43,13 +43,18 @@ Harness Validator → Context Compactor (via validation score)
 
 ## Shared Data Channels
 
-No agent calls another agent directly. All communication flows through shared channels:
+No logical agent calls another logical agent directly. The orchestrator owns native child/subagent dispatch and lifecycle. Durable communication still flows through shared channels:
 
 | Channel | Mechanism | Examples |
 |---------|-----------|---------|
 | **State** | `.harness/state.json` fields | `projectInfo`, `techStack`, `execution.milestones`, `validation.score` |
 | **Filesystem** | Files on disk | `docs/PRD.md`, `docs/design/DESIGN_SYSTEM.md`, `docs/adr/ADR-*.md` |
 | **Commit history** | Git commit messages and diffs | `Design Review: pass`, `Code Review: pass`, task-ID in message |
+
+Parallel delegation classes:
+- **Read-only sidecar**: review/research/scan work with no writes
+- **Scoped-write task**: write-capable child with explicit `affectedFiles` ownership
+- **Worktree-isolated task**: separate worktree when ownership cannot be safely scoped
 
 ## Dispatch Decision Tree
 

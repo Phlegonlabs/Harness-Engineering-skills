@@ -1,4 +1,4 @@
-import type { ActiveAgent, AgentId, AgentPlatform, AgentTaskPacket, Milestone, ProjectState, Task } from "../../types"
+import type { ActiveAgent, AgentId, AgentPlatform, AgentTaskPacket, Milestone, ProjectState, SubagentDispatchPolicy, Task } from "../../types"
 import {
   countExecutionMilestonesForStage,
   getActiveProductStage,
@@ -10,18 +10,22 @@ import { getPhaseStructuralChecks } from "../phase-structural"
 import {
   getAgentEntry,
   getUnsupportedPhaseGuidance,
+  needsDesignSystem,
   needsFrontendDesigner,
+  needsMilestoneSpec,
 } from "./agent-registry"
-import { buildAgentTaskPacket, renderAgentTaskPacket } from "./context-builder"
+import { buildAgentTaskPacket, buildAgentTaskPacketForTask, renderAgentTaskPacket } from "./context-builder"
 import { getPhaseReadiness } from "./phase-readiness"
 
 export interface DispatchResult {
   type: "agent" | "manual" | "none"
   agentId?: AgentId
+  activeAgent?: ActiveAgent
   context?: string
   message: string
   packet?: AgentTaskPacket
   postAction?: string
+  subagentPolicy?: SubagentDispatchPolicy
 }
 
 function getCurrentMilestone(state: ProjectState): Milestone | undefined {
@@ -32,6 +36,99 @@ function getCurrentTask(state: ProjectState): Task | undefined {
   return state.execution.milestones
     .flatMap(m => m.tasks)
     .find(t => t.id === state.execution.currentTask)
+}
+
+interface EligibleTaskCandidate {
+  milestone: Milestone
+  task: Task
+}
+
+function cleanupStaleActiveAgents(state: ProjectState, now = Date.now()): void {
+  if (!state.execution.activeAgents?.length) return
+
+  state.execution.activeAgents = state.execution.activeAgents.filter(agent => {
+    if (agent.status === "completed" || agent.status === "closing") {
+      return false
+    }
+
+    const entry = getAgentEntry(agent.logicalAgentId)
+    if (!entry?.timeoutMs) return true
+
+    const startedAt = Date.parse(agent.startedAt)
+    if (Number.isNaN(startedAt)) return true
+
+    return now - startedAt <= entry.timeoutMs * 2
+  })
+}
+
+function getParallelAgentId(milestone: Milestone, task: Task): AgentId {
+  if (task.isUI && (needsDesignSystem() || needsMilestoneSpec(milestone))) {
+    return "frontend-designer"
+  }
+  return "execution-engine"
+}
+
+function buildOwnershipScope(agentId: AgentId, milestone: Milestone, task: Task): string[] {
+  if (agentId === "frontend-designer") {
+    return [
+      "docs/design/DESIGN_SYSTEM.md",
+      `docs/design/${milestone.id.toLowerCase()}-ui-spec.md`,
+    ]
+  }
+
+  if (task.affectedFiles.length > 0) {
+    return [...task.affectedFiles]
+  }
+
+  return [milestone.worktreePath || "."]
+}
+
+function getSubagentDispatchPolicy(
+  agentId: AgentId,
+  milestone: Milestone,
+  task: Task,
+): SubagentDispatchPolicy {
+  if (agentId === "frontend-designer") {
+    return {
+      logicalAgentId: agentId,
+      nativeRole: "worker",
+      writeMode: "scoped-write",
+      forkContext: true,
+      waitStrategy: "immediate",
+      closeStrategy: "close-on-integration",
+    }
+  }
+
+  return {
+    logicalAgentId: agentId,
+    nativeRole: "worker",
+    writeMode: task.affectedFiles.length > 0 ? "scoped-write" : "worktree-isolated",
+    forkContext: true,
+    waitStrategy: "defer-until-blocked",
+    closeStrategy: task.isUI ? "close-on-review" : "close-on-integration",
+  }
+}
+
+function createActiveAgent(
+  agentId: AgentId,
+  milestone: Milestone,
+  task: Task,
+  platform: AgentPlatform,
+  policy: SubagentDispatchPolicy,
+): ActiveAgent {
+  return {
+    agentId: `${agentId}:${task.id}`,
+    logicalAgentId: agentId,
+    milestoneId: milestone.id,
+    taskId: task.id,
+    worktreePath: milestone.worktreePath,
+    runtimeHandle: `pending:${agentId}:${task.id}`,
+    nativeRole: policy.nativeRole,
+    ownershipScope: buildOwnershipScope(agentId, milestone, task),
+    status: "running",
+    startedAt: new Date().toISOString(),
+    platform,
+  }
 }
 
 function needsBacklogSync(state: ProjectState): boolean {
@@ -383,18 +480,14 @@ function getValidatingAction(state: ProjectState, platform: AgentPlatform): Disp
     "After validation:\n1. Review Harness Score (target: >= 80)\n2. If passed: bun harness:advance\n3. If failed: fix critical checks, re-run bun harness:validate")
 }
 
-function getEligibleTasks(state: ProjectState): Task[] {
-  const eligible: Task[] = []
+function getEligibleTasks(state: ProjectState): EligibleTaskCandidate[] {
+  const eligible: EligibleTaskCandidate[] = []
   const allTasks = state.execution.milestones.flatMap(m => m.tasks)
-  const activeTaskIds = new Set(
-    (state.execution.activeAgents ?? []).map(a => a.taskId),
+  const activeAgents = (state.execution.activeAgents ?? []).filter(
+    agent => agent.status !== "completed" && agent.status !== "closing",
   )
-  const activeFiles = new Set(
-    (state.execution.activeAgents ?? []).flatMap(a => {
-      const task = allTasks.find(t => t.id === a.taskId)
-      return task?.affectedFiles ?? []
-    }),
-  )
+  const activeTaskIds = new Set(activeAgents.map(a => a.taskId))
+  const activeFiles = new Set(activeAgents.flatMap(a => a.ownershipScope))
 
   for (const milestone of state.execution.milestones) {
     if (milestone.status === "MERGED" || milestone.status === "COMPLETE") continue
@@ -403,6 +496,8 @@ function getEligibleTasks(state: ProjectState): Task[] {
     for (const task of milestone.tasks) {
       if (task.status !== "PENDING") continue
       if (activeTaskIds.has(task.id)) continue
+      const agentId = getParallelAgentId(milestone, task)
+      const ownershipScope = buildOwnershipScope(agentId, milestone, task)
 
       // Check dependsOn
       if (task.dependsOn && task.dependsOn.length > 0) {
@@ -414,16 +509,22 @@ function getEligibleTasks(state: ProjectState): Task[] {
       }
 
       // Check file overlap with active agents
-      const hasActiveOverlap = task.affectedFiles.some(f => activeFiles.has(f))
+      const hasActiveOverlap = ownershipScope.some(f => activeFiles.has(f))
       if (hasActiveOverlap) continue
 
       // Check file overlap with already-eligible tasks
-      const hasEligibleOverlap = eligible.some(e =>
-        e.affectedFiles.some(f => task.affectedFiles.includes(f)),
+      const hasEligibleOverlap = eligible.some(candidate =>
+        buildOwnershipScope(
+          getParallelAgentId(candidate.milestone, candidate.task),
+          candidate.milestone,
+          candidate.task,
+        ).some(
+          f => ownershipScope.includes(f),
+        ),
       )
       if (hasEligibleOverlap) continue
 
-      eligible.push(task)
+      eligible.push({ milestone, task })
     }
   }
 
@@ -440,6 +541,7 @@ export function dispatchParallel(
   state: ProjectState,
   platform: AgentPlatform = "unknown",
 ): ParallelDispatchResult {
+  cleanupStaleActiveAgents(state)
   const stateVersion = state.execution.stateVersion ?? 0
 
   // Check for pending scope changes before dispatch
@@ -488,33 +590,50 @@ export function dispatchParallel(
 
   const maxTasks = Math.min(eligible.length, policy.maxParallelTasks)
   const dispatches: DispatchResult[] = []
+  const milestonesWithPendingDesign = new Set<string>()
 
-  for (let i = 0; i < maxTasks; i++) {
-    const task = eligible[i]
-    const milestone = state.execution.milestones.find(m =>
-      m.tasks.some(t => t.id === task.id),
-    )
-    if (!milestone) continue
+  for (const candidate of eligible) {
+    if (dispatches.length >= maxTasks) break
+    const { milestone, task } = candidate
 
-    const entry = getAgentEntry("execution-engine")
+    const agentId = getParallelAgentId(milestone, task)
+    if (agentId === "frontend-designer" && milestonesWithPendingDesign.has(milestone.id)) {
+      continue
+    }
+    if (agentId === "frontend-designer") {
+      milestonesWithPendingDesign.add(milestone.id)
+    }
+
+    const entry = getAgentEntry(agentId)
     if (!entry) continue
 
-    const packet = buildAgentTaskPacket("execution-engine", state, platform)
+    const packet = buildAgentTaskPacketForTask(agentId, state, milestone, task, platform)
     const context = renderAgentTaskPacket(packet)
+    const subagentPolicy = getSubagentDispatchPolicy(agentId, milestone, task)
+    const activeAgent = createActiveAgent(agentId, milestone, task, platform, subagentPolicy)
 
     dispatches.push({
       type: "agent",
-      agentId: "execution-engine",
+      activeAgent,
+      agentId,
       context,
       message: `${entry.name} — Task ${task.id}: ${task.name}`,
       packet,
-      postAction: task.isUI
-        ? "UI Task: After implementation + self-validation passes, run Design Review"
-        : "Non-UI Task: After implementation + self-validation passes, run Code Review",
+      postAction:
+        agentId === "frontend-designer"
+          ? "Design artifacts first: re-run orchestrator after design output exists to dispatch implementation."
+          : task.isUI
+            ? "UI Task: After implementation + self-validation passes, run Design Review"
+            : "Non-UI Task: After implementation + self-validation passes, run Code Review",
+      subagentPolicy,
     })
   }
 
-  const milestoneIds = new Set(eligible.slice(0, maxTasks).map(t => t.milestoneId))
+  const milestoneIds = new Set(
+    dispatches
+      .filter((d): d is DispatchResult & { activeAgent: ActiveAgent } => d.type === "agent" && !!d.activeAgent)
+      .map(d => d.activeAgent.milestoneId),
+  )
   const concurrencyMode = milestoneIds.size > 1 ? "parallel-milestones" : "parallel-tasks"
 
   return {
