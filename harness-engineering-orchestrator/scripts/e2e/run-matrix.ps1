@@ -1036,6 +1036,14 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
   Add-DeepResult -CaseId "10-recovery" -Scenario "clone recovery install" -Expected "bun install ok" -Step $cloneInstall
 
   $cloneHooks = Invoke-Step -CaseId "10-recovery" -StepName "clone-hooks-install" -WorkingDir $cloneDir -Exe "bun" -Arguments @("run", "harness:hooks:install")
+  $cloneClaudePath = Join-Path $cloneDir ".claude\settings.local.json"
+  $cloneCodexPath = Join-Path $cloneDir ".codex\config.toml"
+  $cloneClaudeRaw = if (Test-Path $cloneClaudePath) { [string](Get-Content $cloneClaudePath -Raw) } else { "" }
+  try {
+    $cloneClaudeJson = if ($cloneClaudeRaw) { $cloneClaudeRaw | ConvertFrom-Json -Depth 20 } else { $null }
+  } catch {
+    $cloneClaudeJson = $null
+  }
   $cloneHooks.Ok = $cloneHooks.Ok `
     -and (Test-Path (Join-Path $cloneDir "AGENTS.md")) `
     -and (Test-Path (Join-Path $cloneDir "CLAUDE.md")) `
@@ -1043,8 +1051,14 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
     -and (Test-Path (Join-Path $cloneDir "agents\project-discovery.md")) `
     -and (Test-Path (Join-Path $cloneDir "docs\ai\01-operating-principles.md")) `
     -and (Test-Path (Join-Path $cloneDir "docs\PROGRESS.md")) `
-    -and (Test-Path (Join-Path $cloneDir ".claude\settings.local.json")) `
-    -and (Test-Path (Join-Path $cloneDir ".codex\config.toml")) `
+    -and ($null -ne $cloneClaudeJson) `
+    -and $cloneClaudeRaw.Contains("--claude pre-write") `
+    -and $cloneClaudeRaw.Contains("--claude pre-bash") `
+    -and $cloneClaudeRaw.Contains("--claude post-write") `
+    -and $cloneClaudeRaw.Contains("--claude stop") `
+    -and (-not $cloneClaudeRaw.Contains("--hook pre-write")) `
+    -and (Test-Path $cloneCodexPath) `
+    -and ([string](Get-Content $cloneCodexPath -Raw)).Contains('notify = ["bun .harness/runtime/hooks/check-guardian.ts --codex"]') `
     -and (Test-Path (Join-Path $cloneDir ".env.local"))
   Add-DeepResult -CaseId "10-recovery" -Scenario "clone recovery restore locals" -Expected "local harness files restored" -Step $cloneHooks
 

@@ -24,6 +24,9 @@ Desktop.ini
 *.swo
 *~
 
+# Local agent config
+/.claude/
+
 # Logs
 *.log
 npm-debug.log*

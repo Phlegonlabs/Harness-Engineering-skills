@@ -42,7 +42,7 @@ The scaffold generator produces these GitHub-specific files:
 
 ## Hook Installation
 
-`install-git-hooks.ts` runs during scaffold setup and installs four git hook shims into `.git/hooks/`:
+Scaffold setup installs four git hook shims into `.git/hooks/`, and the runtime helper `install-git-hooks.ts` reuses the same shim content when invoked directly:
 
 - `pre-commit` — Runs guardian checks before each commit
 - `commit-msg` — Validates commit message format
@@ -51,7 +51,7 @@ The scaffold generator produces these GitHub-specific files:
 
 Each shim delegates to `bun .harness/runtime/hooks/check-guardian.ts` with the appropriate `--hook` flag. On Unix systems, `ensureExecutable()` sets the `0o755` permission bit. On Windows, it verifies the shebang line exists.
 
-The installer also merges Claude Code hooks into `.claude/settings.local.json` and Codex CLI config into `.codex/config.toml`.
+Setup writes `.claude/settings.local.json`, `.codex/config.toml`, and `.codex/rules/guardian.rules` directly. Post-clone recovery restores those files from the local bootstrap manifest, and the runtime helper merges the same managed defaults when it is invoked directly.
 
 ## Scaffold Validation
 

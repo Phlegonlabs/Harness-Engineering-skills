@@ -64,8 +64,13 @@ If both primary and backup files are corrupt:
 After cloning a Harness project, local files must be restored:
 
 ```bash
-bun scripts/harness-local/restore.ts
 bun harness:hooks:install
+```
+
+If package scripts are unavailable, the direct fallback is:
+
+```bash
+bun scripts/harness-local/restore.ts
 ```
 
 This restores:

@@ -10,6 +10,7 @@ import {
   detectEcosystem,
   isConfiguredToolchainCommand,
 } from "../../references/runtime/toolchain-detect"
+import { buildClaudeSettings, stringifyClaudeSettings } from "../../references/runtime/hooks/claude-config"
 import { CODEX_CONFIG_TOML, CODEX_GUARDIAN_RULES } from "../../references/runtime/hooks/codex-config"
 import type { GitHubState, ToolchainConfig } from "../../references/harness-types"
 import {
@@ -98,13 +99,28 @@ async function checkEnv(logger: SetupLogger): Promise<void> {
         : "brew install git (macOS) / sudo apt install git (Linux)",
     ],
   ] as const) {
-    const proc = Bun.spawnSync([cmd, "--version"], { stdout: "pipe", stderr: "pipe" })
-    if (proc.exitCode !== 0) {
+    const result = inspectCommandVersion(cmd)
+    if (!result.ok) {
       logger.error(`${label} is not installed. Please install: ${install}`)
     }
 
-    const version = new TextDecoder().decode(proc.stdout).trim().split(/\r?\n/)[0]
-    logger.log(`${label} installed: ${version}`)
+    logger.log(`${label} installed: ${result.version}`)
+  }
+}
+
+export function inspectCommandVersion(cmd: string): { ok: boolean; version: string } {
+  try {
+    const proc = Bun.spawnSync([cmd, "--version"], { stdout: "pipe", stderr: "pipe" })
+    if (proc.exitCode !== 0) {
+      return { ok: false, version: "" }
+    }
+
+    return {
+      ok: true,
+      version: new TextDecoder().decode(proc.stdout).trim().split(/\r?\n/)[0] ?? "",
+    }
+  } catch {
+    return { ok: false, version: "" }
   }
 }
 
@@ -308,59 +324,7 @@ function writeCoreFiles({ context, skillRoot, logger }: SetupParams): void {
   writeFileIfMissing("LICENSE", readTemplate(skillRoot, context, "LICENSE.template"), logger)
 }
 
-const CLAUDE_SETTINGS_JSON = JSON.stringify(
-  {
-    hooks: {
-      PreToolUse: [
-        {
-          matcher: "Write|Edit",
-          hooks: [
-            {
-              type: "command",
-              command:
-                "bun .harness/runtime/hooks/check-guardian.ts --claude pre-write",
-            },
-          ],
-        },
-        {
-          matcher: "Bash",
-          hooks: [
-            {
-              type: "command",
-              command:
-                "bun .harness/runtime/hooks/check-guardian.ts --claude pre-bash",
-            },
-          ],
-        },
-      ],
-      PostToolUse: [
-        {
-          matcher: "Write|Edit",
-          hooks: [
-            {
-              type: "command",
-              command:
-                "bun .harness/runtime/hooks/check-guardian.ts --claude post-write",
-            },
-          ],
-        },
-      ],
-      Stop: [
-        {
-          hooks: [
-            {
-              type: "command",
-              command:
-                "bun .harness/runtime/hooks/check-guardian.ts --claude stop",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  null,
-  2,
-)
+const CLAUDE_SETTINGS_JSON = stringifyClaudeSettings(buildClaudeSettings())
 
 function installHooks(skillRoot: string, logger: SetupLogger): void {
   logger.step("Install hooks (Git + Claude Code + Codex CLI)")
@@ -397,7 +361,7 @@ function installHooks(skillRoot: string, logger: SetupLogger): void {
   mkdirSync(".claude", { recursive: true })
   writeFileIfMissing(
     ".claude/settings.local.json",
-    `${CLAUDE_SETTINGS_JSON}\n`,
+    CLAUDE_SETTINGS_JSON,
     logger,
   )
 

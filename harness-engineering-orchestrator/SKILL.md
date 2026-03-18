@@ -75,6 +75,14 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 4. a runnable scaffold with Harness runtime files
 5. validated implementation until the project reaches `COMPLETE`
 
+### Changes in v1.8.1
+
+- Unified Claude hook config generation so initial setup and `harness:hooks:install` restore the same matcher-based `.claude/settings.local.json`
+- Fixed Codex local config merge so all managed lines are preserved and post-clone recovery restores the expected notify hook
+- Made Codex notify warnings toolchain-aware instead of hardcoding `src/`, so custom source roots/extensions behave consistently with runtime validation
+- Enforced `maxParallelMilestones` and `enableInterMilestone` in the parallel dispatcher instead of exposing them as documentation-only fields
+- Hardened setup environment checks so missing executables surface install guidance instead of crashing the bootstrap flow
+
 ### Changes in v1.8.0
 
 - Added consolidated `## Gotchas` section with 10 high-signal failure modes and cross-reference links
@@ -646,7 +654,7 @@ bun .harness/orchestrator.ts --next         # Output only the next agent/action
 bun .harness/orchestrator.ts --review       # Dispatch Design Reviewer (UI tasks)
 bun .harness/orchestrator.ts --code-review  # Dispatch Code Reviewer (non-UI tasks)
 bun harness:merge-milestone M[N]           # Merge a REVIEW milestone into main, clean up worktree
-bun harness:hooks:install                   # Restore local Harness files, then re-install git hooks, Claude Code settings, and Codex CLI config
+bun harness:hooks:install                   # Restore the local Harness snapshot (including Claude/Codex config) and re-install git hook shims
 bun harness:add-surface --type=<TYPE>       # Add a new project surface (e.g. api, android-app)
 bun harness:audit                           # Full audit: guardians, phase gate, workspace, docs drift
 bun harness:sync-docs                       # Synchronize managed documentation files

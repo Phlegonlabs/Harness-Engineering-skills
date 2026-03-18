@@ -591,10 +591,26 @@ export function dispatchParallel(
   const maxTasks = Math.min(eligible.length, policy.maxParallelTasks)
   const dispatches: DispatchResult[] = []
   const milestonesWithPendingDesign = new Set<string>()
+  const activeMilestoneIds = new Set(
+    (state.execution.activeAgents ?? [])
+      .filter(agent => agent.status !== "completed" && agent.status !== "closing")
+      .map(agent => agent.milestoneId),
+  )
+  const reservedMilestoneIds = new Set(activeMilestoneIds)
 
   for (const candidate of eligible) {
     if (dispatches.length >= maxTasks) break
     const { milestone, task } = candidate
+
+    if (!reservedMilestoneIds.has(milestone.id)) {
+      if (!policy.enableInterMilestone && reservedMilestoneIds.size > 0) {
+        continue
+      }
+
+      if (reservedMilestoneIds.size >= policy.maxParallelMilestones) {
+        continue
+      }
+    }
 
     const agentId = getParallelAgentId(milestone, task)
     if (agentId === "frontend-designer" && milestonesWithPendingDesign.has(milestone.id)) {
@@ -627,6 +643,8 @@ export function dispatchParallel(
             : "Non-UI Task: After implementation + self-validation passes, run Code Review",
       subagentPolicy,
     })
+
+    reservedMilestoneIds.add(milestone.id)
   }
 
   const milestoneIds = new Set(
