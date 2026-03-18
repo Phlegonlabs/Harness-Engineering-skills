@@ -1,5 +1,6 @@
 # Harness Engineering Skills
 
+[![CI](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/ci.yml)
 [![Release](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/release.yml/badge.svg)](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![Published Skills](https://img.shields.io/badge/Published%20skills-1-1f6feb)
@@ -56,6 +57,8 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 |---|---|---|
 | `harness-engineering-orchestrator` | Turns an idea or existing repo into a repo-backed delivery workflow with docs, runtime state, backlog, execution, and validation | Greenfield bootstraps, existing repo hydration, milestone-driven agent delivery |
 
+See [SKILLS.md](./SKILLS.md) for the full catalog and install commands.
+
 ## Why Teams Install It
 
 Harness Engineering is for teams that want AI coding agents to operate inside a controlled delivery system instead of free-form prompt chains.
@@ -73,13 +76,17 @@ The repository is intentionally shaped to support multiple domain skill packages
 - `README.md`: this entry page and high-level usage guide.
 - `README.en.md`: English documentation.
 - `README.zh-CN.md`: Chinese documentation.
+- `AGENTS.md` + `CLAUDE.md`: contributor agent instructions loaded automatically by Claude Code and Codex when working in this repository.
+- `SKILLS.md`: catalog of all published skills with install commands.
+- `docs/`: contributor guides, including `new-skill-guide.md` for adding new skills.
 - `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`: repository-level open source metadata and contribution policy.
 - `harness-engineering-orchestrator/`: the published skill package.
   - `SKILL.md`: the runtime contract the skill executes.
   - `agents/`: role prompts and operating guides.
-  - `references/`: templates and helper docs.
-  - `scripts/`: optional automation helpers.
+  - `references/`: templates, helper docs, and type definitions.
+  - `scripts/`: setup and validation automation.
   - `templates/`: scaffold files and example structure.
+  - `config.example.json`: team configuration template (copy to `config.json` to set org-wide defaults).
 - `harness-engineering-orchestrator-prd/`: internal PRD and design documentation used during skill development. Not an installable skill.
 
 ## Language
@@ -124,6 +131,17 @@ bun harness:advance
 ```
 
 For the full skill-level operator flow, see [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md).
+
+### Team Configuration (optional)
+
+If your team always uses the same defaults — org name, AI provider, harness level — you can pre-configure them in a `config.json` file inside the installed skill directory:
+
+```bash
+cp <path-to-installed-skill>/config.example.json <path-to-installed-skill>/config.json
+# Edit config.json with your team's defaults
+```
+
+CLI flags and interactive answers always override `config.json`. Absent or unparseable config is a no-op — behavior is identical to a fresh install. See [harness-engineering-orchestrator/SKILL.md — Team Configuration](./harness-engineering-orchestrator/SKILL.md#team-configuration) for all supported fields.
 
 ## When to use this skill
 
@@ -190,13 +208,19 @@ If these are present and readable, your repo is likely on the right track for th
 
 ## Contributing
 
-This repo is intentionally small and focused. If you use the orchestrator in new ways, you can contribute by adding missing reference templates, strengthening gates, or improving execution playbooks. PRs and issue-based suggestions are welcome.
+This repo is intentionally small and focused. Contributors can help by adding reference templates, strengthening gates, improving execution playbooks, or publishing new skills alongside the orchestrator.
+
+- For general contributions: read [CONTRIBUTING.md](./CONTRIBUTING.md)
+- For adding a new skill: read [docs/new-skill-guide.md](./docs/new-skill-guide.md)
+- For AI agent contributors (Claude Code, Codex): `AGENTS.md` and `CLAUDE.md` at the repo root are loaded automatically and contain project conventions, key commands, and prohibited operations
 
 ## References
 
 - [Chinese documentation](./README.zh-CN.md)
 - [English documentation](./README.en.md)
+- [Skill catalog](./SKILLS.md)
+- [New skill guide](./docs/new-skill-guide.md)
+- [Skill contract](./harness-engineering-orchestrator/SKILL.md)
 - [License](./LICENSE)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](./SECURITY.md)
-- [Skill contract](./harness-engineering-orchestrator/SKILL.md)
