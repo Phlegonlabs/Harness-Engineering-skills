@@ -51,6 +51,7 @@ cp config.example.json config.json
 | `defaults.visibility` | `private` | Repository visibility (`public`, `private`) |
 | `defaults.skipGithub` | `false` | Skip GitHub repo creation |
 | `guardianOverrides.warnOnly` | `[]` | Guardian IDs to downgrade from block to warn |
+| `guardianOverrides.disabled` | `[]` | Guardian IDs to fully disable (requires explicit plan change) |
 | `phaseSkips.skipMarketResearch` | `false` | Skip Market Research phase |
 | `org.name` | `your-org` | Default GitHub organization |
 | `org.defaultUser` | `Operator` | Default user name in generated artifacts |
@@ -125,7 +126,7 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 
 ## Fast Path (Lite Only)
 
-When harness level is Lite, the skill offers a 2-turn Fast Path:
+When harness level is Lite, the skill offers a Fast Path that completes in a minimum of 2 turns, with additional clarification turns when inference confidence is low:
 
 1. **Turn 1** — User describes the project concept in one message. The skill infers project name, type, stack, and 2-3 milestones.
 2. **Turn 2** — User confirms or adjusts the inferred plan. The skill scaffolds immediately and enters EXECUTING.
@@ -214,7 +215,7 @@ bun <path-to-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=t
 
 The setup script infers project metadata from `package.json`, `README.md`, and `docs/`, then generates all harness runtime files while preserving existing files. The project typically enters at `SCAFFOLD` phase.
 
-After hydration, adapt the project's toolchain commands if needed — the gate checks use `state.toolchain.commands` for typecheck, format, and build. The toolchain is auto-detected from manifest files (see `runtime/toolchain-detect.ts`).
+After hydration, adapt the project's toolchain commands if needed — the gate checks use `state.toolchain.commands.{typecheck,format,build}` for typecheck, format, and build. The toolchain is auto-detected from manifest files (see `./references/runtime/toolchain-detect.ts`).
 
 Regardless of the starting point, the project must end up with:
 
@@ -506,7 +507,7 @@ For the deeper execution rules, read:
 
 Run final validation only after the milestone ledger is actually complete.
 
-**Level-scoped critical items**: Lite checks 8 items (no minimum score). Standard checks 15 items (score reported only). Full checks 19 items (score must be ≥ 80).
+**Level-scoped critical items**: Lite checks 8 items (no minimum score). Standard checks 15 items (score reported; unresolved critical failures still block the gate). Full checks 19 items (score must be ≥ 80).
 
 Required outcomes:
 
@@ -544,7 +545,7 @@ These files are automatically synchronized by `harness:advance`, `harness:stage 
 | ID | Name | Description | Active From | Lite | Standard | Full |
 |----|------|-------------|-------------|------|----------|------|
 | G1 | Scope Lock | Implement only work mapped to current task and PRD reference | EXECUTING | Active (simplified) | Active | Active |
-| G2 | Branch Protection | No feature commits directly on main/master | EXECUTING | Relaxed | Active | Active |
+| G2 | Branch Protection | No feature commits directly on main/master | EXECUTING | Relaxed | Active | Active (from SCAFFOLD) |
 | G3 | File Size Limit | No single source file may exceed 400 lines | SCAFFOLD | Active | Active | Active |
 | G4 | Forbidden Patterns | No console.log, `: any`, `@ts-ignore`, or similar anti-patterns | SCAFFOLD | Active (blocking only) | Active | Active |
 | G5 | Dependency Direction | types → config → lib → services → app; reverse imports forbidden | EXECUTING | Inactive | Active | Active + CI |

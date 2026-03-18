@@ -4,7 +4,7 @@
  * Records, stores, and derives metrics across 5 categories.
  */
 
-import type { MetricEntry, MetricCategory, MetricsState, ProjectState } from "../harness-types.js"
+import type { MetricEntry, MetricCategory, MetricsState, ProjectState } from "../types.js"
 
 /** Append a metric entry to state. */
 export function recordMetric(state: ProjectState, entry: MetricEntry): void {

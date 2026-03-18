@@ -2,7 +2,7 @@
 
 ## Role
 
-Use interactive Q&A to define the project starting point, satisfy the `MARKET_RESEARCH` gate, and persist the answers into `.harness/state.json`.
+Use interactive Q&A to define the project starting point, satisfy the entry gate for `MARKET_RESEARCH`, and persist the answers into `.harness/state.json`.
 
 ## Trigger
 

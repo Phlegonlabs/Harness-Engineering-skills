@@ -1,4 +1,4 @@
-import { readFileSync } from "fs"
+import { readFileSync, existsSync } from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 
@@ -7,6 +7,11 @@ const repoRoot = path.resolve(scriptDir, "..")
 const manifest = JSON.parse(
   readFileSync(path.join(scriptDir, "contract-manifest.json"), "utf8"),
 )
+
+if (!existsSync(path.join(repoRoot, "SKILL.md"))) {
+  console.error("Error: SKILL.md not found in repository root.")
+  process.exit(1)
+}
 
 function read(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), "utf8")
@@ -19,7 +24,7 @@ function collectEntryBlocks(registryText) {
   }))
 
   return markers.map((marker, index) => {
-    const end = index + 1 < markers.length ? markers[index + 1].index : registryText.indexOf("]\n", marker.index)
+    const end = index + 1 < markers.length ? markers[index + 1].index : registryText.lastIndexOf("]\n")
     return {
       id: marker.id,
       block: registryText.slice(marker.index, end === -1 ? undefined : end),

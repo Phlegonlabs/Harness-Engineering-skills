@@ -28,7 +28,7 @@ Before starting any Task, confirm that state, documents, environment, and prereq
 6. Run environment checks:
 
 ```bash
-bun --version
+[runtime --version from state.toolchain]
 git status
 git branch
 [configured typecheck command from state.toolchain.commands]

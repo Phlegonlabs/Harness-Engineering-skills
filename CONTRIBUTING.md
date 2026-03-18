@@ -41,6 +41,10 @@ bun test harness-engineering-orchestrator/references/runtime/stage.test.ts
 bun test harness-engineering-orchestrator/references/runtime/orchestrator/milestone-closeout.test.ts
 bun test harness-engineering-orchestrator/references/runtime/orchestrator/phase-readiness.test.ts
 bun test harness-engineering-orchestrator/references/runtime/progress.test.ts
+bun test harness-engineering-orchestrator/references/runtime/public-docs.test.ts
+bun test harness-engineering-orchestrator/references/runtime/toolchain-detect.test.ts
+bun test harness-engineering-orchestrator/references/runtime/execution.parallel.test.ts
+bun test harness-engineering-orchestrator/references/runtime/orchestrator/parallel-dispatch.test.ts
 ```
 
 ## PR Expectations

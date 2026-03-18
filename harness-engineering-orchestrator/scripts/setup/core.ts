@@ -74,7 +74,6 @@ function copyDirectory(sourceDir: string, targetDir: string): void {
     if (entry.isDirectory()) {
       copyDirectory(sourcePath, targetPath)
     } else {
-      mkdirSync(targetDir, { recursive: true })
       writeFileSync(targetPath, normalizeTextFileContent(readFileSync(sourcePath, "utf-8")))
     }
   }
