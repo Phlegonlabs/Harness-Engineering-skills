@@ -4,7 +4,7 @@
  * Auto-detects project ecosystem from manifest files.
  */
 
-import type { SupportedEcosystem, ToolchainCommand, ToolchainConfig } from "../harness-types.js"
+import type { SupportedEcosystem, ToolchainCommand, ToolchainConfig } from "../types.js"
 import { TOOLCHAIN_PRESETS } from "./toolchain-registry.js"
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"

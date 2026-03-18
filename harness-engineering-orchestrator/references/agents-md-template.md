@@ -1,3 +1,5 @@
+> **Scope**: This template defines the structure of generated AGENTS.md / CLAUDE.md files for target projects. It is NOT a template for the agents/*.md agent spec files within this skill repository.
+
 # AGENTS.md / CLAUDE.md Template Guide
 
 The root `AGENTS.md` and `CLAUDE.md` are now thin entry files; the full specification is delegated to `docs/ai/`.

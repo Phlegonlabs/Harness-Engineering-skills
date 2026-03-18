@@ -130,6 +130,12 @@ bun harness:orchestrate
 bun harness:advance
 ```
 
+If you clone or hard-reset a Harness-managed repository later, restore the local-only Harness files before resuming:
+
+```bash
+bun harness:hooks:install
+```
+
 For the full skill-level operator flow, see [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md).
 
 ### Team Configuration (optional)

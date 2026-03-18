@@ -4,7 +4,7 @@
  * Scans for AI slop, doc staleness, pattern drift, and dependency health.
  */
 
-import type { ProjectState } from "../harness-types.js"
+import type { ProjectState } from "../types.js"
 
 export type EntropySeverity = "block" | "warn" | "info"
 

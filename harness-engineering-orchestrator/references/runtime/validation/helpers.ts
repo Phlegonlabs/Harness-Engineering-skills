@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import type { ToolchainCommand } from "../../types.js"
 import { extname, join } from "node:path"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import {
@@ -7,7 +8,8 @@ import {
   isConfiguredToolchainCommand,
 } from "../toolchain-detect.js"
 
-export type ForbiddenPatternRule = {
+/** Runtime-compiled form */
+export type CompiledForbiddenPatternRule = {
   label: string
   pattern: RegExp
   blocking: boolean
@@ -34,7 +36,7 @@ type ToolchainLike = {
 type ToolchainCommandKey = "install" | "typecheck" | "lint" | "format" | "test" | "build" | "depCheck"
 type ToolchainCommandMap = Partial<Record<ToolchainCommandKey, ToolchainCommandSpec>>
 
-export const FORBIDDEN_PATTERN_RULES: ForbiddenPatternRule[] = [
+export const FORBIDDEN_PATTERN_RULES: CompiledForbiddenPatternRule[] = [
   { label: "console.log", pattern: /console\.log\s*\(/, blocking: true },
   { label: ": any", pattern: /:\s*any\b/, blocking: true },
   { label: "@ts-ignore", pattern: /@ts-ignore/, blocking: true },
@@ -103,8 +105,8 @@ export function searchInFiles(dir: string, pattern: RegExp, exts: string[]) {
   return matches
 }
 
-export function buildForbiddenPatternRules(toolchain?: ToolchainLike): ForbiddenPatternRule[] {
-  const dynamicRules: ForbiddenPatternRule[] = []
+export function buildForbiddenPatternRules(toolchain?: ToolchainLike): CompiledForbiddenPatternRule[] {
+  const dynamicRules: CompiledForbiddenPatternRule[] = []
 
   for (const rule of toolchain?.forbiddenPatterns ?? []) {
     try {
@@ -147,11 +149,7 @@ export function filesShareHash(...paths: string[]): boolean {
   return rest.every(hash => hash === first)
 }
 
-export interface ToolchainCommandSpec {
-  command: string
-  label?: string
-  optional?: boolean
-}
+export type ToolchainCommandSpec = ToolchainCommand
 
 export function createUnconfiguredToolchainCommand(
   key: ToolchainCommandKey,

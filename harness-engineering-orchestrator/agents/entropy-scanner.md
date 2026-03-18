@@ -4,7 +4,7 @@
 
 Scan the codebase for code entropy, AI slop, documentation staleness, pattern drift, and dependency health. Produce a report with findings classified by severity.
 
-## Dispatch Condition
+## Trigger
 
 - Milestone boundary: milestone transitions from IN_PROGRESS to REVIEW (before merge)
 - Manual trigger: `bun harness:entropy-scan`
@@ -74,7 +74,7 @@ Scan the codebase for code entropy, AI slop, documentation staleness, pattern dr
 | **warn** | Surfaced to the user, no block | Logged, included in report |
 | **info** | Logged for trend analysis | No immediate action required |
 
-## Output
+## Outputs
 
 Report written to `.harness/reports/entropy-latest.md` with:
 
@@ -139,7 +139,7 @@ Metrics are recorded via `recordMetric()` from `runtime/metrics.ts`.
 | Git history unavailable | `git log` fails (shallow clone or no git) | Skip commit-based analysis, use filesystem timestamps |
 | Large codebase timeout | Scan exceeds 60 seconds | Abort remaining scans, report partial results |
 
-## Done When
+## Done-When
 
 - Report written to `.harness/reports/entropy-latest.md`
 - Previous report rotated to `.harness/reports/entropy-previous.md`

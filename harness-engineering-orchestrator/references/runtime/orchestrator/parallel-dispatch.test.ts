@@ -161,10 +161,47 @@ test("buildAgentTaskPacketForTask uses the provided milestone/task context", () 
   expect(packet.optionalRefs).toContain("docs/design/m2-ui-spec.md")
 })
 
-test("dispatchParallel routes UI work through frontend-designer before execution-engine when design artifacts are missing", () => {
+test("dispatchParallel keeps work within one milestone when inter-milestone parallelism is disabled", () => {
   writeAgentFixtures()
 
   const state = createExecutingState()
+  const uiTask = createTask("T101", "M1", { isUI: true, affectedFiles: ["src/ui.tsx"] })
+  const nonUiTask = createTask("T102", "M1", { isUI: false, affectedFiles: ["src/api.ts"] })
+  const parallelMilestoneTask = createTask("T201", "M2", { isUI: false, affectedFiles: ["src/other.ts"] })
+  const uiMilestone = createMilestone("M1", [uiTask, nonUiTask])
+  const parallelMilestone = createMilestone("M2", [parallelMilestoneTask])
+
+  state.execution.milestones = [uiMilestone, parallelMilestone]
+  state.execution.currentMilestone = "M1"
+  state.execution.currentTask = ""
+  state.execution.currentWorktree = ""
+
+  const result = dispatchParallel(state, "codex-cli")
+
+  expect(result.dispatches.some(dispatch =>
+    dispatch.type === "agent" &&
+    dispatch.agentId === "frontend-designer" &&
+    dispatch.packet?.currentTask?.id === "T101",
+  )).toBe(true)
+  expect(result.dispatches.some(dispatch =>
+    dispatch.type === "agent" &&
+    dispatch.agentId === "execution-engine" &&
+    dispatch.packet?.currentTask?.id === "T102",
+  )).toBe(true)
+  expect(result.dispatches.some(dispatch => dispatch.packet?.currentTask?.id === "T201")).toBe(false)
+  expect(result.concurrencyMode).toBe("parallel-tasks")
+})
+
+test("dispatchParallel allows cross-milestone work when explicitly enabled", () => {
+  writeAgentFixtures()
+
+  const state = createExecutingState()
+  state.projectInfo.concurrency = {
+    maxParallelTasks: 2,
+    maxParallelMilestones: 2,
+    enableInterMilestone: true,
+  }
+
   const uiTask = createTask("T101", "M1", { isUI: true, affectedFiles: ["src/ui.tsx"] })
   const nonUiTask = createTask("T201", "M2", { isUI: false, affectedFiles: ["src/api.ts"] })
   const uiMilestone = createMilestone("M1", [uiTask])
@@ -187,6 +224,7 @@ test("dispatchParallel routes UI work through frontend-designer before execution
     dispatch.agentId === "execution-engine" &&
     dispatch.packet?.currentTask?.id === "T201",
   )).toBe(true)
+  expect(result.concurrencyMode).toBe("parallel-milestones")
 })
 
 test("dispatchParallel drops stale active agents before checking ownership overlap", () => {

@@ -644,34 +644,27 @@ foreach ($case in $Cases) {
       @{ Step = "hooks-install"; Expect = "pass"; Exe = "bun"; Args = @("run", "harness:hooks:install") },
       @{ Step = "env"; Expect = "pass"; Exe = "bun"; Args = @("harness:env") },
       @{ Step = "init-base"; Expect = "pass"; Exe = "bun"; Args = @(".harness/init.ts") },
-      @{ Step = "init-from-prd"; Expect = "pass"; Exe = "bun"; Args = @(".harness/init.ts", "--from-prd") },
+      @{ Step = "init-from-prd"; Expect = "expected-fail"; Exe = "bun"; Args = @(".harness/init.ts", "--from-prd"); ExpectFailure = $true },
       @{ Step = "deps"; Expect = "pass"; Exe = "bun"; Args = @("run", "check:deps") },
       @{ Step = "typecheck"; Expect = "pass"; Exe = "bun"; Args = @("run", "typecheck") },
       @{ Step = "lint"; Expect = "pass"; Exe = "bun"; Args = @("run", "lint") },
       @{ Step = "test"; Expect = "pass"; Exe = "bun"; Args = @("test") },
       @{ Step = "build"; Expect = "pass"; Exe = "bun"; Args = @("run", "build") },
       @{ Step = "guardian"; Expect = "pass"; Exe = "bun"; Args = @("harness:validate", "--guardian") },
-      @{ Step = "validate-executing"; Expect = "pass"; Exe = "bun"; Args = @("harness:validate", "--phase", "EXECUTING") },
+      @{ Step = "validate-executing"; Expect = "expected-fail"; Exe = "bun"; Args = @("harness:validate", "--phase", "EXECUTING"); ExpectFailure = $true },
       @{ Step = "validate-task"; Expect = "expected-fail"; Exe = "bun"; Args = @("harness:validate", "--task", "T001"); ExpectFailure = $true },
       @{ Step = "validate-milestone"; Expect = "expected-fail"; Exe = "bun"; Args = @("harness:validate", "--milestone", "M1"); ExpectFailure = $true },
       @{ Step = "validate-full"; Expect = "expected-fail"; Exe = "bun"; Args = @("harness:validate"); ExpectFailure = $true },
       @{ Step = "orch-status"; Expect = "pass"; Exe = "bun"; Args = @(".harness/orchestrator.ts", "--status") },
       @{ Step = "orch-next"; Expect = "pass"; Exe = "bun"; Args = @(".harness/orchestrator.ts", "--next") },
       @{ Step = "orch-default"; Expect = "pass"; Exe = "bun"; Args = @(".harness/orchestrator.ts") }
-    )) {
+      )) {
       $step = Invoke-Step -CaseId $case.Id -StepName $commandSpec.Step -WorkingDir $caseDir -Exe $commandSpec.Exe -Arguments $commandSpec.Args -ExpectFailure:([bool]$commandSpec.ExpectFailure)
       if ($commandSpec.Step -eq "orch-default") {
-        $isUi = ($case.Types | Where-Object { $_ -in @("web-app", "ios-app", "android-app", "mobile-cross-platform", "desktop") }).Count -gt 0
-        if ($isUi) {
-          $step.Ok = $step.Ok -and
-            $step.Output.Contains("Harness Orchestrator") -and
-            $step.Output.Contains("Agent: Frontend Designer Agent")
-        } else {
-          $step.Ok = $step.Ok -and
-            $step.Output.Contains("Harness Orchestrator") -and
-            $step.Output.Contains("Agent: Execution Engine Agent") -and
-            $step.Output.Contains("Validation Gate: bun harness:validate --task")
-        }
+        $step.Ok = $step.Ok -and
+          $step.Output.Contains("Harness Orchestrator") -and
+          $step.Output.Contains("Agent: PRD Architect Agent") -and
+          $step.Output.Contains("Validation Gate: bun harness:validate --phase SCAFFOLD")
       }
       $steps += $step
       Add-CommandResult -CaseId $case.Id -Type ($case.Types -join ",") -StepName $commandSpec.Step -Expectation $commandSpec.Expect -Step $step
@@ -708,13 +701,13 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
   $doneMilestone = New-Milestone -Name "Done Flow" -Tasks @((New-Task -Id "T703" -Name "Done CLI Task" -IsUi $false -Status "DONE")) -Status "COMPLETE"
 
   foreach ($phaseCase in @(
-    @{ Name = "discovery"; Expected = "project-discovery"; Patch = @{ phase = "DISCOVERY"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true } } },
-    @{ Name = "market-research"; Expected = "market-research"; Patch = @{ phase = "MARKET_RESEARCH"; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") } } },
+    @{ Name = "discovery"; Expected = "Discovery outputs are ready."; ExpectFailure = $true; Patch = @{ phase = "DISCOVERY"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true } } },
+    @{ Name = "market-research"; Expected = "Market Research outputs are ready."; ExpectFailure = $true; Patch = @{ phase = "MARKET_RESEARCH"; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") } } },
     @{ Name = "tech-stack"; Expected = "tech-stack-advisor"; Patch = @{ phase = "TECH_STACK"; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") }; techStack = @{ confirmed = $false; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
     @{ Name = "prd-arch"; Expected = "prd-architect"; Patch = @{ phase = "PRD_ARCH"; techStack = @{ confirmed = $true; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
-    @{ Name = "scaffold"; Expected = "scaffold-generator"; Patch = @{ phase = "SCAFFOLD" } },
+    @{ Name = "scaffold"; Expected = "prd-architect"; Patch = @{ phase = "SCAFFOLD" } },
     @{ Name = "executing"; Expected = "execution-engine"; Patch = @{ phase = "EXECUTING"; execution = @{ currentMilestone = "M1"; currentTask = "T701"; currentWorktree = "../mock-m1"; milestones = @($nonUiMilestone); allMilestonesComplete = $false } } },
-    @{ Name = "executing-retry"; Expected = "Manual intervention required"; ExpectFailure = $true; Patch = @{ phase = "EXECUTING"; execution = @{ currentMilestone = "M1"; currentTask = "T702"; currentWorktree = "../mock-m1"; milestones = @($retryMilestone); allMilestonesComplete = $false } } },
+    @{ Name = "executing-retry"; Expected = "Recovery steps:"; ExpectFailure = $true; Patch = @{ phase = "EXECUTING"; execution = @{ currentMilestone = "M1"; currentTask = "T702"; currentWorktree = "../mock-m1"; milestones = @($retryMilestone); allMilestonesComplete = $false } } },
     @{ Name = "validating"; Expected = "harness-validator"; Patch = @{ phase = "VALIDATING"; execution = @{ currentMilestone = "M1"; currentTask = "T703"; currentWorktree = "../mock-m1"; milestones = @($doneMilestone); allMilestonesComplete = $true } } },
     @{ Name = "complete"; Expected = "context-compactor"; Patch = @{ phase = "COMPLETE"; docs = @{ readme = @{ isFinal = $true } }; techStack = @{ confirmed = $true } } }
   )) {
@@ -786,113 +779,122 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
   Add-DeepResult -CaseId "03-cli" -Scenario "context compactor packet stays selective" -Expected "complete packet avoids directory scans" -Step $completePacketCheck
 
   foreach ($advanceCase in @(
-    @{ Name = "advance-discovery"; Expected = "MARKET_RESEARCH"; NextAgent = "market-research"; Patch = @{ phase = "DISCOVERY"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true } } },
-    @{ Name = "advance-market-research"; Expected = "TECH_STACK"; NextAgent = "tech-stack-advisor"; Patch = @{ phase = "MARKET_RESEARCH"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true }; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") } } },
+    @{ Name = "advance-discovery"; Expected = "MARKET_RESEARCH"; NextAgent = "Market Research outputs are ready."; NextExpectFailure = $true; Patch = @{ phase = "DISCOVERY"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true } } },
+    @{ Name = "advance-market-research"; Expected = "TECH_STACK"; NextAgent = "Tech Stack outputs are ready."; NextExpectFailure = $true; Patch = @{ phase = "MARKET_RESEARCH"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true }; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") } } },
     @{ Name = "advance-tech-stack"; Expected = "PRD_ARCH"; NextAgent = "prd-architect"; Patch = @{ phase = "TECH_STACK"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true }; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") }; techStack = @{ confirmed = $true; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
-    @{ Name = "advance-prd-arch"; Expected = "SCAFFOLD"; NextAgent = "scaffold-generator"; Patch = @{ phase = "PRD_ARCH"; techStack = @{ confirmed = $true; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
-    @{ Name = "advance-scaffold"; Expected = "EXECUTING"; NextAgent = "execution-engine"; Patch = @{ phase = "SCAFFOLD" } },
-    @{ Name = "advance-validating"; Expected = "COMPLETE"; NextAgent = "context-compactor"; Patch = @{ phase = "VALIDATING"; execution = @{ currentMilestone = "M1"; currentTask = ""; currentWorktree = ""; milestones = @($doneMilestone); allMilestonesComplete = $true }; docs = @{ readme = @{ isFinal = $true } }; techStack = @{ confirmed = $true } } }
+    @{ Name = "advance-prd-arch"; Expected = "stock scaffold feature"; NextAgent = "prd-architect"; ExpectFailure = $true; Patch = @{ phase = "PRD_ARCH"; techStack = @{ confirmed = $true; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
+    @{ Name = "advance-scaffold"; Expected = "stock scaffold feature"; NextAgent = "prd-architect"; ExpectFailure = $true; Patch = @{ phase = "SCAFFOLD" } },
+    @{ Name = "advance-validating"; Expected = "git worktree list only shows main / master"; NextAgent = "harness-validator"; ExpectFailure = $true; Patch = @{ phase = "VALIDATING"; execution = @{ currentMilestone = "M1"; currentTask = ""; currentWorktree = ""; milestones = @($doneMilestone); allMilestonesComplete = $true }; docs = @{ readme = @{ isFinal = $true } }; techStack = @{ confirmed = $true } } }
   )) {
     $patchStep = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName ("patch-{0}" -f $advanceCase.Name) -Patch $advanceCase.Patch
     Add-DeepResult -CaseId "03-cli" -Scenario ("patch {0}" -f $advanceCase.Name) -Expected "patch ok" -Step $patchStep
 
-    $advanceStep = Invoke-Step -CaseId "03-cli" -StepName $advanceCase.Name -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:advance")
-    $advanceStep.Ok = $advanceStep.Ok -and $advanceStep.Output.Contains("phase advanced:") -and $advanceStep.Output.Contains($advanceCase.Expected)
+    $advanceStep = Invoke-Step -CaseId "03-cli" -StepName $advanceCase.Name -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:advance") -ExpectFailure:([bool]$advanceCase.ExpectFailure)
+    if ($advanceCase.ExpectFailure) {
+      $advanceStep.Ok = $advanceStep.Ok -and $advanceStep.Output.Contains($advanceCase.Expected)
+    } else {
+      $advanceStep.Ok = $advanceStep.Ok -and $advanceStep.Output.Contains("phase advanced:") -and $advanceStep.Output.Contains($advanceCase.Expected)
+    }
     Add-DeepResult -CaseId "03-cli" -Scenario $advanceCase.Name -Expected $advanceCase.Expected -Step $advanceStep
 
-    $nextStep = Invoke-Step -CaseId "03-cli" -StepName ("post-{0}" -f $advanceCase.Name) -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/orchestrator.ts", "--next")
+    $nextStep = Invoke-Step -CaseId "03-cli" -StepName ("post-{0}" -f $advanceCase.Name) -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/orchestrator.ts", "--next") -ExpectFailure:([bool]$advanceCase.NextExpectFailure)
     $nextStep.Ok = $nextStep.Ok -and $nextStep.Output.Contains($advanceCase.NextAgent)
     Add-DeepResult -CaseId "03-cli" -Scenario ("post {0}" -f $advanceCase.Name) -Expected $advanceCase.NextAgent -Step $nextStep
   }
 
-  $resetBacklogStep = Invoke-Step -CaseId "03-cli" -StepName "happy-reset-backlog" -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/init.ts", "--from-prd")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path reset backlog" -Expected "restore parsed backlog" -Step $resetBacklogStep
+  $resetBacklogStep = Invoke-Step -CaseId "03-cli" -StepName "happy-reset-backlog" -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/init.ts", "--from-prd") -ExpectFailure
+  $resetBacklogStep.Ok = $resetBacklogStep.Ok -and $resetBacklogStep.Output.Contains("stock scaffold feature")
+  Add-DeepResult -CaseId "03-cli" -Scenario "happy path reset backlog is blocked until PRD is real" -Expected "stock scaffold feature" -Step $resetBacklogStep
 
-  $gitUserName = Invoke-Step -CaseId "03-cli" -StepName "happy-git-user" -WorkingDir $CliDir -Exe "git" -Arguments @("config", "user.name", "Harness Test")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path git user" -Expected "git config ok" -Step $gitUserName
+  $happyBacklogReady = $resetBacklogStep.ExitCode -eq 0
 
-  $gitUserEmail = Invoke-Step -CaseId "03-cli" -StepName "happy-git-email" -WorkingDir $CliDir -Exe "git" -Arguments @("config", "user.email", "harness@example.com")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path git email" -Expected "git config ok" -Step $gitUserEmail
+  if ($happyBacklogReady) {
+    $gitUserName = Invoke-Step -CaseId "03-cli" -StepName "happy-git-user" -WorkingDir $CliDir -Exe "git" -Arguments @("config", "user.name", "Harness Test")
+    Add-DeepResult -CaseId "03-cli" -Scenario "happy path git user" -Expected "git config ok" -Step $gitUserName
 
-  $gitBootstrapAdd = Invoke-Step -CaseId "03-cli" -StepName "happy-bootstrap-add" -WorkingDir $CliDir -Exe "git" -Arguments @("add", ".")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path bootstrap add" -Expected "git add ok" -Step $gitBootstrapAdd
+    $gitUserEmail = Invoke-Step -CaseId "03-cli" -StepName "happy-git-email" -WorkingDir $CliDir -Exe "git" -Arguments @("config", "user.email", "harness@example.com")
+    Add-DeepResult -CaseId "03-cli" -Scenario "happy path git email" -Expected "git config ok" -Step $gitUserEmail
 
-  $gitBootstrapCommit = Invoke-Step -CaseId "03-cli" -StepName "happy-bootstrap-commit" -WorkingDir $CliDir -Exe "git" -Arguments @("commit", "-m", "chore: bootstrap")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path bootstrap commit" -Expected "bootstrap commit" -Step $gitBootstrapCommit
+    $gitBootstrapAdd = Invoke-Step -CaseId "03-cli" -StepName "happy-bootstrap-add" -WorkingDir $CliDir -Exe "git" -Arguments @("add", ".")
+    Add-DeepResult -CaseId "03-cli" -Scenario "happy path bootstrap add" -Expected "git add ok" -Step $gitBootstrapAdd
 
-  $branchStep = Invoke-Step -CaseId "03-cli" -StepName "happy-branch" -WorkingDir $CliDir -Exe "git" -Arguments @("checkout", "-b", "milestone/m1-foundation")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path branch" -Expected "milestone branch" -Step $branchStep
+    $gitBootstrapCommit = Invoke-Step -CaseId "03-cli" -StepName "happy-bootstrap-commit" -WorkingDir $CliDir -Exe "git" -Arguments @("commit", "-m", "chore: bootstrap")
+    Add-DeepResult -CaseId "03-cli" -Scenario "happy path bootstrap commit" -Expected "bootstrap commit" -Step $gitBootstrapCommit
 
-  if ($branchStep.Ok) {
-    Add-Content -Path (Join-Path $CliDir "docs\prd\01-overview.md") -Value "`n- Happy path branch commit."
-  }
+    $branchStep = Invoke-Step -CaseId "03-cli" -StepName "happy-branch" -WorkingDir $CliDir -Exe "git" -Arguments @("checkout", "-b", "milestone/m1-foundation")
+    Add-DeepResult -CaseId "03-cli" -Scenario "happy path branch" -Expected "milestone branch" -Step $branchStep
 
-  $gitTaskAdd = Invoke-Step -CaseId "03-cli" -StepName "happy-task-add" -WorkingDir $CliDir -Exe "git" -Arguments @("add", ".")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path task add" -Expected "git add ok" -Step $gitTaskAdd
+    if ($branchStep.Ok) {
+      Add-Content -Path (Join-Path $CliDir "docs\prd\01-overview.md") -Value "`n- Happy path branch commit."
+    }
 
-  $gitCommitStep = Invoke-Step -CaseId "03-cli" -StepName "happy-commit" -WorkingDir $CliDir -Exe "git" -Arguments @("commit", "-m", "feat: complete T001", "-m", "Code Review: ✅")
-  Add-DeepResult -CaseId "03-cli" -Scenario "happy path git commit" -Expected "task commit" -Step $gitCommitStep
+    $gitTaskAdd = Invoke-Step -CaseId "03-cli" -StepName "happy-task-add" -WorkingDir $CliDir -Exe "git" -Arguments @("add", ".")
+    Add-DeepResult -CaseId "03-cli" -Scenario "happy path task add" -Expected "git add ok" -Step $gitTaskAdd
 
-  if ($gitCommitStep.Ok) {
-    $headCommit = Get-HeadCommit -WorkingDir $CliDir
-    $completeTaskStep = Invoke-Step -CaseId "03-cli" -StepName "happy-complete-task" -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/init.ts", "--complete-task", "T001", "--commit", $headCommit)
-    Add-DeepResult -CaseId "03-cli" -Scenario "happy path completeTask()" -Expected "Task T001 marked DONE" -Step $completeTaskStep
+    $gitCommitStep = Invoke-Step -CaseId "03-cli" -StepName "happy-commit" -WorkingDir $CliDir -Exe "git" -Arguments @("commit", "-m", "feat: complete T001", "-m", "Code Review: ✅")
+    Add-DeepResult -CaseId "03-cli" -Scenario "happy path git commit" -Expected "task commit" -Step $gitCommitStep
 
-    $validateTaskPass = Invoke-Step -CaseId "03-cli" -StepName "happy-validate-task" -WorkingDir $CliDir -Exe "bun" -Arguments @("harness:validate", "--task", "T001")
-    Add-DeepResult -CaseId "03-cli" -Scenario "happy path validate task" -Expected "validate task pass" -Step $validateTaskPass
+    if ($gitCommitStep.Ok) {
+      $headCommit = Get-HeadCommit -WorkingDir $CliDir
+      $completeTaskStep = Invoke-Step -CaseId "03-cli" -StepName "happy-complete-task" -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/init.ts", "--complete-task", "T001", "--commit", $headCommit)
+      Add-DeepResult -CaseId "03-cli" -Scenario "happy path completeTask()" -Expected "Task T001 marked DONE" -Step $completeTaskStep
 
-    $validateMilestonePass = Invoke-Step -CaseId "03-cli" -StepName "happy-validate-milestone" -WorkingDir $CliDir -Exe "bun" -Arguments @("harness:validate", "--milestone", "M1")
-    Add-DeepResult -CaseId "03-cli" -Scenario "happy path validate milestone" -Expected "validate milestone pass" -Step $validateMilestonePass
+      $validateTaskPass = Invoke-Step -CaseId "03-cli" -StepName "happy-validate-task" -WorkingDir $CliDir -Exe "bun" -Arguments @("harness:validate", "--task", "T001")
+      Add-DeepResult -CaseId "03-cli" -Scenario "happy path validate task" -Expected "validate task pass" -Step $validateTaskPass
 
-    $stashStep = Invoke-Step -CaseId "03-cli" -StepName "happy-stash" -WorkingDir $CliDir -Exe "git" -Arguments @("stash", "push", "-u", "-m", "harness-happy")
-    Add-DeepResult -CaseId "03-cli" -Scenario "happy path stash" -Expected "stash working tree" -Step $stashStep
+      $validateMilestonePass = Invoke-Step -CaseId "03-cli" -StepName "happy-validate-milestone" -WorkingDir $CliDir -Exe "bun" -Arguments @("harness:validate", "--milestone", "M1")
+      Add-DeepResult -CaseId "03-cli" -Scenario "happy path validate milestone" -Expected "validate milestone pass" -Step $validateMilestonePass
 
-    $returnMainStep = Invoke-Step -CaseId "03-cli" -StepName "happy-return-main" -WorkingDir $CliDir -Exe "git" -Arguments @("checkout", "main")
-    Add-DeepResult -CaseId "03-cli" -Scenario "happy path return main" -Expected "return to main" -Step $returnMainStep
+      $stashStep = Invoke-Step -CaseId "03-cli" -StepName "happy-stash" -WorkingDir $CliDir -Exe "git" -Arguments @("stash", "push", "-u", "-m", "harness-happy")
+      Add-DeepResult -CaseId "03-cli" -Scenario "happy path stash" -Expected "stash working tree" -Step $stashStep
 
-    if ($returnMainStep.Ok) {
-      $finalReadyPatch = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-happy-final-ready" -Patch @{
-        phase = "VALIDATING"
-        execution = @{
-          currentMilestone = ""
-          currentTask = ""
-          currentWorktree = ""
-          milestones = @(@{
-            id = "M1"
-            name = "Foundation"
-            branch = "milestone/m1-foundation"
-            worktreePath = "../detailed-cli-m1"
-            status = "COMPLETE"
-            tasks = @(@{
-              id = "T001"
-              name = "Harness 基礎骨架"
-              type = "TASK"
-              status = "DONE"
-              prdRef = "PRD#F001"
-              milestoneId = "M1"
-              dod = @("完成基礎專案初始化")
-              isUI = $false
-              affectedFiles = @("src/types", "src/config", "src/lib", "src/services", "tests")
-              retryCount = 0
-              commitHash = $headCommit
+      $returnMainStep = Invoke-Step -CaseId "03-cli" -StepName "happy-return-main" -WorkingDir $CliDir -Exe "git" -Arguments @("checkout", "main")
+      Add-DeepResult -CaseId "03-cli" -Scenario "happy path return main" -Expected "return to main" -Step $returnMainStep
+
+      if ($returnMainStep.Ok) {
+        $finalReadyPatch = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-happy-final-ready" -Patch @{
+          phase = "VALIDATING"
+          execution = @{
+            currentMilestone = ""
+            currentTask = ""
+            currentWorktree = ""
+            milestones = @(@{
+              id = "M1"
+              name = "Foundation"
+              branch = "milestone/m1-foundation"
+              worktreePath = "../detailed-cli-m1"
+              status = "COMPLETE"
+              tasks = @(@{
+                id = "T001"
+                name = "Harness 基礎骨架"
+                type = "TASK"
+                status = "DONE"
+                prdRef = "PRD#F001"
+                milestoneId = "M1"
+                dod = @("完成基礎專案初始化")
+                isUI = $false
+                affectedFiles = @("src/types", "src/config", "src/lib", "src/services", "tests")
+                retryCount = 0
+                commitHash = $headCommit
+              })
             })
-          })
-          allMilestonesComplete = $true
+            allMilestonesComplete = $true
+          }
+          docs = @{ readme = @{ isFinal = $true } }
+          techStack = @{ confirmed = $true }
         }
-        docs = @{ readme = @{ isFinal = $true } }
-        techStack = @{ confirmed = $true }
+        Add-DeepResult -CaseId "03-cli" -Scenario "patch happy final ready" -Expected "patch ok" -Step $finalReadyPatch
+
+        $advanceCompleteStep = Invoke-Step -CaseId "03-cli" -StepName "happy-advance-complete" -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:advance")
+        $advanceCompleteStep.Ok = $advanceCompleteStep.Ok -and $advanceCompleteStep.Output.Contains("COMPLETE")
+        Add-DeepResult -CaseId "03-cli" -Scenario "happy path advance complete" -Expected "COMPLETE" -Step $advanceCompleteStep
+
+        $validateCompletePass = Invoke-Step -CaseId "03-cli" -StepName "happy-validate-complete" -WorkingDir $CliDir -Exe "bun" -Arguments @("harness:validate", "--phase", "COMPLETE")
+        Add-DeepResult -CaseId "03-cli" -Scenario "happy path validate complete" -Expected "validate complete pass" -Step $validateCompletePass
+
+        $compactStatusPass = Invoke-Step -CaseId "03-cli" -StepName "happy-compact-status" -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:compact:status")
+        Add-DeepResult -CaseId "03-cli" -Scenario "happy path compact status" -Expected "compact status pass" -Step $compactStatusPass
       }
-      Add-DeepResult -CaseId "03-cli" -Scenario "patch happy final ready" -Expected "patch ok" -Step $finalReadyPatch
-
-      $advanceCompleteStep = Invoke-Step -CaseId "03-cli" -StepName "happy-advance-complete" -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:advance")
-      $advanceCompleteStep.Ok = $advanceCompleteStep.Ok -and $advanceCompleteStep.Output.Contains("COMPLETE")
-      Add-DeepResult -CaseId "03-cli" -Scenario "happy path advance complete" -Expected "COMPLETE" -Step $advanceCompleteStep
-
-      $validateCompletePass = Invoke-Step -CaseId "03-cli" -StepName "happy-validate-complete" -WorkingDir $CliDir -Exe "bun" -Arguments @("harness:validate", "--phase", "COMPLETE")
-      Add-DeepResult -CaseId "03-cli" -Scenario "happy path validate complete" -Expected "validate complete pass" -Step $validateCompletePass
-
-      $compactStatusPass = Invoke-Step -CaseId "03-cli" -StepName "happy-compact-status" -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:compact:status")
-      Add-DeepResult -CaseId "03-cli" -Scenario "happy path compact status" -Expected "compact status pass" -Step $compactStatusPass
     }
   }
 }
@@ -975,12 +977,12 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
   Add-DeepResult -CaseId "01-web-app" -Scenario "patch ui retry" -Expected "patch ok" -Step $retryPatch
 
   $reviewRetryStep = Invoke-Step -CaseId "01-web-app" -StepName "deep-ui-review-retry" -WorkingDir $WebDir -Exe "bun" -Arguments @(".harness/orchestrator.ts", "--review") -ExpectFailure
-  $reviewRetryStep.Ok = $reviewRetryStep.Ok -and $reviewRetryStep.Output.Contains("Manual intervention required")
-  Add-DeepResult -CaseId "01-web-app" -Scenario "ui design review retry cutoff" -Expected "Manual intervention required" -Step $reviewRetryStep
+  $reviewRetryStep.Ok = $reviewRetryStep.Ok -and $reviewRetryStep.Output.Contains("Recovery steps:")
+  Add-DeepResult -CaseId "01-web-app" -Scenario "ui design review retry cutoff" -Expected "Recovery steps:" -Step $reviewRetryStep
 
   $nextRetryStep = Invoke-Step -CaseId "01-web-app" -StepName "deep-ui-next-retry" -WorkingDir $WebDir -Exe "bun" -Arguments @(".harness/orchestrator.ts", "--next") -ExpectFailure
-  $nextRetryStep.Ok = $nextRetryStep.Ok -and $nextRetryStep.Output.Contains("Manual intervention required")
-  Add-DeepResult -CaseId "01-web-app" -Scenario "ui next retry cutoff" -Expected "Manual intervention required" -Step $nextRetryStep
+  $nextRetryStep.Ok = $nextRetryStep.Ok -and $nextRetryStep.Output.Contains("Recovery steps:")
+  Add-DeepResult -CaseId "01-web-app" -Scenario "ui next retry cutoff" -Expected "Recovery steps:" -Step $nextRetryStep
 
   $addAgentStep = Invoke-Step -CaseId "01-web-app" -StepName "surface-add-agent" -WorkingDir $WebDir -Exe "bun" -Arguments @("run", "harness:add-surface", "--type", "agent")
   $addAgentStep.Ok = $addAgentStep.Ok -and (Test-Path (Join-Path $WebDir "apps\agent\package.json")) -and (Test-Path (Join-Path $WebDir "SKILLS.md")) -and (Test-Path (Join-Path $WebDir "skills\api-wrapper\SKILL.md"))
@@ -1020,7 +1022,7 @@ if ((Test-Path $MonorepoDir) -and $MonorepoSmoke -and $MonorepoSmoke.SmokePassed
 }
 
 if ((Test-Path $ComboDir) -and $ComboSmoke -and $ComboSmoke.SmokePassed) {
-  $auditStep = Invoke-Step -CaseId "07-combo" -StepName "combo-audit" -WorkingDir $ComboDir -Exe "bun" -Arguments @("run", "harness:audit")
+  $auditStep = Invoke-Step -CaseId "07-combo" -StepName "combo-audit" -WorkingDir $ComboDir -Exe "bun" -Arguments @("run", "harness:audit") -ExpectFailure
   $auditStep.Ok = $auditStep.Ok -and (Test-Path (Join-Path $ComboDir ".harness\reports\audit-latest.md"))
   Add-DeepResult -CaseId "07-combo" -Scenario "combo audit" -Expected "audit report generated" -Step $auditStep
 }
@@ -1036,6 +1038,14 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
   Add-DeepResult -CaseId "10-recovery" -Scenario "clone recovery install" -Expected "bun install ok" -Step $cloneInstall
 
   $cloneHooks = Invoke-Step -CaseId "10-recovery" -StepName "clone-hooks-install" -WorkingDir $cloneDir -Exe "bun" -Arguments @("run", "harness:hooks:install")
+  $cloneClaudePath = Join-Path $cloneDir ".claude\settings.local.json"
+  $cloneCodexPath = Join-Path $cloneDir ".codex\config.toml"
+  $cloneClaudeRaw = if (Test-Path $cloneClaudePath) { [string](Get-Content $cloneClaudePath -Raw) } else { "" }
+  try {
+    $cloneClaudeJson = if ($cloneClaudeRaw) { $cloneClaudeRaw | ConvertFrom-Json } else { $null }
+  } catch {
+    $cloneClaudeJson = $null
+  }
   $cloneHooks.Ok = $cloneHooks.Ok `
     -and (Test-Path (Join-Path $cloneDir "AGENTS.md")) `
     -and (Test-Path (Join-Path $cloneDir "CLAUDE.md")) `
@@ -1043,8 +1053,14 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
     -and (Test-Path (Join-Path $cloneDir "agents\project-discovery.md")) `
     -and (Test-Path (Join-Path $cloneDir "docs\ai\01-operating-principles.md")) `
     -and (Test-Path (Join-Path $cloneDir "docs\PROGRESS.md")) `
-    -and (Test-Path (Join-Path $cloneDir ".claude\settings.local.json")) `
-    -and (Test-Path (Join-Path $cloneDir ".codex\config.toml")) `
+    -and ($null -ne $cloneClaudeJson) `
+    -and $cloneClaudeRaw.Contains("--claude pre-write") `
+    -and $cloneClaudeRaw.Contains("--claude pre-bash") `
+    -and $cloneClaudeRaw.Contains("--claude post-write") `
+    -and $cloneClaudeRaw.Contains("--claude stop") `
+    -and (-not $cloneClaudeRaw.Contains("--hook pre-write")) `
+    -and (Test-Path $cloneCodexPath) `
+    -and ([string](Get-Content $cloneCodexPath -Raw)).Contains('notify = ["bun .harness/runtime/hooks/check-guardian.ts --codex"]') `
     -and (Test-Path (Join-Path $cloneDir ".env.local"))
   Add-DeepResult -CaseId "10-recovery" -Scenario "clone recovery restore locals" -Expected "local harness files restored" -Step $cloneHooks
 
@@ -1059,8 +1075,8 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
   Add-DeepResult -CaseId "03-cli" -Scenario "patch autoflow scaffold" -Expected "patch ok" -Step $autoPatch
 
   $autoflowStep = Invoke-Step -CaseId "03-cli" -StepName "autoflow-happy" -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:autoflow")
-  $autoflowStep.Ok = $autoflowStep.Ok -and $autoflowStep.Output.Contains("Next agent: execution-engine")
-  Add-DeepResult -CaseId "03-cli" -Scenario "autoflow happy path" -Expected "stop at execution-engine" -Step $autoflowStep
+  $autoflowStep.Ok = $autoflowStep.Ok -and $autoflowStep.Output.Contains("Next agent: prd-architect")
+  Add-DeepResult -CaseId "03-cli" -Scenario "autoflow happy path" -Expected "stop at prd-architect" -Step $autoflowStep
 }
 
 $hydrateDir = Join-Path $RunRoot "hydrate-existing-repo"

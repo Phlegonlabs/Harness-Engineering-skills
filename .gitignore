@@ -24,6 +24,9 @@ Desktop.ini
 *.swo
 *~
 
+# Local agent config
+/.claude/
+
 # Logs
 *.log
 npm-debug.log*
@@ -43,3 +46,6 @@ PRD.md
 tmp/
 temp/
 *.tmp
+
+# Harness test artifacts
+/harness-engineering-orchestrator/tmp/

@@ -10,6 +10,7 @@ export function createEmptyTaskChecklist(): TaskChecklist {
     buildPassed: false,
     fileSizeOk: false,
     noForbiddenPatterns: false,
+    dependencyChangeApproved: false,
     atomicCommitDone: false,
     progressUpdated: false,
   }

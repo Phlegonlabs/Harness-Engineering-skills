@@ -4,6 +4,8 @@
 
 In Phase 4, generate an executable project skeleton based on the confirmed stack.
 
+> **Trigger context**: This sub-module is read as a reference by scaffold-generator during SCAFFOLD phase for stack-specific scaffold details. It is not dispatched as a live execution path during the Execution Engine's EXECUTING phase.
+
 ### Reference
 
 - Detailed initialization scripts and differences: `references/stacks.md`

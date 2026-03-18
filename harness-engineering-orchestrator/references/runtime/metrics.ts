@@ -4,7 +4,7 @@
  * Records, stores, and derives metrics across 5 categories.
  */
 
-import type { MetricEntry, MetricCategory, MetricsState, ProjectState } from "../harness-types.js"
+import type { MetricEntry, MetricCategory, MetricsState, ProjectState } from "../types.js"
 
 /** Append a metric entry to state. */
 export function recordMetric(state: ProjectState, entry: MetricEntry): void {
@@ -21,11 +21,9 @@ export function collectThroughputMetrics(state: ProjectState): MetricEntry[] {
   const entries: MetricEntry[] = []
 
   const milestones = state.execution?.milestones ?? []
-  const activeMilestone = milestones.find(m => m.status === "active" || m.status === "IN_PROGRESS")
+  const activeMilestone = milestones.find(m => m.status === "IN_PROGRESS")
   if (activeMilestone) {
-    const doneTasks = activeMilestone.tasks.filter(
-      t => t.status === "DONE" || t.status === "done"
-    ).length
+    const doneTasks = activeMilestone.tasks.filter(t => t.status === "DONE").length
     entries.push({
       name: "tasks_completed",
       category: "throughput",

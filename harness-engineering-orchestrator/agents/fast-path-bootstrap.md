@@ -4,7 +4,7 @@
 
 Combined discovery inference, minimal PRD generation, minimal scaffold for Lite-level projects. Completes the DISCOVERY-to-EXECUTING transition in a single dispatch.
 
-## Dispatch Condition
+## Trigger
 
 - Harness level: `lite`
 - Current phase: `DISCOVERY`
@@ -60,6 +60,7 @@ Combined discovery inference, minimal PRD generation, minimal scaffold for Lite-
 - `ecosystem_aware: true` — uses detected toolchain for all command references
 - Skip Market Research and Tech Stack phases (Lite level does not require them)
 - Skip GitBook setup (Lite level does not require it)
+- Market Research is permanently removed from the phase sequence at setup time — upgrading harness level to Standard mid-project does not retroactively run it
 
 ## Confidence Scoring (AG-13)
 
@@ -134,7 +135,7 @@ Before generating any artifacts (PRD, Architecture, scaffold), the full inferred
 - **Monorepo detection** — If `workspaces` field exists in `package.json` or multiple manifest files are found in subdirectories, set type to `monorepo`
 - **No user description** — If concept is empty or too vague, prompt for clarification rather than generating a generic PRD
 
-## Done When
+## Done-When
 
 - `state.phase === "EXECUTING"`
 - `docs/PRD.md` exists with at least 1 milestone

@@ -51,6 +51,7 @@ cp config.example.json config.json
 | `defaults.visibility` | `private` | Repository visibility (`public`, `private`) |
 | `defaults.skipGithub` | `false` | Skip GitHub repo creation |
 | `guardianOverrides.warnOnly` | `[]` | Guardian IDs to downgrade from block to warn |
+| `guardianOverrides.disabled` | `[]` | Guardian IDs to fully disable (requires explicit plan change) |
 | `phaseSkips.skipMarketResearch` | `false` | Skip Market Research phase |
 | `org.name` | `your-org` | Default GitHub organization |
 | `org.defaultUser` | `Operator` | Default user name in generated artifacts |
@@ -73,6 +74,14 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 3. a milestone and task plan in `docs/PROGRESS.md`
 4. a runnable scaffold with Harness runtime files
 5. validated implementation until the project reaches `COMPLETE`
+
+### Changes in v1.8.1
+
+- Unified Claude hook config generation so initial setup and `harness:hooks:install` restore the same matcher-based `.claude/settings.local.json`
+- Fixed Codex local config merge so all managed lines are preserved and post-clone recovery restores the expected notify hook
+- Made Codex notify warnings toolchain-aware instead of hardcoding `src/`, so custom source roots/extensions behave consistently with runtime validation
+- Enforced `maxParallelMilestones` and `enableInterMilestone` in the parallel dispatcher instead of exposing them as documentation-only fields
+- Hardened setup environment checks so missing executables surface install guidance instead of crashing the bootstrap flow
 
 ### Changes in v1.8.0
 
@@ -125,7 +134,7 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 
 ## Fast Path (Lite Only)
 
-When harness level is Lite, the skill offers a 2-turn Fast Path:
+When harness level is Lite, the skill offers a Fast Path that completes in a minimum of 2 turns, with additional clarification turns when inference confidence is low:
 
 1. **Turn 1** — User describes the project concept in one message. The skill infers project name, type, stack, and 2-3 milestones.
 2. **Turn 2** — User confirms or adjusts the inferred plan. The skill scaffolds immediately and enters EXECUTING.
@@ -214,7 +223,7 @@ bun <path-to-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=t
 
 The setup script infers project metadata from `package.json`, `README.md`, and `docs/`, then generates all harness runtime files while preserving existing files. The project typically enters at `SCAFFOLD` phase.
 
-After hydration, adapt the project's toolchain commands if needed — the gate checks use `state.toolchain.commands` for typecheck, format, and build. The toolchain is auto-detected from manifest files (see `runtime/toolchain-detect.ts`).
+After hydration, adapt the project's toolchain commands if needed — the gate checks use `state.toolchain.commands.{typecheck,format,build}` for typecheck, format, and build. The toolchain is auto-detected from manifest files (see `./references/runtime/toolchain-detect.ts`).
 
 Regardless of the starting point, the project must end up with:
 
@@ -506,7 +515,7 @@ For the deeper execution rules, read:
 
 Run final validation only after the milestone ledger is actually complete.
 
-**Level-scoped critical items**: Lite checks 8 items (no minimum score). Standard checks 15 items (score reported only). Full checks 19 items (score must be ≥ 80).
+**Level-scoped critical items**: Lite checks 8 items (no minimum score). Standard checks 15 items (score reported; unresolved critical failures still block the gate). Full checks 19 items (score must be ≥ 80).
 
 Required outcomes:
 
@@ -544,7 +553,7 @@ These files are automatically synchronized by `harness:advance`, `harness:stage 
 | ID | Name | Description | Active From | Lite | Standard | Full |
 |----|------|-------------|-------------|------|----------|------|
 | G1 | Scope Lock | Implement only work mapped to current task and PRD reference | EXECUTING | Active (simplified) | Active | Active |
-| G2 | Branch Protection | No feature commits directly on main/master | EXECUTING | Relaxed | Active | Active |
+| G2 | Branch Protection | No feature commits directly on main/master | EXECUTING | Relaxed | Active | Active (from SCAFFOLD) |
 | G3 | File Size Limit | No single source file may exceed 400 lines | SCAFFOLD | Active | Active | Active |
 | G4 | Forbidden Patterns | No console.log, `: any`, `@ts-ignore`, or similar anti-patterns | SCAFFOLD | Active (blocking only) | Active | Active |
 | G5 | Dependency Direction | types → config → lib → services → app; reverse imports forbidden | EXECUTING | Inactive | Active | Active + CI |
@@ -645,7 +654,7 @@ bun .harness/orchestrator.ts --next         # Output only the next agent/action
 bun .harness/orchestrator.ts --review       # Dispatch Design Reviewer (UI tasks)
 bun .harness/orchestrator.ts --code-review  # Dispatch Code Reviewer (non-UI tasks)
 bun harness:merge-milestone M[N]           # Merge a REVIEW milestone into main, clean up worktree
-bun harness:hooks:install                   # Restore local Harness files, then re-install git hooks, Claude Code settings, and Codex CLI config
+bun harness:hooks:install                   # Restore the local Harness snapshot (including Claude/Codex config) and re-install git hook shims
 bun harness:add-surface --type=<TYPE>       # Add a new project surface (e.g. api, android-app)
 bun harness:audit                           # Full audit: guardians, phase gate, workspace, docs drift
 bun harness:sync-docs                       # Synchronize managed documentation files

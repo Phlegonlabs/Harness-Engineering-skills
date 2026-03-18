@@ -601,6 +601,7 @@ export function renderPlaceholders(content: string, context: Context): string {
     AUTHOR: "Harness Engineering and Orchestrator",
     VISUAL_DESIGN_CONTENT: buildVisualDesignContent(context),
     DIRECTORY_STRUCTURE: buildDirectoryStructure(context),
+    INSTALL_COMMAND: "bun install",
     CURRENT_PHASE: "SCAFFOLD",
     CURRENT_MILESTONE: "Not yet created",
     CURRENT_WORKTREE: `../${context.projectName}-m1`,

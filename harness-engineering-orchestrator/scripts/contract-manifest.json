@@ -99,7 +99,9 @@
     {
       "file": "references/autoflow-algorithm.md",
       "text": "It does **not** execute phase agents for you."
-    }
+    },
+    { "file": "SKILL.md", "text": "name: harness-engineering-orchestrator" },
+    { "file": "SKILL.md", "text": "description:" }
   ],
   "forbiddenText": [
     {

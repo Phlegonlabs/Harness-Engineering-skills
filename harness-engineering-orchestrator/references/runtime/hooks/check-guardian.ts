@@ -12,7 +12,15 @@
 
 import { existsSync, readFileSync } from "fs"
 import { basename, extname } from "path"
-import { FORBIDDEN_PATTERN_RULES, countLines, fileHash } from "../validation/helpers"
+import type { ProjectState } from "../../types"
+import {
+  FORBIDDEN_PATTERN_RULES,
+  buildForbiddenPatternRules,
+  findFiles,
+  resolveToolchainSourceExtensions,
+  resolveToolchainSourceRoot,
+  type CompiledForbiddenPatternRule,
+} from "../validation/helpers"
 
 // ---------------------------------------------------------------------------
 // Skip mechanism
@@ -26,17 +34,38 @@ if (process.env.HARNESS_HOOKS_SKIP === "1") {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SOURCE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"])
+const DEFAULT_SOURCE_EXTS = new Set(resolveToolchainSourceExtensions())
 
-function isSourceFile(filePath: string): boolean {
-  return SOURCE_EXTS.has(extname(filePath))
+function getProjectState(): ProjectState | undefined {
+  try {
+    return JSON.parse(readFileSync(".harness/state.json", "utf-8")) as ProjectState
+  } catch {
+    return undefined
+  }
+}
+
+function getSourceExtensions(state?: ProjectState): Set<string> {
+  return new Set(resolveToolchainSourceExtensions(state?.toolchain))
+}
+
+function isSourceFile(filePath: string, sourceExts: Set<string> = DEFAULT_SOURCE_EXTS): boolean {
+  return sourceExts.has(extname(filePath))
 }
 
 function spawnSync(cmd: string[]): { ok: boolean; stdout: string } {
-  const proc = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" })
-  return {
-    ok: proc.exitCode === 0,
-    stdout: new TextDecoder().decode(proc.stdout).trim(),
+  try {
+    const proc = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" })
+    const stdout = new TextDecoder().decode(proc.stdout).trim()
+    const stderr = new TextDecoder().decode(proc.stderr).trim()
+    return {
+      ok: proc.exitCode === 0,
+      stdout: proc.exitCode === 0 ? stdout : stderr || stdout,
+    }
+  } catch {
+    return {
+      ok: false,
+      stdout: "",
+    }
   }
 }
 
@@ -50,9 +79,13 @@ function isProtectedBranch(): boolean {
   return branch === "main" || branch === "master"
 }
 
-function scanContentForPatterns(content: string, filePath: string): string[] {
+function scanContentForPatterns(
+  content: string,
+  filePath: string,
+  rules: CompiledForbiddenPatternRule[] = FORBIDDEN_PATTERN_RULES,
+): string[] {
   const errors: string[] = []
-  for (const rule of FORBIDDEN_PATTERN_RULES) {
+  for (const rule of rules) {
     if (!rule.blocking) continue
     if (rule.pattern.test(content)) {
       errors.push(`G4/G6: forbidden pattern "${rule.label}" found in ${filePath}`)
@@ -75,55 +108,85 @@ function readStdin(): string {
 type HarnessLevel = "lite" | "standard" | "full"
 
 function getCurrentPhase(): string {
-  try {
-    const state = JSON.parse(readFileSync(".harness/state.json", "utf-8"))
-    return state.phase ?? ""
-  } catch {
-    return ""
-  }
+  return getProjectState()?.phase ?? ""
 }
 
 function getHarnessLevel(): HarnessLevel {
-  try {
-    const state = JSON.parse(readFileSync(".harness/state.json", "utf-8")) as {
-      projectInfo?: { harnessLevel?: { level?: string } }
-    }
-    const level = state.projectInfo?.harnessLevel?.level
-    if (level === "lite" || level === "standard" || level === "full") return level
-    return "standard"
-  } catch {
-    return "standard"
-  }
+  const level = getProjectState()?.projectInfo?.harnessLevel?.level
+  if (level === "lite" || level === "standard" || level === "full") return level
+  return "standard"
 }
 
 function getCurrentTaskContext(): { id: string; prdRef: string } | null {
-  try {
-    const state = JSON.parse(readFileSync(".harness/state.json", "utf-8")) as {
-      execution?: {
-        currentTask?: string
-        milestones?: Array<{
-          tasks?: Array<{
-            id?: string
-            prdRef?: string
-          }>
-        }>
-      }
-    }
-    const currentTaskId = state.execution?.currentTask
-    if (!currentTaskId) return null
+  const state = getProjectState()
+  const currentTaskId = state?.execution?.currentTask
+  if (!currentTaskId) return null
 
-    for (const milestone of state.execution?.milestones ?? []) {
-      for (const task of milestone.tasks ?? []) {
-        if (task.id === currentTaskId) {
-          return { id: currentTaskId, prdRef: task.prdRef ?? "" }
-        }
+  for (const milestone of state?.execution?.milestones ?? []) {
+    for (const task of milestone.tasks ?? []) {
+      if (task.id === currentTaskId) {
+        return { id: currentTaskId, prdRef: task.prdRef ?? "" }
       }
     }
-  } catch {
-    return null
   }
 
   return null
+}
+
+function listTrackedFiles(pathspec?: string): string[] {
+  const args = ["git", "ls-files"]
+  if (pathspec && pathspec !== ".") {
+    args.push(pathspec)
+  }
+
+  const result = spawnSync(args)
+  if (!result.ok || !result.stdout) {
+    return []
+  }
+
+  return result.stdout
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(file => file.replace(/\\/g, "/"))
+}
+
+export function getCodexNotifySourceFiles(state?: ProjectState): string[] {
+  const sourceRoot = resolveToolchainSourceRoot(state?.toolchain)
+  const sourceExts = getSourceExtensions(state)
+  const trackedFiles = listTrackedFiles(sourceRoot)
+
+  if (trackedFiles.length > 0) {
+    return trackedFiles.filter(file => isSourceFile(file, sourceExts))
+  }
+
+  return findFiles(sourceRoot, Array.from(sourceExts)).map(file => file.replace(/\\/g, "/"))
+}
+
+export function collectCodexNotifyWarnings(state = getProjectState()): string[] {
+  const warnings: string[] = []
+  const rules = buildForbiddenPatternRules(state?.toolchain)
+  const sourceExts = getSourceExtensions(state)
+
+  if (isProtectedBranch()) {
+    warnings.push("G2: you are on main/master — create a feature branch before committing.")
+  }
+
+  for (const file of getCodexNotifySourceFiles(state)) {
+    if (!isSourceFile(file, sourceExts)) continue
+
+    try {
+      const content = readFileSync(file, "utf-8")
+      const lineCount = content.split(/\r?\n/).length
+      if (lineCount > 400) {
+        warnings.push(`G3: ${file} has ${lineCount} lines (max 400).`)
+      }
+      warnings.push(...scanContentForPatterns(content, file, rules))
+    } catch {
+      // File may not exist on disk.
+    }
+  }
+
+  return warnings
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +202,9 @@ function hookPreCommit(): void {
   const errors: string[] = []
   const warnings: string[] = []
   const level = getHarnessLevel()
+  const state = getProjectState()
+  const sourceExts = getSourceExtensions(state)
+  const rules = buildForbiddenPatternRules(state?.toolchain)
 
   // G2: No commits on protected branches (only enforced from EXECUTING onward)
   // Relaxed at Lite: warn instead of block
@@ -165,7 +231,7 @@ function hookPreCommit(): void {
       continue
     }
 
-    if (!isSourceFile(file)) continue
+    if (!isSourceFile(file, sourceExts)) continue
 
     // Read staged content
     const show = spawnSync(["git", "show", `:${file}`])
@@ -179,7 +245,7 @@ function hookPreCommit(): void {
     }
 
     // G4 + G6: Forbidden patterns
-    errors.push(...scanContentForPatterns(content, file))
+    errors.push(...scanContentForPatterns(content, file, rules))
   }
 
   if (warnings.length > 0) {
@@ -295,19 +361,22 @@ function claudePreWrite(): void {
 
   const errors: string[] = []
   const filePath = payload.input.file_path ?? "unknown"
+  const state = getProjectState()
+  const sourceExts = getSourceExtensions(state)
+  const rules = buildForbiddenPatternRules(state?.toolchain)
 
   // G3: Line count (Write only, not Edit)
   if (payload.tool === "Write" && payload.input.content) {
     const lineCount = payload.input.content.split(/\r?\n/).length
-    if (isSourceFile(filePath) && lineCount > 400) {
+    if (isSourceFile(filePath, sourceExts) && lineCount > 400) {
       errors.push(`G3: file would have ${lineCount} lines (max 400). Split the file.`)
     }
   }
 
   // G4 + G6: Forbidden patterns (Write and Edit)
   const contentToScan = payload.input.content ?? payload.input.new_string ?? ""
-  if (contentToScan && isSourceFile(filePath)) {
-    errors.push(...scanContentForPatterns(contentToScan, filePath))
+  if (contentToScan && isSourceFile(filePath, sourceExts)) {
+    errors.push(...scanContentForPatterns(contentToScan, filePath, rules))
   }
 
   if (errors.length > 0) {
@@ -423,35 +492,7 @@ async function codexNotify(): Promise<void> {
 
   // TaskComplete / task_complete — run post-task checks
   if (event === "TaskComplete" || event === "task_complete") {
-    const warnings: string[] = []
-
-    // G2: Check if on protected branch
-    if (isProtectedBranch()) {
-      warnings.push("G2: you are on main/master — create a feature branch before committing.")
-    }
-
-    // G3 + G4/G6: Single pass over src/ files for line count and forbidden patterns
-    try {
-      const findResult = Bun.spawnSync(["git", "ls-files", "src/"], { stdout: "pipe", stderr: "pipe" })
-      const files = new TextDecoder().decode(findResult.stdout).trim().split(/\r?\n/).filter(Boolean)
-      for (const file of files) {
-        if (!isSourceFile(file)) continue
-        try {
-          const content = readFileSync(file, "utf-8")
-          // G3: line count
-          const lineCount = content.split(/\r?\n/).length
-          if (lineCount > 400) {
-            warnings.push(`G3: ${file} has ${lineCount} lines (max 400).`)
-          }
-          // G4/G6: forbidden patterns
-          warnings.push(...scanContentForPatterns(content, file))
-        } catch {
-          // File may not exist on disk
-        }
-      }
-    } catch {
-      // git ls-files may fail outside a repo
-    }
+    const warnings = collectCodexNotifyWarnings()
 
     // G8: Auto-sync AGENTS.md -> CLAUDE.md after each task
     try {
@@ -483,7 +524,7 @@ async function codexNotify(): Promise<void> {
 // Entry point
 // ---------------------------------------------------------------------------
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const args = process.argv.slice(2)
 
   if (args[0] === "--hook") {
@@ -532,4 +573,6 @@ async function main(): Promise<void> {
   }
 }
 
-main()
+if (import.meta.main) {
+  await main()
+}

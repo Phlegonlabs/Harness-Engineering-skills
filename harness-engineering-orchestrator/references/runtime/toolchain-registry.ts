@@ -4,7 +4,7 @@
  * Default command presets per ecosystem.
  */
 
-import type { ToolchainConfig, SupportedEcosystem } from "../harness-types.js"
+import type { ToolchainConfig, SupportedEcosystem } from "../types.js"
 
 type ToolchainPreset = Omit<ToolchainConfig, "ecosystem">
 

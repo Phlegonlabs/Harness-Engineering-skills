@@ -9,7 +9,8 @@
 
 import { existsSync, mkdirSync, writeFileSync, chmodSync, readFileSync, statSync } from "fs"
 import { join } from "path"
-import { CODEX_CONFIG_TOML, CODEX_GUARDIAN_RULES } from "./codex-config"
+import { buildClaudeSettings, mergeClaudeSettingsDocument, stringifyClaudeSettings } from "./claude-config"
+import { CODEX_CONFIG_TOML, CODEX_GUARDIAN_RULES, mergeManagedConfigText } from "./codex-config"
 
 const SHIMS: Record<string, string> = {
   "pre-commit": [
@@ -34,7 +35,7 @@ const SHIMS: Record<string, string> = {
   ].join("\n"),
 }
 
-function mergeCodexConfig(filePath: string, defaultContent: string): void {
+export function mergeCodexConfig(filePath: string, defaultContent: string): void {
   if (!existsSync(filePath)) {
     writeFileSync(filePath, defaultContent)
     console.log(`[harness-hooks] Created ${filePath}`)
@@ -42,55 +43,32 @@ function mergeCodexConfig(filePath: string, defaultContent: string): void {
   }
 
   const existing = readFileSync(filePath, "utf-8")
-  const lines = defaultContent.split(/\r?\n/)
-  let appended = false
+  const { appendedLines, text } = mergeManagedConfigText(existing, defaultContent)
 
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith("#")) continue
-    if (!existing.includes(trimmed)) {
-      writeFileSync(filePath, `${existing.trimEnd()}\n${trimmed}\n`)
-      console.log(`[harness-hooks] Appended missing config to ${filePath}: ${trimmed}`)
-      appended = true
-    }
+  if (appendedLines.length === 0) {
+    console.log(`[harness-hooks] ${filePath} already contains required config`)
+    return
   }
 
-  if (!appended) {
-    console.log(`[harness-hooks] ${filePath} already contains required config`)
+  writeFileSync(filePath, text)
+  for (const line of appendedLines) {
+    console.log(`[harness-hooks] Appended missing config to ${filePath}: ${line}`)
   }
 }
 
-function mergeClaudeSettings(filePath: string): void {
+export function mergeClaudeSettings(filePath: string): void {
   mkdirSync(".claude", { recursive: true })
 
-  const harnessHooks = {
-    "PreToolUse": ["bun .harness/runtime/hooks/check-guardian.ts --hook pre-write"],
-    "PostToolUse": ["bun .harness/runtime/hooks/check-guardian.ts --hook post-write"],
-    "Stop": ["bun .harness/runtime/hooks/check-guardian.ts --hook stop"],
-  }
-
   if (!existsSync(filePath)) {
-    writeFileSync(filePath, JSON.stringify({ hooks: harnessHooks }, null, 2))
+    writeFileSync(filePath, stringifyClaudeSettings(buildClaudeSettings()))
     console.log(`[harness-hooks] Created ${filePath}`)
     return
   }
 
   try {
     const existing = JSON.parse(readFileSync(filePath, "utf-8")) as Record<string, unknown>
-    const existingHooks = (existing.hooks ?? {}) as Record<string, string[]>
-
-    for (const [event, commands] of Object.entries(harnessHooks)) {
-      const current = existingHooks[event] ?? []
-      for (const cmd of commands) {
-        if (!current.includes(cmd)) {
-          current.push(cmd)
-        }
-      }
-      existingHooks[event] = current
-    }
-
-    existing.hooks = existingHooks
-    writeFileSync(filePath, JSON.stringify(existing, null, 2))
+    const merged = mergeClaudeSettingsDocument(existing)
+    writeFileSync(filePath, stringifyClaudeSettings(merged))
     console.log(`[harness-hooks] Merged hooks into ${filePath}`)
   } catch {
     console.warn(`[harness-hooks] Could not parse ${filePath} — skipping merge`)
@@ -124,7 +102,7 @@ function ensureExecutable(hookPath: string): void {
   }
 }
 
-function main(): void {
+export function main(): void {
   // Git hooks — only if .git exists
   if (existsSync(".git")) {
     const hooksDir = join(".git", "hooks")
@@ -156,4 +134,6 @@ function main(): void {
   console.log("[harness-hooks] Hook installation complete.")
 }
 
-main()
+if (import.meta.main) {
+  main()
+}

@@ -6,7 +6,7 @@
  *   bun harness:metrics --category quality # Single category
  */
 
-import { loadState, saveState } from "./runtime/state-io.js"
+import { loadState, saveState } from "./runtime/validation/state.js"
 import {
   recordMetric,
   collectThroughputMetrics,
@@ -14,7 +14,7 @@ import {
   collectHarnessHealthMetrics,
   getMetricsSummary,
 } from "./runtime/metrics.js"
-import type { MetricCategory } from "./harness-types.js"
+import type { MetricCategory } from "./types.js"
 
 const VALID_CATEGORIES: MetricCategory[] = [
   "throughput", "quality", "human_attention", "harness_health", "safety",
@@ -35,6 +35,10 @@ async function main() {
   }
 
   const state = await loadState()
+  if (!state) {
+    console.error("harness:metrics failed: state is not initialized")
+    process.exit(1)
+  }
 
   // Collect fresh metrics
   const entries = [

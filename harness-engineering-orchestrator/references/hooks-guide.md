@@ -86,7 +86,7 @@ Git hooks are the universal fallback because they protect any tool that uses Git
 Current responsibilities include:
 
 - branch warnings
-- file-size and forbidden-pattern warnings
+- file-size and forbidden-pattern warnings across the configured toolchain source root / extensions
 - best-effort `AGENTS.md` / `CLAUDE.md` sync
 - compact reminders
 
@@ -147,7 +147,7 @@ After cloning, restore with:
 bun harness:hooks:install
 ```
 
-This restores the local Harness layer and reinstalls the hook/config surfaces.
+This restores the local Harness snapshot (including Claude/Codex local config files) and reinstalls the git hook shims.
 
 ## Emergency Bypass
 
