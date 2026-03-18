@@ -181,7 +181,7 @@ function buildProgressSnapshot(state: ProjectState) {
     : "Not yet defined"
   const roadmapLines =
     state.roadmap.stages.length === 0
-      ? "- No product stages have been parsed from the PRD yet."
+      ? ["- No product stages have been parsed from the PRD yet."]
       : state.roadmap.stages.map(stage => {
           const versions = [stage.prdVersion, stage.architectureVersion].filter(Boolean).join(" / ")
           const suffix = stage.id === state.roadmap.currentStageId ? " — <- Current Stage" : ""

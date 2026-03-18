@@ -5,13 +5,17 @@
  *   bun harness:entropy-scan
  */
 
-import { loadState, saveState } from "./runtime/state-io.js"
+import { loadState } from "./runtime/validation/state.js"
 import { runEntropyScan, formatEntropyReport } from "./runtime/entropy.js"
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs"
 import { join, dirname } from "node:path"
 
 async function main() {
   const state = await loadState()
+  if (!state) {
+    console.error("harness:entropy-scan failed: state is not initialized")
+    process.exit(1)
+  }
   const codebasePath = process.cwd()
   const reportsDir = join(codebasePath, ".harness", "reports")
 

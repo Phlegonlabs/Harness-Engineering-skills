@@ -122,6 +122,12 @@ bun harness:orchestrate
 bun harness:advance
 ```
 
+如果之后你重新 clone 或 hard-reset 了一个 Harness 管理中的仓库，继续工作前先恢复本地专属的 Harness 文件：
+
+```bash
+bun harness:hooks:install
+```
+
 更完整的 skill 级操作说明请看 [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)。
 
 ## 适用场景

@@ -148,3 +148,15 @@ test("progress docs record task lifecycle details and activity log", () => {
   const roadmap = readFileSync("docs/progress/08-roadmap.md", "utf-8")
   expect(roadmap).toContain("V1: Initial Delivery [ACTIVE]")
 })
+
+test("progress docs render a roadmap placeholder when no product stages exist yet", () => {
+  const state = initState({})
+  state.phase = "SCAFFOLD"
+  state.projectInfo.name = "progress-no-roadmap"
+  state.projectInfo.displayName = "Progress No Roadmap"
+
+  syncProgressDocuments(state)
+
+  const roadmap = readFileSync("docs/progress/08-roadmap.md", "utf-8")
+  expect(roadmap).toContain("No product stages have been parsed from the PRD yet.")
+})

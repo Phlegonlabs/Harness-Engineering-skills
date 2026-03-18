@@ -46,3 +46,6 @@ PRD.md
 tmp/
 temp/
 *.tmp
+
+# Harness test artifacts
+/harness-engineering-orchestrator/tmp/

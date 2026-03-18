@@ -10,7 +10,7 @@ import { existsSync, readFileSync, writeFileSync } from "fs"
 import { generatePrdDelta } from "./runtime/prd-delta"
 import { readProjectStateFromDisk, writeProjectStateToDisk } from "./runtime/state-io"
 import { deriveStateFromFilesystem, STATE_PATH } from "./runtime/shared"
-import type { ScopeChangeRequest } from "./harness-types"
+import type { ScopeChangeRequest } from "./types"
 
 if (!existsSync(STATE_PATH)) {
   console.error("❌ .harness/state.json does not exist. Run bun .harness/init.ts to initialize.")
@@ -143,7 +143,7 @@ if (args.includes("--reject")) {
 }
 
 if (args.includes("--from-stdin")) {
-  const input = readFileSync("/dev/stdin", "utf-8")
+  const input = readFileSync(0, "utf-8")
   const request = JSON.parse(input) as ScopeChangeRequest
   request.id = request.id ?? crypto.randomUUID()
   request.createdAt = request.createdAt ?? new Date().toISOString()
