@@ -153,6 +153,7 @@ Stateful launch surface:
 bun harness:orchestrate
 bun harness:orchestrate --parallel
 bun harness:orchestrate --json
+bun harness:orchestrate --host-action-json
 bun harness:orchestrate --confirm <launchId> --handle <runtimeHandle>
 bun harness:orchestrate --rollback <launchId> --reason "<why>"
 bun harness:orchestrate --release <launchId>
@@ -175,6 +176,7 @@ Launcher flags:
 | Flag | Purpose |
 |------|---------|
 | `--json` | Emit a machine-readable launch cycle and write `.harness/launches/latest.json` |
+| `--host-action-json` | Emit a flattened parent-runtime action contract derived from the prepared launch cycle |
 | `--parallel` | Prepare one parallel launch cycle instead of a single launch |
 | `--no-reserve` | Preview the launch cycle without writing `execution.activeAgents[]` reservations |
 | `--confirm <launchId> --handle <runtimeHandle>` | Bind a spawned child handle and move its reservation to `running` |
@@ -185,6 +187,7 @@ Rules:
 
 - `bun .harness/orchestrator.ts --parallel` is a read-only planning surface.
 - `bun harness:orchestrate` writes the launch protocol to `.harness/launches/<cycleId>.json` and updates `.harness/launches/latest.json`.
+- `bun harness:orchestrate --host-action-json` exposes the exact host action, payload, handle source, and lifecycle commands that the parent runtime should consume.
 - `bun harness:orchestrate --parallel` owns child spawn, wait/follow-up policy, result verification, and child close.
 - Register `execution.activeAgents[]` reservations before or at spawn time and roll them back if spawn fails.
 - Verify success from state/filesystem evidence, not child self-report alone.

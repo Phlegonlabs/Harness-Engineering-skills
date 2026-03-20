@@ -6,7 +6,7 @@ import type { Milestone, ProjectState, Task } from "../../types"
 import { initState } from "../state-core"
 import { STATE_PATH } from "../shared"
 import { readProjectStateFromDisk, writeProjectStateToDisk } from "../state-io"
-import { confirmLaunch, prepareLaunchCycle, releaseLaunch, rollbackLaunch } from "./launcher"
+import { buildHostLaunchActions, confirmLaunch, prepareLaunchCycle, releaseLaunch, rollbackLaunch } from "./launcher"
 
 let originalCwd = ""
 let workspaceDir = ""
@@ -118,11 +118,58 @@ test("prepareLaunchCycle reserves a sequential task launch and persists the cycl
   expect(result.cycle?.launches).toHaveLength(1)
   expect(result.cycle?.launches[0]?.status).toBe("reserved")
   expect(result.cycle?.launches[0]?.kind).toBe("task-agent")
+  expect(result.cycle?.launches[0]?.runtime.adapterId).toBe("codex-cli")
+  expect(result.cycle?.launches[0]?.runtime.spawn.action).toBe("spawn_agent")
   expect(existsSync(result.cyclePath!)).toBe(true)
 
   const persisted = readProjectStateFromDisk(STATE_PATH)
   expect(persisted.execution.activeAgents?.[0]?.launchId).toBe(result.cycle?.launches[0]?.launchId)
   expect(persisted.execution.activeAgents?.[0]?.status).toBe("waiting")
+})
+
+test("prepareLaunchCycle builds a Claude bridge launch with the same reservation lifecycle", () => {
+  const state = baseExecutingState()
+  const task = createTask("T201", "M1", { status: "IN_PROGRESS", startedAt: new Date().toISOString() })
+  const milestone = createMilestone("M1", [task])
+  state.execution.currentMilestone = "M1"
+  state.execution.currentTask = "T201"
+  state.execution.currentWorktree = milestone.worktreePath
+  state.execution.milestones = [milestone]
+  seedWorkspace(state)
+
+  const result = prepareLaunchCycle(state, {
+    launcherCommand: "bun .harness/orchestrate.ts --platform=claude-code",
+    platform: "claude-code",
+  })
+
+  expect(result.cycle?.launches).toHaveLength(1)
+  expect(result.cycle?.launches[0]?.runtime.adapterId).toBe("claude-code")
+  expect(result.cycle?.launches[0]?.runtime.capabilities.spawnPrimitive).toBe("agent-tool-bridge")
+  expect(result.cycle?.launches[0]?.runtime.spawn.action).toBe("claude_bridge.launch_agent")
+  expect(result.cycle?.launches[0]?.status).toBe("reserved")
+})
+
+test("buildHostLaunchActions flattens launch cycles into host-consumable actions", () => {
+  const state = baseExecutingState()
+  const task = createTask("T301", "M1", { status: "IN_PROGRESS", startedAt: new Date().toISOString() })
+  const milestone = createMilestone("M1", [task])
+  state.execution.currentMilestone = "M1"
+  state.execution.currentTask = "T301"
+  state.execution.currentWorktree = milestone.worktreePath
+  state.execution.milestones = [milestone]
+  seedWorkspace(state)
+
+  const result = prepareLaunchCycle(state, {
+    launcherCommand: "bun .harness/orchestrate.ts --host-action-json --platform=codex-cli",
+    platform: "codex-cli",
+  })
+
+  const actions = buildHostLaunchActions(result.cycle!)
+
+  expect(actions).toHaveLength(1)
+  expect(actions[0]?.toolName).toBe("spawn_agent")
+  expect(actions[0]?.handleSource).toBe("tool-response")
+  expect(actions[0]?.confirmCommand).toContain("--confirm")
 })
 
 test("confirmLaunch marks a reserved child as running and releaseLaunch cleans it up", () => {
@@ -143,6 +190,8 @@ test("confirmLaunch marks a reserved child as running and releaseLaunch cleans i
 
   const confirmed = confirmLaunch(launchId, "codex-agent-123")
   expect(confirmed.launch.status).toBe("running")
+  expect(confirmed.launch.runtime.runtimeHandle).toBe("codex-agent-123")
+  expect(confirmed.launch.runtime.lifecycle.at(-1)?.action).toBe("confirm")
 
   let persisted = readProjectStateFromDisk(STATE_PATH)
   expect(persisted.execution.activeAgents?.[0]?.runtimeHandle).toBe("codex-agent-123")
@@ -150,6 +199,7 @@ test("confirmLaunch marks a reserved child as running and releaseLaunch cleans i
 
   const released = releaseLaunch(launchId)
   expect(released.launch.status).toBe("released")
+  expect(released.launch.runtime.lifecycle.at(-1)?.action).toBe("release")
 
   persisted = readProjectStateFromDisk(STATE_PATH)
   expect(persisted.execution.activeAgents ?? []).toHaveLength(0)
@@ -184,6 +234,7 @@ test("rollbackLaunch restores a parallel task launch back to its pre-launch snap
 
   const rolledBack = rollbackLaunch(launchId, "spawn failed")
   expect(rolledBack.launch.status).toBe("rolled-back")
+  expect(rolledBack.launch.runtime.lifecycle.at(-1)?.action).toBe("rollback")
 
   persisted = readProjectStateFromDisk(STATE_PATH)
   const restoredTask = persisted.execution.milestones[0]!.tasks.find(task => task.id === "T101")

@@ -196,44 +196,51 @@ export type Phase =
   | "VALIDATING"      // Phase 6: Harness Validation
   | "COMPLETE"        // All done
 
-// Phase transition gate: conditions that must be met before entering the next Phase
+// Phase transition gate: overview of conditions required before entering each Phase.
+// NOTE: This is a documentation/UI summary. The authoritative runtime checks are in
+// references/runtime/phase-structural.ts. Conditional checks (e.g. designStyle for
+// UI projects) and level-scoped checks (e.g. GitBook for Full only, monorepo workspace
+// for Standard+) are evaluated at runtime and not fully captured here.
 export const PHASE_GATES: Record<Phase, PhaseGateCondition[]> = {
   DISCOVERY:       [],
   MARKET_RESEARCH: [
-    { field: "projectInfo.name",        description: "Project name is set" },
-    { field: "projectInfo.displayName", description: "Display name is set" },
-    { field: "projectInfo.concept",     description: "Project concept is set" },
-    { field: "projectInfo.problem",     description: "Problem statement is set" },
-    { field: "projectInfo.goal",        description: "Success criteria is set" },
-    { field: "projectInfo.types",       description: "Project types are selected" },
-    { field: "projectInfo.aiProvider",  description: "AI provider is selected" },
+    { field: "projectInfo.name",         description: "Project name is set" },
+    { field: "projectInfo.displayName",  description: "Display name is set" },
+    { field: "projectInfo.concept",      description: "Project concept is set" },
+    { field: "projectInfo.problem",      description: "Problem statement is set" },
+    { field: "projectInfo.goal",         description: "Success criteria is set" },
+    { field: "projectInfo.types",        description: "Project types are selected" },
+    { field: "projectInfo.aiProvider",   description: "AI provider is selected" },
+    { field: "projectInfo.teamSize",     description: "Team size is selected" },
+    { field: "projectInfo.isGreenfield", description: "Greenfield vs existing codebase is decided" },
   ],
   TECH_STACK: [
-    { field: "marketResearch.summary",         description: "Market research summary is present" },
-    { field: "techStack.decisions[].adrFile",  description: "Every tech decision has an ADR file" },
+    { field: "marketResearch.summary",        description: "Market research summary is present" },
+    { field: "marketResearch.competitors",    description: "At least one competitor is documented" },
+    { field: "techStack.decisions[].adrFile", description: "Every tech decision has an ADR file" },
   ],
   PRD_ARCH: [
-    { field: "techStack.confirmed",            description: "Tech stack is confirmed" },
-    { field: "techStack.decisions[].adrFile",  description: "Every tech decision has an ADR file" },
+    { field: "techStack.confirmed",           description: "Tech stack is confirmed" },
+    { field: "techStack.decisions[].adrFile", description: "Every tech decision has an ADR file" },
   ],
   SCAFFOLD: [
-    { field: "docs.prd.exists",              description: "PRD document exists" },
-    { field: "docs.architecture.exists",     description: "Architecture document exists" },
-    { field: "docs.gitbook.initialized",     description: "GitBook is initialized" },
-    { field: "docs.gitbook.summaryExists",   description: "GitBook SUMMARY.md exists" },
+    { field: "docs.prd.exists",            description: "PRD document exists" },
+    { field: "docs.architecture.exists",   description: "Architecture document exists" },
+    { field: "docs.gitbook.initialized",   description: "GitBook is initialized (Full level only)" },
+    { field: "docs.gitbook.summaryExists", description: "GitBook SUMMARY.md exists (Full level only)" },
   ],
   EXECUTING: [
-    { field: "scaffold.ciExists",            description: "CI workflow is present" },
-    { field: "scaffold.agentsMdExists",      description: "AGENTS.md is present" },
+    { field: "scaffold.ciExists",       description: "CI workflow is present" },
+    { field: "scaffold.agentsMdExists", description: "AGENTS.md is present" },
   ],
   VALIDATING: [
     { field: "execution.allMilestonesComplete", description: "All milestones are complete" },
   ],
   COMPLETE: [
-    { field: "validation.score",     description: "Validation score >= 80" },
-    { field: "docs.readme.isFinal",  description: "README is finalized" },
-    { field: "worktrees.mainOnly",   description: "Only main worktree remains" },
-    { field: "compact.status",       description: "Context compaction is complete" },
+    { field: "validation.score",    description: "Validation score >= 80" },
+    { field: "docs.readme.isFinal", description: "README is finalized" },
+    { field: "worktrees.mainOnly",  description: "Only main worktree remains" },
+    { field: "compact.status",      description: "Context compaction is complete" },
   ],
 }
 
@@ -716,12 +723,60 @@ export type LaunchRequestStatus =
   | "released"
   | "rolled-back"
 
-export interface AgentLaunchAdapterHint {
-  closeStrategy: "close-on-integration" | "close-on-review" | "persistent-monitor"
-  forkContext: boolean
-  nativeRole: "default" | "worker" | "explorer" | "monitor"
-  waitStrategy: "immediate" | "defer-until-blocked" | "batch"
-  writeMode: "read-only" | "scoped-write" | "worktree-isolated"
+export type AgentRuntimeAdapterId = "claude-code" | "codex-cli" | "external"
+
+export type AgentRuntimeSpawnPrimitive =
+  | "agent-tool-bridge"
+  | "native-subagent"
+  | "manual-handoff"
+
+export type AgentRuntimeTransport =
+  | "parent-runtime-tool"
+  | "manual"
+
+export type AgentRuntimeWaitOwner = "parent-runtime" | "runtime" | "operator"
+
+export type AgentRuntimeCloseModel = "runtime-close" | "release-command" | "manual"
+
+export type AgentRuntimeHandleSource = "tool-response" | "bridge-response" | "operator-supplied"
+
+export interface AgentRuntimeCapabilities {
+  adapterId: AgentRuntimeAdapterId
+  closeModel: AgentRuntimeCloseModel
+  runtimeHandleFormat: string
+  spawnPrimitive: AgentRuntimeSpawnPrimitive
+  supportsNativeSubagents: boolean
+  supportsParallelLaunch: boolean
+  waitOwner: AgentRuntimeWaitOwner
+  writeIsolation: SubagentDispatchPolicy["writeMode"]
+}
+
+export interface AgentRuntimeSpawnRequest {
+  action: string
+  adapterId: AgentRuntimeAdapterId
+  handleHint: string
+  handleSource: AgentRuntimeHandleSource
+  instructions: string[]
+  payload: Record<string, unknown>
+  toolName: string
+  transport: AgentRuntimeTransport
+}
+
+export interface AgentRuntimeLifecycleRecord {
+  action: "spawn" | "confirm" | "release" | "rollback"
+  actor: "adapter" | "launcher"
+  note: string
+  recordedAt: string
+}
+
+export interface AgentRuntimeExecution {
+  adapterId: AgentRuntimeAdapterId
+  capabilities: AgentRuntimeCapabilities
+  lifecycle: AgentRuntimeLifecycleRecord[]
+  platform: AgentPlatform
+  policy: Omit<SubagentDispatchPolicy, "logicalAgentId">
+  runtimeHandle?: string
+  spawn: AgentRuntimeSpawnRequest
 }
 
 export interface AgentLaunchRequest {
@@ -739,10 +794,7 @@ export interface AgentLaunchRequest {
   status: LaunchRequestStatus
   subagentPolicy?: SubagentDispatchPolicy
   postAction?: string
-  adapterHints: {
-    claude: AgentLaunchAdapterHint
-    codex: AgentLaunchAdapterHint
-  }
+  runtime: AgentRuntimeExecution
   lifecycle: {
     afterCompletion: string[]
     confirmCommand?: string

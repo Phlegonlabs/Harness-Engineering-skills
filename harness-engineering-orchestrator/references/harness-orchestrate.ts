@@ -2,16 +2,15 @@
 /**
  * .harness/orchestrate.ts
  *
- * Parent-runtime launcher contract for one child-agent launch cycle.
- * It prepares a machine-readable launch packet, optionally reserves task-agent
+ * Parent-runtime execution contract for one child-agent launch cycle.
+ * It prepares adapter-backed launch packets, optionally reserves task-agent
  * ownership in state, and exposes lifecycle commands for confirm / rollback / release.
- *
- * Child spawning still belongs to the parent runtime (Codex / Claude), not Bun.
  */
 
 import { existsSync } from "fs"
 import { detectPlatform } from "./runtime/orchestrator/context-builder"
 import {
+  buildHostLaunchActions,
   confirmLaunch,
   prepareLaunchCycle,
   releaseLaunch,
@@ -19,6 +18,18 @@ import {
 } from "./runtime/orchestrator/launcher"
 import { deriveStateFromFilesystem, STATE_PATH } from "./runtime/shared"
 import { readProjectStateFromDisk } from "./runtime/state-io"
+
+function parsePlatformOverride(value?: string) {
+  if (value === "claude-code" || value === "codex-cli" || value === "unknown") {
+    return value
+  }
+
+  if (value) {
+    throw new Error(`Unsupported platform override: ${value}`)
+  }
+
+  return undefined
+}
 
 function getArgValue(flag: string): string | undefined {
   const args = process.argv.slice(2)
@@ -59,6 +70,14 @@ function renderCycleSummary(cyclePath: string, cycle: NonNullable<ReturnType<typ
     lines.push(`Agent: ${launch.logicalAgentId}`)
     lines.push(`Kind: ${launch.kind}`)
     lines.push(`Status: ${launch.status}`)
+    lines.push(`Runtime Adapter: ${launch.runtime.adapterId}`)
+    lines.push(`Spawn Primitive: ${launch.runtime.capabilities.spawnPrimitive}`)
+    lines.push(`Wait Owner: ${launch.runtime.capabilities.waitOwner}`)
+    lines.push(`Write Isolation: ${launch.runtime.capabilities.writeIsolation}`)
+    lines.push(`Spawn Action: ${launch.runtime.spawn.action}`)
+    lines.push(`Spawn Tool: ${launch.runtime.spawn.toolName}`)
+    lines.push(`Handle Hint: ${launch.runtime.spawn.handleHint}`)
+    lines.push(`Handle Source: ${launch.runtime.spawn.handleSource}`)
     lines.push(`Spec: ${launch.packet.specPath}`)
     if (launch.packet.currentMilestone) {
       lines.push(`Milestone: ${launch.packet.currentMilestone.id} — ${launch.packet.currentMilestone.name}`)
@@ -75,6 +94,12 @@ function renderCycleSummary(cyclePath: string, cycle: NonNullable<ReturnType<typ
     }
     if (launch.lifecycle.rollbackCommand) {
       lines.push(`Rollback: ${launch.lifecycle.rollbackCommand}`)
+    }
+    if (launch.runtime.spawn.instructions.length > 0) {
+      lines.push("Host Steps:")
+      for (const instruction of launch.runtime.spawn.instructions) {
+        lines.push(`- ${instruction}`)
+      }
     }
     lines.push("")
     lines.push(launch.prompt)
@@ -114,6 +139,8 @@ const confirmId = getArgValue("--confirm")
 const rollbackId = getArgValue("--rollback")
 const releaseId = getArgValue("--release")
 const jsonMode = hasFlag("--json")
+const hostActionJsonMode = hasFlag("--host-action-json")
+const platformOverride = parsePlatformOverride(getArgValue("--platform"))
 
 try {
   if (confirmId) {
@@ -156,7 +183,7 @@ try {
     updateProgressTimestamp: false,
     updateValidationTimestamp: false,
   })
-  const platform = detectPlatform()
+  const platform = platformOverride ?? detectPlatform()
   const prepareResult = prepareLaunchCycle(state, {
     launcherCommand: `bun .harness/orchestrate.ts${process.argv.slice(2).length > 0 ? ` ${process.argv.slice(2).join(" ")}` : ""}`,
     parallel: hasFlag("--parallel"),
@@ -178,7 +205,13 @@ try {
     process.exit(1)
   }
 
-  if (jsonMode) {
+  if (hostActionJsonMode) {
+    console.log(JSON.stringify({
+      cycleId: prepareResult.cycle.cycleId,
+      cyclePath: prepareResult.cyclePath,
+      actions: buildHostLaunchActions(prepareResult.cycle),
+    }, null, 2))
+  } else if (jsonMode) {
     console.log(JSON.stringify({
       cycle: prepareResult.cycle,
       cyclePath: prepareResult.cyclePath,

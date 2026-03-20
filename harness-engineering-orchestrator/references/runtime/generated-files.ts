@@ -221,6 +221,7 @@ ${renderPublicStatusSection(ctx.publicStatus)}
 \`\`\`bash
 bun install
 bun harness:orchestrate
+bun harness:upgrade-runtime
 bun harness:advance
 bun harness:stage --status
 bun harness:sync-backlog
@@ -232,6 +233,7 @@ bun harness:audit
 
 This workspace is monorepo-first. Keep adding new surfaces inside the same repository as later milestones.
 Use \`bun .harness/orchestrator.ts\` when you want a read-only preview of the next agent or task packet. Use \`bun harness:orchestrate --json\` when the parent runtime needs the machine-readable launch cycle from \`.harness/launches/latest.json\`.
+Use \`bun harness:upgrade-runtime --skill-root <path-to-installed-skill>\` the first time an existing managed repo pulls a newer runtime from the installed skill, then \`bun harness:upgrade-runtime\` for subsequent refreshes. \`bun harness:hooks:install\` only restores the repo's recorded local snapshot.
 Do not bootstrap product frameworks such as Next.js, Tauri, or provider SDK stacks during scaffold setup. Introduce them only inside milestone tasks.
 If product scope changes inside the current delivery version, update the PRD first. Use \`bun harness:scope-change --apply\` for queued changes because it syncs backlog/progress automatically, or run \`bun harness:sync-backlog\` after direct manual PRD edits.
 If the next delivery version is being promoted after deploy / real-world review, update PRD / Architecture and run \`bun harness:stage --promote V[N]\`.
@@ -256,6 +258,7 @@ ${renderPublicStatusSection(ctx.publicStatus)}
 bun install
 bun .harness/state.ts --show
 bun harness:orchestrate
+bun harness:upgrade-runtime
 bun harness:advance
 bun harness:stage --status
 bun harness:sync-backlog
@@ -267,6 +270,7 @@ bun harness:audit
 
 After these steps, continue from \`docs/PROGRESS.md\`, \`docs/progress/\`, and \`.harness/state.json\`.
 Use \`bun .harness/orchestrator.ts\` for read-only routing preview; use \`bun harness:orchestrate --json\` when the parent runtime should consume a real launch cycle and lifecycle commands.
+Use \`bun harness:upgrade-runtime --skill-root <path-to-installed-skill>\` when an older managed repo needs the newest installed runtime. After the project records its skill source, \`bun harness:upgrade-runtime\` can be run without flags.
 \`bun harness:scope-change --apply\` automatically re-syncs backlog/progress after a queued scope change; manual \`bun harness:sync-backlog\` is for direct PRD edits.
 \`.env.local\` is already scaffolded for local use, but framework-specific variables should be added only when the relevant milestone task introduces that framework.${skillLine}`
 }

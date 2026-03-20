@@ -64,6 +64,14 @@ Or, for an existing repo:
 bun <path-to-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=true
 ```
 
+To upgrade an existing managed repo to the latest installed Harness runtime:
+
+```bash
+bun harness:upgrade-runtime --skill-root <path-to-installed-skill>
+```
+
+After the first successful upgrade, later runs can usually use `bun harness:upgrade-runtime` because the project records the skill source locally.
+
 ## Why This Project Exists
 
 Most agent workflows fail in the same places:
@@ -256,11 +264,13 @@ Commands below are run from the managed project checkout unless noted otherwise.
 | `bun harness:orchestrator` (or `bun .harness/orchestrator.ts`) | Any time during delivery | Show status and dispatch the next agent or manual action |
 | `bun harness:orchestrate` | When you want the parent runtime to execute one launch cycle | Prepare and reserve the next child launch cycle for parent-runtime execution |
 | `bun harness:orchestrate --json` | When the parent runtime needs a machine-readable launch contract | Emit the launch cycle JSON and persist `.harness/launches/latest.json` |
+| `bun harness:orchestrate --host-action-json` | When the parent runtime wants a flattened handoff contract | Emit the exact host action, payload, handle source, and lifecycle commands for each prepared launch |
 | `bun .harness/orchestrator.ts --parallel` | During execution with eligible tasks | Preview parallel-eligible sidecars/tasks without spawning them |
 | `bun harness:orchestrate --parallel` | During execution with eligible parallel work | Execute one parent-owned parallel launch cycle |
 | `bun harness:orchestrate --confirm <launchId> --handle <runtimeHandle>` | Right after a child runtime successfully spawns | Bind the runtime handle and move the reservation to `running` |
 | `bun harness:orchestrate --rollback <launchId> --reason "<why>"` | If child spawn fails or a launch must be aborted before integration | Roll back the reservation and restore the pre-launch task snapshot |
 | `bun harness:orchestrate --release <launchId>` | After integration / closeout when the child reservation should be cleared | Deregister the active agent reservation from state |
+| `bun harness:upgrade-runtime --skill-root <path-to-skill>` | Existing managed repos need the latest runtime from the installed skill | Refresh `.harness/`, `agents/`, local runtime wrappers, and managed docs from the current skill version |
 | `bun harness:advance` | At a phase boundary | Validate the next phase gate and advance state only if it passes |
 | `bun harness:sync-backlog` | PRD changed inside the current active stage | Append new stage/milestone/task scope without destroying completed history |
 | `bun harness:scope-change --preview` | Before applying a scope change | Preview structured scope changes without modifying state |
@@ -278,7 +288,7 @@ Commands below are run from the managed project checkout unless noted otherwise.
 | `bun harness:audit` | Periodic health checks | Full audit: guardians, phase gate, workspace, docs drift |
 | `bun harness:entropy-scan` | During or after execution | Run entropy scan for AI slop, doc staleness, pattern drift |
 | `bun harness:resume` | Resuming after a break | Show current progress, phase, and blocked tasks |
-| `bun harness:hooks:install` | After cloning or resetting | Restore local Harness files and re-install git hooks |
+| `bun harness:hooks:install` | After cloning or resetting local files | Restore the repo's recorded local Harness snapshot and re-install git hooks |
 
 Full command surface with all flags in [SKILL.md § Command Surface](./SKILL.md#command-surface).
 
@@ -289,6 +299,7 @@ Use this as the practical runbook from project start to project finish.
 1. Bootstrap the repo.
    - New repo: `bun <path-to-skill>/scripts/harness-setup.ts`
    - Existing repo: `bun <path-to-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=true`
+   - Existing managed repo upgrade: `bun harness:upgrade-runtime --skill-root <path-to-installed-skill>` for the first pull from the latest skill runtime
    - At Lite level, the Fast Path compresses discovery through scaffold into a 2-turn cycle.
 
 2. Complete discovery and early planning phases in order.
