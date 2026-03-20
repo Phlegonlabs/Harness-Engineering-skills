@@ -157,6 +157,7 @@ When parallel execution is enabled:
 - Worktree-isolated writes use separate milestone worktrees.
 - `dispatchParallel()` is planning-only; `bun harness:orchestrate --parallel` owns actual spawn/wait/close behavior.
 - Each launch cycle is persisted under `.harness/launches/`, and the parent runtime must drive `--confirm`, `--rollback`, or `--release` to keep child lifecycle state aligned.
+- Parent-runtime wrappers may consume `bun harness:orchestrate --host-action-json` to get the exact launch action, payload, and handle-binding contract without parsing the full cycle file.
 
 ## Core Invariants
 

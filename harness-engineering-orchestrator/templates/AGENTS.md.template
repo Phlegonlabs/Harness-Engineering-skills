@@ -98,7 +98,8 @@ Git hooks, Claude Code hooks, and Codex CLI hooks automatically enforce or surfa
 
 Hook surfaces are guardrails. They do not replace orchestrator dispatch/lifecycle logic.
 
-Re-install after cloning (restores local Harness files, git hooks, Claude Code settings, and Codex CLI config): `bun harness:hooks:install`
+Re-install after cloning (restores the repo's recorded local Harness snapshot, git hooks, Claude Code settings, and Codex CLI config): `bun harness:hooks:install`
+Upgrade to the latest installed skill runtime: `bun harness:upgrade-runtime --skill-root <path-to-installed-skill>` (first run), then `bun harness:upgrade-runtime`
 
 ---
 
@@ -163,6 +164,7 @@ bun harness:orchestrate --parallel
 bun harness:orchestrate --confirm <launchId> --handle <runtimeHandle>
 bun harness:orchestrate --rollback <launchId> --reason "<why>"
 bun harness:orchestrate --release <launchId>
+bun harness:upgrade-runtime
 bun harness:autoflow
 bun harness:stage --status
 bun harness:stage --promote V2
@@ -185,7 +187,7 @@ bun run check:deps
 bun harness:audit
 ```
 
-Use `bun .harness/orchestrator.ts` for read-only planning and routing preview. Use `bun harness:orchestrate` for the stateful launcher boundary: it writes `.harness/launches/*.json` and keeps launch reservations aligned with `execution.activeAgents[]`.
+Use `bun .harness/orchestrator.ts` for read-only planning and routing preview. Use `bun harness:orchestrate` for the stateful launcher boundary: it writes `.harness/launches/*.json` and keeps launch reservations aligned with `execution.activeAgents[]`. Use `bun harness:upgrade-runtime` only when you want to pull a newer runtime from the installed skill, not to restore local snapshots.
 
 Full command index: `docs/ai/05-commands.md`
 

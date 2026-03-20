@@ -1,10 +1,18 @@
-import type { Phase, ProjectState } from "../../types"
-import { getPhaseStructuralChecks } from "../phase-structural"
+import type { HarnessLevel, Phase, ProjectState } from "../../types"
+import { type StructuralCheck, getPhaseStructuralChecks } from "../phase-structural"
 import { getCurrentProductStage } from "../stages"
 
 type OutputCheck = {
   label: string
   ok: boolean
+}
+
+function filterByLevel(checks: StructuralCheck[], level: HarnessLevel): StructuralCheck[] {
+  return checks.filter(item => {
+    if (item.level === "full") return level === "full"
+    if (item.level === "standard") return level === "standard" || level === "full"
+    return true
+  })
 }
 
 export interface PhaseReadiness {
@@ -50,11 +58,15 @@ export function getPhaseReadiness(state: ProjectState): PhaseReadiness {
     case "MARKET_RESEARCH":
     case "TECH_STACK":
     case "PRD_ARCH":
-    case "SCAFFOLD":
+    case "SCAFFOLD": {
+      const level = state.projectInfo.harnessLevel?.level ?? "standard"
       return buildReadiness(
         state.phase,
-        getPhaseStructuralChecks(nextPhaseForReadiness(state.phase), state).map(item => check(item.label, item.ok)),
+        filterByLevel(getPhaseStructuralChecks(nextPhaseForReadiness(state.phase), state), level).map(item =>
+          check(item.label, item.ok),
+        ),
       )
+    }
     case "EXECUTING":
       if (getCurrentProductStage(state)?.status === "DEPLOY_REVIEW") {
         return buildReadiness(state.phase, [

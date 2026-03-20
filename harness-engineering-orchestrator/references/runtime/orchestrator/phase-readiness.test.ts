@@ -130,6 +130,7 @@ function materializeScaffoldArtifacts(state: ProjectState): void {
     "metrics.ts",
     "entropy-scan.ts",
     "scope-change.ts",
+    "upgrade-runtime.ts",
   ]) {
     write(`.harness/${file}`, "export {}\n")
   }
@@ -166,6 +167,7 @@ function materializeScaffoldArtifacts(state: ProjectState): void {
           "harness:metrics": "bun .harness/metrics.ts",
           "harness:entropy-scan": "bun .harness/entropy-scan.ts",
           "harness:scope-change": "bun .harness/scope-change.ts",
+          "harness:upgrade-runtime": "bun .harness/upgrade-runtime.ts",
           "harness:orchestrator": "bun .harness/orchestrator.ts",
           "harness:orchestrate": "bun .harness/orchestrate.ts",
           "harness:compact": "bun .harness/compact.ts",
@@ -226,6 +228,18 @@ test("scaffold readiness reports missing scaffold outputs", () => {
   expect(readiness.ready).toBe(false)
   expect(readiness.missingOutputs).toContain("AGENTS.md is present")
   expect(readiness.missingOutputs).toContain(".harness/advance.ts is present")
+})
+
+test("phase readiness defaults legacy states without harnessLevel to standard", () => {
+  const state = createState("SCAFFOLD")
+  delete (state.projectInfo as Partial<ProjectState["projectInfo"]>).harnessLevel
+  writeProjectStateToDisk(state, ".harness/state.json")
+
+  const readiness = getPhaseReadiness(state)
+
+  expect(readiness.phase).toBe("SCAFFOLD")
+  expect(readiness.ready).toBe(false)
+  expect(readiness.requiredOutputs).toContain("AGENTS.md is present")
 })
 
 test("dispatch sends scaffold-generator when scaffold outputs are missing", () => {

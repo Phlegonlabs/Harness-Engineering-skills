@@ -4,7 +4,9 @@ import { initState } from "../../references/harness-init"
 import { ensureEnvLocalSkeleton } from "../../references/runtime/env-local"
 import { getManagedDocSpecs, getManagedSkillSpecs, syncManagedFiles } from "../../references/runtime/generated-files"
 import { syncLocalBootstrapManifest } from "../../references/runtime/local-bootstrap"
-import { getHarnessCriticalTotal } from "../../references/runtime/shared"
+import { writeHarnessSkillRoot } from "../../references/runtime/skill-source"
+import { deriveStateFromFilesystem, getHarnessCriticalTotal, STATE_PATH } from "../../references/runtime/shared"
+import { readProjectStateFromDisk } from "../../references/runtime/state-io"
 import {
   buildToolchainConfig,
   detectEcosystem,
@@ -15,6 +17,7 @@ import { CODEX_CONFIG_TOML, CODEX_GUARDIAN_RULES } from "../../references/runtim
 import type { GitHubState, ToolchainConfig } from "../../references/harness-types"
 import {
   countPrdMilestones,
+  createContext,
   existingState,
   readTemplate,
   type Context,
@@ -29,6 +32,11 @@ type SetupParams = {
   context: Context
   skillRoot: string
   logger: SetupLogger
+}
+
+type RuntimeUpgradeParams = {
+  logger: SetupLogger
+  skillRoot: string
 }
 
 function toolchainIsConfigured(toolchain?: ToolchainConfig): boolean {
@@ -149,6 +157,7 @@ function copyHarnessRuntime(skillRoot: string, logger: SetupLogger): void {
     ["harness-metrics.ts", ".harness/metrics.ts"],
     ["harness-entropy-scan.ts", ".harness/entropy-scan.ts"],
     ["harness-scope-change.ts", ".harness/scope-change.ts"],
+    ["harness-upgrade-runtime.ts", ".harness/upgrade-runtime.ts"],
   ] as const
 
   for (const [sourceFile, destination] of entryFiles) {
@@ -158,6 +167,17 @@ function copyHarnessRuntime(skillRoot: string, logger: SetupLogger): void {
 
   copyDirectory(join(skillRoot, "references", "runtime"), join(process.cwd(), ".harness", "runtime"))
   logger.log("Synced .harness/runtime/")
+}
+
+function syncRuntimeManagedFiles(skillRoot: string, logger: SetupLogger): void {
+  const context = createContext({}, skillRoot)
+  writeFileAlways("AGENTS.md", readTemplate(skillRoot, context, "AGENTS.md.template"), logger)
+  syncClaudeMirrorFromAgents(logger)
+  writeFileAlways(
+    "scripts/harness-local/restore.ts",
+    readTemplate(skillRoot, context, "scripts/harness-local/restore.ts.template"),
+    logger,
+  )
 }
 
 function copyAgentSpecs(skillRoot: string, logger: SetupLogger): void {
@@ -413,6 +433,7 @@ function updatePackageJson(logger: SetupLogger): void {
     "harness:metrics": "bun .harness/metrics.ts",
     "harness:entropy-scan": "bun .harness/entropy-scan.ts",
     "harness:scope-change": "bun .harness/scope-change.ts",
+    "harness:upgrade-runtime": "bun .harness/upgrade-runtime.ts",
     "harness:orchestrator": "bun .harness/orchestrator.ts",
     "harness:orchestrate": "bun .harness/orchestrate.ts",
     "harness:merge-milestone": "bun .harness/merge-milestone.ts",
@@ -829,7 +850,7 @@ function writeInitialState(context: Context, logger: SetupLogger, githubResult?:
   writeFileAlways(".harness/state.json", `${JSON.stringify(next, null, 2)}\n`, logger)
 }
 
-function syncManagedArtifacts(logger: SetupLogger): void {
+function syncManagedArtifacts(logger: SetupLogger, skillRoot?: string): void {
   const state = existingState()
   if (!state) return
 
@@ -838,11 +859,53 @@ function syncManagedArtifacts(logger: SetupLogger): void {
   syncManagedFiles(getManagedSkillSpecs(state))
   ensureEnvLocalSkeleton(state)
   syncClaudeMirrorFromAgents(logger)
+  if (skillRoot) {
+    writeHarnessSkillRoot(skillRoot)
+  }
   const manifest = syncLocalBootstrapManifest()
   logger.log(
     `${manifest.changed ? "Updated" : "Verified"} ${manifest.path} (${manifest.fileCount} local file(s) captured)`,
   )
   logger.log("Managed docs and skills synchronized")
+}
+
+export async function runRuntimeUpgrade(params: RuntimeUpgradeParams): Promise<void> {
+  const { logger, skillRoot } = params
+
+  if (!existsSync(STATE_PATH)) {
+    logger.error(".harness/state.json does not exist. Run Harness setup before upgrading the runtime.")
+  }
+
+  console.log(`\n${"═".repeat(55)}`)
+  console.log("  🔄 Harness Runtime Upgrade")
+  console.log(`${"═".repeat(55)}`)
+
+  await checkEnv(logger)
+  copyHarnessRuntime(skillRoot, logger)
+  copyAgentSpecs(skillRoot, logger)
+  syncRuntimeManagedFiles(skillRoot, logger)
+  updatePackageJson(logger)
+  installHooks(skillRoot, logger)
+
+  const state = deriveStateFromFilesystem(readProjectStateFromDisk(STATE_PATH), {
+    updateProgressTimestamp: false,
+    updateValidationTimestamp: false,
+  })
+  syncManagedFiles(getManagedDocSpecs(state))
+  syncManagedFiles(getManagedSkillSpecs(state))
+  ensureEnvLocalSkeleton(state)
+  syncClaudeMirrorFromAgents(logger)
+  writeHarnessSkillRoot(skillRoot)
+  const manifest = syncLocalBootstrapManifest()
+
+  logger.log(
+    `${manifest.changed ? "Updated" : "Verified"} ${manifest.path} (${manifest.fileCount} local file(s) captured)`,
+  )
+  logger.log("Harness runtime, agents, and managed local files upgraded")
+
+  console.log(`\n${"═".repeat(55)}`)
+  console.log("  ✅ Harness runtime upgrade complete")
+  console.log(`${"═".repeat(55)}\n`)
 }
 
 export async function runSetup(params: SetupParams): Promise<void> {
@@ -865,7 +928,7 @@ export async function runSetup(params: SetupParams): Promise<void> {
   installHooks(skillRoot, logger)
   const githubResult = await setupGitHub(params)
   writeInitialState(context, logger, githubResult)
-  syncManagedArtifacts(logger)
+  syncManagedArtifacts(logger, skillRoot)
 
   console.log(`\n${"═".repeat(55)}`)
   console.log("  ✅ Harness initialization complete")

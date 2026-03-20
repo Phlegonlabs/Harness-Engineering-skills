@@ -249,6 +249,14 @@ Regardless of the starting point, the project must end up with:
 - `.harness/state.json`
 - passing phase gates
 
+For an already-managed repository that needs the newest installed Harness runtime, run:
+
+```bash
+bun harness:upgrade-runtime --skill-root <path-to-installed-harness-engineering-orchestrator>
+```
+
+That command refreshes the local `.harness/` runtime, `agents/`, managed wrappers, and recorded skill source. `bun harness:hooks:install` only restores the repo's recorded local snapshot; it is not a runtime upgrader.
+
 ## Phase 0: Discovery
 
 Goal: capture just enough product, delivery, and design context to enter the research or stack phase cleanly.
@@ -497,8 +505,8 @@ Autoflow advances phases by reading output artifacts (PRD, ARCHITECTURE, PROGRES
 **2. `state.json` corruption from interrupted writes auto-recovers from `.backup`, but if both are corrupt you need git recovery.**
 The state writer uses atomic rename with a `.backup` copy. A single crash is safe. If the process is killed twice in the same write window, both copies may be incomplete — at that point run `git checkout .harness/state.json` to restore from the last commit. See [references/state-recovery.md](./references/state-recovery.md).
 
-**3. Doom loop: the same file edited 5+ times without a commit triggers auto-pause (H1 heuristic).**
-The doom-loop detector counts edits per file per task cycle. Five edits without a commit signals a stuck agent and pauses execution. If you legitimately need many iterations on one file, commit intermediate progress. See [references/doom-loop-detection.md](./references/doom-loop-detection.md).
+**3. Doom loop: the same file edited 3+ times without a commit warns; 5+ times triggers auto-pause (H1 heuristic).**
+The doom-loop detector counts edits per file per task cycle. Three edits without a commit issues a warning. Five edits without a commit signals a stuck agent and pauses execution. If you legitimately need many iterations on one file, commit intermediate progress. See [references/doom-loop-detection.md](./references/doom-loop-detection.md).
 
 **4. Hooks G2 and G5 block commits before the EXECUTING phase — early blocks are misconfiguration, not violations.**
 The Branch Protection (G2) and Dependency Direction (G5) hooks are phase-gated: they only activate at EXECUTING. If they fire during SCAFFOLD or earlier, the hook installation is incorrect. Do not disable them — fix the `activeFrom` phase configuration. See [references/hooks-guide.md](./references/hooks-guide.md).
@@ -680,6 +688,8 @@ bun harness:orchestrate --json              # Emit launch-cycle JSON and persist
 bun harness:orchestrate --confirm <id> --handle <runtimeHandle>  # Confirm a spawned child handle
 bun harness:orchestrate --rollback <id> --reason "<why>"         # Roll back a failed launch reservation
 bun harness:orchestrate --release <id>                           # Clear a finished child reservation
+bun harness:upgrade-runtime --skill-root <path-to-skill>         # Pull the latest installed Harness runtime into an existing managed repo
+bun harness:upgrade-runtime                                      # Re-run the upgrade using the previously recorded skill source
 bun harness:orchestrate --no-reserve              # Preview launch cycle without reserving activeAgents[]
 bun .harness/orchestrator.ts                # Direct orchestrator entry point
 bun .harness/orchestrator.ts --status       # Show orchestrator status
@@ -687,7 +697,7 @@ bun .harness/orchestrator.ts --next         # Output only the next agent/action
 bun .harness/orchestrator.ts --review       # Dispatch Design Reviewer (UI tasks)
 bun .harness/orchestrator.ts --code-review  # Dispatch Code Reviewer (non-UI tasks)
 bun harness:merge-milestone M[N]           # Merge a REVIEW milestone into main, clean up worktree
-bun harness:hooks:install                   # Restore the local Harness snapshot (including Claude/Codex config) and re-install git hook shims
+bun harness:hooks:install                   # Restore the repo's recorded local Harness snapshot and re-install git hook shims
 bun harness:add-surface --type=<TYPE>       # Add a new project surface (e.g. api, android-app)
 bun harness:audit                           # Full audit: guardians, phase gate, workspace, docs drift
 bun harness:sync-docs                       # Synchronize managed documentation files

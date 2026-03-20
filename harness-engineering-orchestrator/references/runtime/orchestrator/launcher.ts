@@ -3,14 +3,12 @@ import { join } from "path"
 import type {
   ActiveAgent,
   AgentId,
-  AgentLaunchAdapterHint,
   AgentLaunchKind,
   AgentLaunchRequest,
   AgentPlatform,
   LaunchCycle,
   Milestone,
   ProjectState,
-  SubagentDispatchPolicy,
   Task,
 } from "../../types"
 import { refreshMilestoneStatuses, registerActiveAgent, syncExecutionPointersFromActiveAgents } from "../execution"
@@ -25,6 +23,7 @@ import {
   dispatchDesignReview,
   dispatchParallel,
 } from "./dispatcher"
+import { getRuntimeAdapter } from "./runtime-adapter"
 
 const LAUNCH_DIR = ".harness/launches"
 const LATEST_LAUNCH_PATH = join(LAUNCH_DIR, "latest.json")
@@ -48,6 +47,24 @@ export interface LaunchLifecycleResult {
   cycle: LaunchCycle
   cyclePath: string
   launch: AgentLaunchRequest
+}
+
+export interface HostLaunchAction {
+  action: AgentLaunchRequest["runtime"]["spawn"]["action"]
+  adapterId: AgentLaunchRequest["runtime"]["adapterId"]
+  confirmCommand?: string
+  handleHint: string
+  handleSource: AgentLaunchRequest["runtime"]["spawn"]["handleSource"]
+  instructions: string[]
+  launchId: string
+  logicalAgentId: AgentLaunchRequest["logicalAgentId"]
+  payload: AgentLaunchRequest["runtime"]["spawn"]["payload"]
+  platform: AgentLaunchRequest["runtime"]["platform"]
+  releaseCommand?: string
+  rollbackCommand?: string
+  toolName: string
+  transport: AgentLaunchRequest["runtime"]["spawn"]["transport"]
+  validationCommand: string
 }
 
 function ensureLaunchDir(): void {
@@ -182,43 +199,6 @@ function findTask(state: ProjectState, taskId?: string): Task | undefined {
   return state.execution.milestones.flatMap(milestone => milestone.tasks).find(task => task.id === taskId)
 }
 
-function defaultAdapterHints(
-  kind: AgentLaunchKind,
-  policy?: SubagentDispatchPolicy,
-): {
-  claude: AgentLaunchAdapterHint
-  codex: AgentLaunchAdapterHint
-} {
-  const base: AgentLaunchAdapterHint = policy
-    ? {
-        closeStrategy: policy.closeStrategy,
-        forkContext: policy.forkContext,
-        nativeRole: policy.nativeRole,
-        waitStrategy: policy.waitStrategy,
-        writeMode: policy.writeMode,
-      }
-    : kind === "review-agent"
-      ? {
-          closeStrategy: "close-on-integration",
-          forkContext: true,
-          nativeRole: "worker",
-          waitStrategy: "immediate",
-          writeMode: "read-only",
-        }
-      : {
-          closeStrategy: "close-on-integration",
-          forkContext: true,
-          nativeRole: "worker",
-          waitStrategy: "immediate",
-          writeMode: "scoped-write",
-        }
-
-  return {
-    claude: { ...base },
-    codex: { ...base },
-  }
-}
-
 function buildLifecycleCommands(launchId: string, packetValidationCommand: string) {
   return {
     confirmCommand: `bun .harness/orchestrate.ts --confirm ${launchId} --handle <runtime-handle>`,
@@ -233,6 +213,7 @@ function buildLaunchRequest(
   index: number,
   dispatchResult: DispatchResult,
   state: ProjectState,
+  platform: AgentPlatform,
 ): AgentLaunchRequest | null {
   if (dispatchResult.type !== "agent" || !dispatchResult.agentId || !dispatchResult.packet || !dispatchResult.context) {
     return null
@@ -256,6 +237,17 @@ function buildLaunchRequest(
         }
       : undefined
   const subagentPolicy = metadata?.subagentPolicy ?? dispatchResult.subagentPolicy
+  const runtimeAdapter = getRuntimeAdapter(platform)
+  const runtime = runtimeAdapter.waitForChild(
+    runtimeAdapter.spawnLaunch({
+      kind,
+      launchId,
+      logicalAgentId: dispatchResult.agentId,
+      platform,
+      policy: subagentPolicy,
+      prompt: dispatchResult.context,
+    }),
+  )
 
   return {
     launchId,
@@ -275,7 +267,7 @@ function buildLaunchRequest(
     status: "prepared",
     subagentPolicy,
     postAction: dispatchResult.postAction,
-    adapterHints: defaultAdapterHints(kind, subagentPolicy),
+    runtime,
     lifecycle: {
       afterCompletion: [...dispatchResult.packet.afterCompletion],
       ...buildLifecycleCommands(launchId, dispatchResult.packet.validationCommand),
@@ -400,6 +392,26 @@ function updateCycleLaunch(
   return launch
 }
 
+export function buildHostLaunchActions(cycle: LaunchCycle): HostLaunchAction[] {
+  return cycle.launches.map(launch => ({
+    action: launch.runtime.spawn.action,
+    adapterId: launch.runtime.adapterId,
+    confirmCommand: launch.lifecycle.confirmCommand,
+    handleHint: launch.runtime.spawn.handleHint,
+    handleSource: launch.runtime.spawn.handleSource,
+    instructions: [...launch.runtime.spawn.instructions],
+    launchId: launch.launchId,
+    logicalAgentId: launch.logicalAgentId,
+    payload: { ...launch.runtime.spawn.payload },
+    platform: launch.runtime.platform,
+    releaseCommand: launch.lifecycle.releaseCommand,
+    rollbackCommand: launch.lifecycle.rollbackCommand,
+    toolName: launch.runtime.spawn.toolName,
+    transport: launch.runtime.spawn.transport,
+    validationCommand: launch.lifecycle.validationCommand,
+  }))
+}
+
 export function prepareLaunchCycle(
   state: ProjectState,
   options: LaunchPrepareOptions,
@@ -409,7 +421,7 @@ export function prepareLaunchCycle(
   const planner = getPlannerDispatches(state, platform, options)
   const cycleId = createLaunchCycleId()
   const launches = planner.dispatches
-    .map((result, index) => buildLaunchRequest(cycleId, index, result, state))
+    .map((result, index) => buildLaunchRequest(cycleId, index, result, state, platform))
     .filter((launch): launch is AgentLaunchRequest => Boolean(launch))
 
   if (launches.length === 0) {
@@ -489,7 +501,9 @@ export function confirmLaunch(
   }
 
   const launch = updateCycleLaunch(record.cycle, record.launchIndex, current => {
+    const runtimeAdapter = getRuntimeAdapter(current.runtime.platform)
     current.status = "running"
+    current.runtime = runtimeAdapter.confirmLaunch(current.runtime, runtimeHandle)
     if (current.reservation) {
       current.reservation.runtimeHandle = runtimeHandle
       current.reservation.status = "running"
@@ -530,7 +544,9 @@ export function rollbackLaunch(
   }
 
   const launch = updateCycleLaunch(record.cycle, record.launchIndex, current => {
+    const runtimeAdapter = getRuntimeAdapter(current.runtime.platform)
     current.status = "rolled-back"
+    current.runtime = runtimeAdapter.rollbackLaunch(current.runtime, reason)
     if (current.postAction) {
       current.postAction = `${current.postAction}\nRollback reason: ${reason}`
     } else {
@@ -571,7 +587,9 @@ export function releaseLaunch(
   }
 
   const launch = updateCycleLaunch(record.cycle, record.launchIndex, current => {
+    const runtimeAdapter = getRuntimeAdapter(current.runtime.platform)
     current.status = "released"
+    current.runtime = runtimeAdapter.releaseLaunch(current.runtime)
     if (current.reservation) {
       current.reservation.status = "closing"
     }

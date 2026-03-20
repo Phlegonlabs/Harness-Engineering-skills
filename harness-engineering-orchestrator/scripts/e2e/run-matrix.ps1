@@ -1,6 +1,6 @@
 param(
   [string]$SkillRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
-  [string]$RunRoot = (Join-Path (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path "tmp") ("harness-e2e-" + (Get-Date -Format "yyyyMMdd-HHmmss")))
+  [string]$RunRoot = (Join-Path (Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path "tmp") ("harness-e2e-" + (Get-Date -Format "yyyyMMdd-HHmmss")))
 )
 
 $ErrorActionPreference = "Stop"

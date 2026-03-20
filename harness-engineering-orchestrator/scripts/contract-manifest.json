@@ -54,6 +54,7 @@
     "harness:metrics",
     "harness:entropy-scan",
     "harness:scope-change",
+    "harness:upgrade-runtime",
     "harness:orchestrator",
     "harness:orchestrate",
     "harness:merge-milestone",
@@ -82,7 +83,8 @@
     ".harness/learn.ts",
     ".harness/metrics.ts",
     ".harness/entropy-scan.ts",
-    ".harness/scope-change.ts"
+    ".harness/scope-change.ts",
+    ".harness/upgrade-runtime.ts"
   ],
   "requiredText": [
     {
