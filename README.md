@@ -10,7 +10,7 @@
 > AI-native engineering workflow skills for Claude and Codex.
 >
 > Install `harness-engineering-orchestrator` to run software projects through a repo-backed delivery loop:
-> `PRD -> Architecture -> Scaffold -> Milestone -> Task -> Validation`
+> `Project Plan -> Delivery Phase -> Milestone -> Task -> Validation`
 
 Harness Engineering is built around one idea: planning and execution should survive chat sessions. Instead of keeping important decisions inside prompt history, the workflow writes them back into versioned repository artifacts such as `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, `AGENTS.md`, `CLAUDE.md`, and `.harness/state.json`. That makes delivery stateful, resumable, and auditable across humans, Claude, and Codex.
 
@@ -47,6 +47,7 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 ## Start Here
 
 - Install: `npx skills add https://github.com/Phlegonlabs/Harness-Engineering-skills --skill harness-engineering-orchestrator`
+- Current release target: `v1.8.2`
 - Best for: teams that want AI coding agents to work inside a controlled PRD-to-code delivery system instead of free-form prompt chains
 - Main package: `harness-engineering-orchestrator` for discovery, stack selection, PRD, architecture, milestone/task execution, and validation
 - Read next: [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)
@@ -55,7 +56,7 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 
 | Skill | What it does | Best for |
 |---|---|---|
-| `harness-engineering-orchestrator` | Turns an idea or existing repo into a repo-backed delivery workflow with docs, runtime state, backlog, execution, and validation | Greenfield bootstraps, existing repo hydration, milestone-driven agent delivery |
+| `harness-engineering-orchestrator` | Turns an idea or existing repo into a repo-backed delivery workflow with docs, runtime state, backlog, execution, and validation | Greenfield bootstraps, existing repo hydration, phase-first agent delivery |
 
 See [SKILLS.md](./SKILLS.md) for the full catalog and install commands.
 
@@ -127,6 +128,8 @@ After setup or hydration, continue from inside the target repository with:
 ```bash
 bun .harness/orchestrator.ts
 bun harness:orchestrate
+bun harness:approve --plan
+bun harness:approve --phase V1
 bun harness:advance
 ```
 
@@ -177,7 +180,7 @@ Typical prompts:
 
 - The repository becomes the working memory, not the chat transcript.
 - Scope changes must flow back through the PRD before implementation resumes.
-- Execution is milestone-driven and review-gated, not a single uninterrupted agent run.
+- Execution is phase-first and review-gated, not a single uninterrupted agent run.
 - Validation writes back into runtime state so the next session can resume from facts, not recollection.
 
 ## Workflow in brief
@@ -194,7 +197,7 @@ The orchestrator enforces strict step-by-step execution:
 
 - **Level-aware Discovery pacing** — Lite batches 1-2 questions or uses Fast Path, Standard groups 2-3 questions, Full asks one question per turn.
 - **One phase per response** — work from two phases is never combined in a single message.
-- **Mandatory checkpoints** at every phase boundary — the orchestrator summarizes, validates, and asks for confirmation before advancing.
+- **Explicit approval stops** at planning and delivery-phase boundaries — approve the overall plan, approve `Phase 1`, then stop again at delivery-phase completion, deploy review, or real blockers.
 - **Granular scaffold verification** — every `.harness/` runtime file, config, doc, and build script is individually checked before entering EXECUTING.
 
 This prevents the common failure mode where the LLM rushes through phases, skips validation, or enters execution with an incomplete scaffold.

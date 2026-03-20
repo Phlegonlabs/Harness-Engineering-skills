@@ -315,6 +315,7 @@ export interface TechStack {
 export type TaskType = "TASK" | "SPIKE"
 
 export type TaskStatus =
+  | "PLANNED"       // Planned in a future delivery phase, not yet executable
   | "PENDING"       // Not started yet
   | "IN_PROGRESS"   // Currently executing
   | "BLOCKED"       // External dependency, cannot continue
@@ -380,6 +381,7 @@ export interface Task {
 // ─── Milestone ────────────────────────────────────────────────────────────────
 
 export type MilestoneStatus =
+  | "PLANNED"
   | "PENDING"
   | "IN_PROGRESS"
   | "REVIEW"          // All Tasks done, awaiting Milestone Review
@@ -390,6 +392,7 @@ export interface Milestone {
   id: string            // e.g. "M1"
   name: string
   productStageId: string // e.g. "V1"
+  phaseId?: string      // Delivery-phase alias for productStageId
   branch: string        // e.g. "milestone/m1-foundation"
   worktreePath: string  // e.g. "../my-app-m1"
   status: MilestoneStatus
@@ -400,6 +403,7 @@ export interface Milestone {
 }
 
 export type ProductStageStatus =
+  | "DRAFT"
   | "ACTIVE"
   | "DEFERRED"
   | "DEPLOY_REVIEW"
@@ -416,6 +420,27 @@ export interface ProductStage {
   deployReviewStartedAt?: string
   deployReviewedAt?: string
   completedAt?: string
+}
+
+export type PlanApprovalStatus = "pending" | "approved"
+
+export type DeliveryPhaseApprovalStatus = "pending" | "approved"
+
+export type DeliveryPhaseExecutionStatus =
+  | "draft"
+  | "executing"
+  | "deploy_gate"
+  | "complete"
+
+export interface DeliveryPhase {
+  id: string
+  name: string
+  milestoneIds: string[]
+  order: number
+  approvalStatus: DeliveryPhaseApprovalStatus
+  approvedAt?: string
+  executionStatus: DeliveryPhaseExecutionStatus
+  isLaunchPhase: boolean
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────
@@ -552,6 +577,12 @@ export interface ExecutionState {
 export interface ProductRoadmapState {
   currentStageId: string
   stages: ProductStage[]
+  planApprovalStatus?: PlanApprovalStatus
+  planApprovedAt?: string
+  activePhaseId?: string
+  approvedPhaseIds?: string[]
+  planApproved?: boolean
+  phases?: DeliveryPhase[]
 }
 
 // ─── Workflow History ────────────────────────────────────────────────────────
@@ -680,6 +711,16 @@ export interface AgentPacketStage {
   status: ProductStageStatus
 }
 
+export interface AgentPacketDeliveryPhase {
+  id: string
+  isLaunchPhase: boolean
+  name: string
+  order: number
+  approvalStatus: DeliveryPhaseApprovalStatus
+  approvedAt?: string
+  executionStatus: DeliveryPhaseExecutionStatus
+}
+
 export interface AgentPacketTask {
   affectedFiles: string[]
   id: string
@@ -696,6 +737,7 @@ export interface AgentTaskPacket {
   agentName: string
   afterCompletion: string[]
   architectureVersion: string
+  currentDeliveryPhase?: AgentPacketDeliveryPhase
   currentMilestone?: AgentPacketMilestone
   currentStage?: AgentPacketStage
   currentTask?: AgentPacketTask

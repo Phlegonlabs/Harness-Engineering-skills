@@ -26,6 +26,10 @@ test("progress docs record task lifecycle details and activity log", () => {
   state.projectInfo.displayName = "Progress Fixture"
   state.docs.prd.version = "v1.0"
   state.docs.architecture.version = "v1.0"
+  state.roadmap.planApprovalStatus = "approved"
+  state.roadmap.planApprovedAt = "2026-03-15T08:00:00.000Z"
+  state.roadmap.activePhaseId = "V1"
+  state.roadmap.approvedPhaseIds = ["V1"]
   state.roadmap.currentStageId = "V1"
   state.roadmap.stages = [
     {
@@ -117,7 +121,7 @@ test("progress docs record task lifecycle details and activity log", () => {
   syncProgressDocuments(state)
 
   expect(readFileSync("docs/PROGRESS.md", "utf-8")).toContain("8. [08 Roadmap](./progress/08-roadmap.md)")
-  expect(readFileSync("docs/PROGRESS.md", "utf-8")).toContain("Current Product Stage")
+  expect(readFileSync("docs/PROGRESS.md", "utf-8")).toContain("Current Delivery Phase")
   expect(readFileSync("docs/PROGRESS.md", "utf-8")).toContain("Latest Workflow Event")
 
   const backlog = readFileSync("docs/progress/03-backlog.md", "utf-8")
@@ -146,7 +150,7 @@ test("progress docs record task lifecycle details and activity log", () => {
   expect(nextSession).toContain("Phase advanced: SCAFFOLD -> EXECUTING")
 
   const roadmap = readFileSync("docs/progress/08-roadmap.md", "utf-8")
-  expect(roadmap).toContain("V1: Initial Delivery [ACTIVE]")
+  expect(roadmap).toContain("V1: Initial Delivery [execution=executing; approval=approved]")
 })
 
 test("progress docs render a roadmap placeholder when no product stages exist yet", () => {
@@ -158,5 +162,5 @@ test("progress docs render a roadmap placeholder when no product stages exist ye
   syncProgressDocuments(state)
 
   const roadmap = readFileSync("docs/progress/08-roadmap.md", "utf-8")
-  expect(roadmap).toContain("No product stages have been parsed from the PRD yet.")
+  expect(roadmap).toContain("No delivery phases have been parsed from the PRD yet.")
 })

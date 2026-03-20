@@ -19,12 +19,35 @@ afterEach(() => {
   rmSync(workspaceDir, { force: true, recursive: true })
 })
 
-test("public docs sync renders milestone-level delivery status and records sync events", () => {
+test("public docs sync renders delivery-phase approval guidance and records sync events", () => {
   const state = initState({})
   state.phase = "EXECUTING"
   state.projectInfo.name = "public-doc-fixture"
   state.projectInfo.displayName = "Public Doc Fixture"
   state.projectInfo.types = ["cli"]
+  state.roadmap.planApprovalStatus = "approved"
+  state.roadmap.activePhaseId = "V1"
+  state.roadmap.phases = [
+    {
+      id: "V1",
+      name: "Initial Delivery",
+      order: 1,
+      milestoneIds: ["M1"],
+      approvalStatus: "approved",
+      approvedAt: "2026-03-15T09:00:00.000Z",
+      executionStatus: "deploy_gate",
+      isLaunchPhase: true,
+    },
+    {
+      id: "V2",
+      name: "Expansion",
+      order: 2,
+      milestoneIds: ["M2"],
+      approvalStatus: "pending",
+      executionStatus: "draft",
+      isLaunchPhase: false,
+    },
+  ]
   state.roadmap.currentStageId = "V1"
   state.roadmap.stages = [
     {
@@ -88,14 +111,19 @@ test("public docs sync renders milestone-level delivery status and records sync 
   expect(readme).toContain("Latest merged milestone")
   expect(readme).toContain("M1 — Foundation")
   expect(readme).toContain("Deploy/test V1")
+  expect(readme).toContain("bun harness:approve --phase V2")
+  expect(readme).toContain("bun harness:approve --plan")
 
   const quickStart = readFileSync("docs/public/quick-start.md", "utf-8")
   expect(quickStart).toContain("Public Delivery Status")
   expect(quickStart).toContain("DEPLOY_REVIEW")
+  expect(quickStart).toContain("bun harness:approve --plan")
+  expect(quickStart).toContain("bun harness:approve --phase V1")
 
   const gitbookReadme = readFileSync("docs/gitbook/README.md", "utf-8")
   expect(gitbookReadme).toContain("Public Delivery Status")
   expect(gitbookReadme).toContain("M1 — Foundation")
+  expect(gitbookReadme).toContain("bun harness:approve --phase V[N]")
 
   firstSync.state.phase = "COMPLETE"
   firstSync.state.docs.readme.isFinal = true

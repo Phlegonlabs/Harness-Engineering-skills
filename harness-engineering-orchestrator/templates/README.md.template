@@ -24,6 +24,8 @@ bun harness:orchestrator
 bun harness:orchestrate
 bun harness:orchestrate --json
 bun harness:upgrade-runtime
+bun harness:approve --plan
+bun harness:approve --phase V1
 bun harness:advance
 bun harness:stage --status
 bun harness:sync-backlog
@@ -34,6 +36,7 @@ bun harness:validate --phase EXECUTING
 ```
 
 Use `bun .harness/orchestrator.ts` when you want a read-only preview of the next agent or task packet. Use `bun harness:orchestrate` when the parent runtime should consume a real launch cycle from `.harness/launches/latest.json`. Use `bun harness:upgrade-runtime --skill-root <path-to-installed-skill>` the first time an existing managed repo pulls a newer runtime from the installed skill.
+Before execution begins, record explicit approvals with `bun harness:approve --plan` and `bun harness:approve --phase V1`.
 
 Harness Engineering and Orchestrator organizes requirements, architecture, progress, and validation into modular documents:
 
@@ -47,7 +50,7 @@ Runtime auto-dispatch currently covers `project-discovery`, `MARKET_RESEARCH`, `
 After an interactive phase is complete, advance the lifecycle with `bun harness:advance`.
 `bun harness:autoflow` advances only after the current phase's required outputs exist; if scaffold artifacts are missing, it stops and surfaces the missing phase work instead of skipping ahead. During `EXECUTING`, it auto-compacts and merges `REVIEW` milestones. At `COMPLETE`, it writes a final compact snapshot before surfacing context health. When the current delivery version is fully merged, it stops at a deploy review gate instead of auto-starting the next version.
 If product scope changes inside the current delivery version, update the PRD first and run `bun harness:sync-backlog`, or use `bun harness:scope-change --apply` to apply + sync in one step.
-If the next delivery version is ready after deploy / real-world review, update PRD / Architecture and run `bun harness:stage --promote V[N]`.
+If the next delivery version is ready after deploy / real-world review, update PRD / Architecture, run `bun harness:approve --phase V[N]`, then run `bun harness:stage --promote V[N]`.
 
 ## License
 

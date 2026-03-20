@@ -3,6 +3,7 @@ import type { ProjectState } from "../types"
 import { deriveStateFromFilesystem, getHarnessCriticalTotal, PROGRESS_DIR, STATE_PATH } from "./shared"
 import { syncProgressDocuments } from "./progress"
 import { readProjectStateFromDisk, writeProjectStateToDisk } from "./state-io"
+import { syncRoadmapPhases } from "./stages"
 import { resolveToolchainConfig } from "./toolchain-detect"
 import { ensureWorkflowHistory } from "./workflow-history"
 
@@ -39,7 +40,9 @@ export function readState(): ProjectState {
 }
 
 export function refreshDerivedState(state: ProjectState): ProjectState {
-  return ensureWorkflowHistory(deriveStateFromFilesystem(state, { updateProgressTimestamp: true }))
+  const next = ensureWorkflowHistory(deriveStateFromFilesystem(state, { updateProgressTimestamp: true }))
+  syncRoadmapPhases(next)
+  return next
 }
 
 export function writeState(state: ProjectState): ProjectState {
@@ -123,6 +126,12 @@ export function initState(partial: Partial<ProjectState>): ProjectState {
     roadmap: {
       currentStageId: "",
       stages: [],
+      planApprovalStatus: "pending",
+      planApprovedAt: undefined,
+      activePhaseId: "",
+      approvedPhaseIds: [],
+      planApproved: false,
+      phases: [],
     },
     execution: {
       currentMilestone: "",

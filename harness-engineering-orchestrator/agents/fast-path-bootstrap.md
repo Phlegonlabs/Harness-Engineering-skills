@@ -2,7 +2,7 @@
 
 ## Role
 
-Combined discovery inference, minimal PRD generation, minimal scaffold for Lite-level projects. Completes the DISCOVERY-to-EXECUTING transition in a single dispatch.
+Combined discovery inference, minimal PRD generation, and minimal scaffold preparation for Lite-level projects. Completes the DISCOVERY-to-SCAFFOLD transition in a single dispatch, then waits for explicit plan + launch-phase approval before execution begins.
 
 ## Trigger
 
@@ -49,10 +49,10 @@ Combined discovery inference, minimal PRD generation, minimal scaffold for Lite-
 ## Output
 
 - `.harness/state.json` initialized with all metadata
-- `docs/PRD.md` with minimal milestone/task breakdown
+- `docs/PRD.md` with minimal milestone/task breakdown and a draft `Phase 1 / Phase 2+` split
 - `docs/ARCHITECTURE.md` with structure and constraints
 - Scaffold files generated
-- Phase set to `EXECUTING`
+- Phase advanced to `SCAFFOLD` or ready-to-enter `EXECUTING` only after explicit approval is recorded
 
 ## Constraints
 
@@ -89,9 +89,9 @@ When confidence is below the threshold:
 3. Offer a reasonable default the user can accept with a single confirmation
 4. Do not proceed to Turn 2 until all Low-confidence fields are resolved
 
-### Milestone Plan Approval Gate
+### Planning + Phase Approval Gate
 
-Before generating any artifacts (PRD, Architecture, scaffold), the full inferred metadata and proposed milestone plan must be presented to the user in a summary block. The user must explicitly approve or correct that summary before generation proceeds. This gate cannot be skipped even if all fields are High confidence.
+Before execution begins, the full inferred metadata, proposed milestone plan, and draft `Phase 1 / Phase 2+` split must be presented to the user in a summary block. The user may correct the split, but execution cannot begin until the overall plan and `Phase 1` are explicitly approved. This gate cannot be skipped even if all fields are High confidence.
 
 ## Interaction Framework
 
@@ -105,17 +105,21 @@ Before generating any artifacts (PRD, Architecture, scaffold), the full inferred
 6. Present inferred metadata to user for confirmation:
    - Project name and type (with confidence indicators)
    - Detected ecosystem and toolchain
-   - Proposed milestone count
-7. Wait for user approval or corrections (Milestone Plan Approval Gate)
+   - Proposed milestone count and draft `Phase 1` launch slice
+7. Wait for user approval or corrections (Planning + Phase Approval Gate)
 
-### Turn 2 — Generate and Advance
+### Turn 2 — Generate, Prepare, and Wait for Approval Recording
 
 1. Apply any user corrections from Turn 1
-2. Generate minimal PRD with milestones and tasks
+2. Generate minimal PRD with milestones, tasks, and a draft `Phase 1 / Phase 2+` split
 3. Generate minimal architecture document
 4. Create scaffold files
-5. Initialize state and advance to EXECUTING
-6. Report summary of generated artifacts
+5. Initialize state and stop with explicit next steps:
+   - `bun harness:approve --plan`
+   - `bun harness:approve --phase V1`
+   - `bun harness:validate --phase EXECUTING`
+   - `bun harness:advance`
+6. Report summary of generated artifacts and the pending approval commands
 
 ## Failure Paths
 
@@ -137,7 +141,7 @@ Before generating any artifacts (PRD, Architecture, scaffold), the full inferred
 
 ## Done-When
 
-- `state.phase === "EXECUTING"`
+- `state.phase === "SCAFFOLD"` or the runtime is otherwise ready to enter `EXECUTING` after explicit approval
 - `docs/PRD.md` exists with at least 1 milestone
 - `docs/ARCHITECTURE.md` exists
 - `.harness/state.json` is valid
@@ -145,4 +149,4 @@ Before generating any artifacts (PRD, Architecture, scaffold), the full inferred
 
 ## Handoff
 
-Returns control to the orchestrator at the EXECUTING phase. The orchestrator then dispatches the execution engine for the first task.
+Returns control to the orchestrator after planning/scaffold preparation. The orchestrator should wait for `bun harness:approve --plan` and `bun harness:approve --phase V1` before dispatching execution work.

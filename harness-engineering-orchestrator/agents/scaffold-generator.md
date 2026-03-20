@@ -33,7 +33,7 @@ Select scaffold templates based on the confirmed tech stack and detected ecosyst
 
 ### Group 1: Harness Runtime
 
-The full list below matches the files copied by `copyHarnessRuntime` in `scripts/setup/core.ts` and validated by `phase-structural.ts`. All 20 runtime files plus `state.json` are required before entering EXECUTING.
+The full list below matches the files copied by `copyHarnessRuntime` in `scripts/setup/core.ts` and validated by `phase-structural.ts`. All runtime files plus `state.json` are required before entering EXECUTING.
 
 - [ ] `.harness/types.ts`
 - [ ] `.harness/init.ts`
@@ -42,6 +42,7 @@ The full list below matches the files copied by `copyHarnessRuntime` in `scripts
 - [ ] `.harness/validate.ts`
 - [ ] `.harness/orchestrator.ts`
 - [ ] `.harness/orchestrate.ts`
+- [ ] `.harness/approve.ts`
 - [ ] `.harness/stage.ts`
 - [ ] `.harness/compact.ts`
 - [ ] `.harness/add-surface.ts`
@@ -75,7 +76,7 @@ The full list below matches the files copied by `copyHarnessRuntime` in `scripts
 
 ### Group 4: Build Infrastructure
 
-- [ ] `package.json` has `harness:advance`, `harness:validate`, `harness:compact` scripts
+- [ ] `package.json` has `harness:advance`, `harness:approve`, `harness:validate`, `harness:compact` scripts
 - [ ] `package.json` has `harness:orchestrate`
 - [ ] `package.json` has `typecheck`, `format:check`, `build` scripts
 - [ ] CI/CD pipeline files exist (`.github/workflows/`) (Standard/Full)
@@ -99,8 +100,11 @@ After all groups are verified:
 
 1. Present the **Scaffold Verification Checklist** with pass/fail for each item
 2. Show the `bun harness:validate --phase EXECUTING` result
-3. If the current milestone plan was already approved, continue directly into `EXECUTING`
-4. Stop only if scaffold output materially deviates from the approved plan or validation fails
+3. If approvals are still pending, stop and tell the operator to run:
+   - `bun harness:approve --plan`
+   - `bun harness:approve --phase V1`
+4. Continue into `EXECUTING` only after the overall plan and `Phase 1` are explicitly approved
+5. Stop only if scaffold output materially deviates from the approved plan or validation fails
 
 ## Outputs
 
@@ -112,7 +116,7 @@ After all groups are verified:
 
 - `bun harness:validate --phase EXECUTING` passes
 - The scaffold verification checklist is complete
-- The next safe step is `bun harness:advance`, unless scaffold drift or validation failure requires escalation
+- The next safe step is `bun harness:approve --plan`, `bun harness:approve --phase V1`, then `bun harness:advance`, unless scaffold drift or validation failure requires escalation
 
 ## Constraints
 

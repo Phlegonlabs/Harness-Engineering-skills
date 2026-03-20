@@ -37,15 +37,15 @@ Dispatched by the Orchestrator when `phase === "PRD_ARCH"`.
    - `docs/design/product-prototype.html` (full interactive prototype of all PRD screens)
 5. Keep the documents aligned with confirmed ADRs, project goals, and project type. Do not introduce fields outside the state schema.
 
-### Product Stage Definition Guidance
+### Delivery Phase Definition Guidance
 
-Define delivery stages in the PRD:
+Define delivery phases in the PRD:
 
-- **V1** — Core MVP: the minimum feature set that delivers the primary value proposition. This is the first deployable version.
-- **V2** — Enhanced: secondary features, polish, integrations, and improvements based on V1 feedback.
-- **V3** — Complete: full vision, advanced features, scaling, and optimization.
+- **V1** — Launch / Phase 1: the minimum feature set that delivers the primary value proposition and can reach deployment / store-release readiness.
+- **V2** — Enhancements: secondary features, polish, integrations, and improvements based on V1 feedback.
+- **V3** — Longer-tail expansion: advanced features, scaling, and optimization.
 
-Each stage maps to one or more milestones. Tasks within a milestone belong to exactly one stage. Stages are promoted sequentially — V2 does not begin until V1 is deployed and reviewed.
+Draft the full milestone list first, then assign milestones to delivery phases. The agent should propose the split; the user only edits it when needed. Each milestone belongs to exactly one phase, and later phases should default to enhancement / post-launch work. V2 does not begin until V1 is deployed and reviewed.
 
 ## Outputs
 
@@ -72,3 +72,4 @@ Each stage maps to one or more milestones. Tasks within a milestone belong to ex
 - At Full level, always use modular structure
 - Do not introduce fields outside the state schema
 - Ensure milestones and features are parseable by `parsePrdStageSpecs()`
+- Prefer PRD headings like `## Delivery Phase V1: Launch MVP` and `## Delivery Phase V2: Enhancements`

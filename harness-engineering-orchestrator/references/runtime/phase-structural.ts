@@ -13,6 +13,7 @@ import {
   PRD_PATH,
   STATE_PATH,
 } from "./shared"
+import { getCurrentDeliveryPhase, isDeliveryPhaseApproved, isPlanApproved, milestoneBelongsToActivePhase } from "./stages"
 import { hasAgentSurface, surfaceWorkspaceList } from "./surfaces"
 import { filesShareHash } from "./validation/helpers"
 
@@ -85,8 +86,35 @@ function scaffoldPlanningChecks(state: ProjectState): StructuralCheck[] {
 }
 
 function executingStructuralChecks(state: ProjectState): StructuralCheck[] {
+  const currentDeliveryPhase = getCurrentDeliveryPhase(state)
+  const inactiveMilestones = state.execution.milestones.filter(milestone => !milestoneBelongsToActivePhase(state, milestone))
   const checks: StructuralCheck[] = [
     ...scaffoldPlanningChecks(state),
+    check(isPlanApproved(state), "overall project plan has been approved"),
+    check(Boolean(state.roadmap.activePhaseId), "an active delivery phase is selected"),
+    check(Boolean(currentDeliveryPhase), "current delivery phase exists"),
+    check(
+      Boolean(currentDeliveryPhase && isDeliveryPhaseApproved(state, currentDeliveryPhase.id)),
+      "active delivery phase has been approved",
+    ),
+    check(
+      state.execution.milestones.every(milestone => Boolean(milestone.phaseId)),
+      "every execution milestone has a phaseId",
+    ),
+    check(
+      state.execution.milestones.every(milestone => (milestone.phaseId ?? milestone.productStageId) === milestone.productStageId),
+      "every milestone phaseId matches productStageId",
+    ),
+    check(
+      inactiveMilestones.every(milestone => milestone.status === "PLANNED"),
+      "inactive delivery-phase milestones stay in PLANNED status",
+    ),
+    check(
+      inactiveMilestones.every(milestone =>
+        milestone.tasks.every(task => task.status === "PLANNED" || task.status === "DONE" || task.status === "SKIPPED"),
+      ),
+      "inactive delivery-phase tasks remain non-executable",
+    ),
     check(existsSync("AGENTS.md"), "AGENTS.md is present"),
     check(existsSync("CLAUDE.md"), "CLAUDE.md is present"),
     check(filesShareHash("AGENTS.md", "CLAUDE.md"), "AGENTS.md == CLAUDE.md (same hash) [G8]"),
@@ -104,6 +132,7 @@ function executingStructuralChecks(state: ProjectState): StructuralCheck[] {
     check(existsSync(".harness/orchestrator.ts"), ".harness/orchestrator.ts is present"),
     check(existsSync(".harness/orchestrate.ts"), ".harness/orchestrate.ts is present"),
     check(existsSync(".harness/stage.ts"), ".harness/stage.ts is present"),
+    check(existsSync(".harness/approve.ts"), ".harness/approve.ts is present"),
     check(existsSync(".harness/compact.ts"), ".harness/compact.ts is present"),
     check(existsSync(".harness/add-surface.ts"), ".harness/add-surface.ts is present"),
     check(existsSync(".harness/audit.ts"), ".harness/audit.ts is present"),
@@ -123,6 +152,7 @@ function executingStructuralChecks(state: ProjectState): StructuralCheck[] {
     check(packageJsonHasScript("harness:init:prd"), "package.json includes harness:init:prd"),
     check(packageJsonHasScript("harness:advance"), "package.json includes harness:advance"),
     check(packageJsonHasScript("harness:stage"), "package.json includes harness:stage"),
+    check(packageJsonHasScript("harness:approve"), "package.json includes harness:approve"),
     check(packageJsonHasScript("harness:state"), "package.json includes harness:state"),
     check(packageJsonHasScript("harness:env"), "package.json includes harness:env"),
     check(packageJsonHasScript("harness:validate"), "package.json includes harness:validate"),
@@ -238,6 +268,7 @@ export function getPhaseStructuralChecks(phase: Phase, state: ProjectState): Str
     case "VALIDATING":
       return [
         check(state.execution.allMilestonesComplete, "all milestones are complete"),
+        check(isPlanApproved(state), "overall project plan has been approved"),
         check(
           state.execution.milestones.every(milestone => ["COMPLETE", "MERGED"].includes(milestone.status)),
           "all milestone statuses are COMPLETE / MERGED",

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
 import type { AIProvider, Milestone, ProjectState, TeamSize } from "../types"
-import { getCurrentProductStage, getNextDeferredProductStage } from "./stages"
+import { getCurrentDeliveryPhase, getCurrentProductStage, getNextDeferredProductStage, isPlanApproved } from "./stages"
 import { hasAgentSurface, projectTypeSummary, surfaceWorkspaceList } from "./surfaces"
 
 export type ManagedFileSpec = {
@@ -116,6 +116,7 @@ function latestMergedMilestone(state: ProjectState): Milestone | undefined {
 }
 
 function buildPublicStatus(state: ProjectState): PublicDeliveryStatus {
+  const currentDeliveryPhase = getCurrentDeliveryPhase(state)
   const currentStage = getCurrentProductStage(state)
   const nextDeferredStage = getNextDeferredProductStage(state)
   const currentMilestone = state.execution.milestones.find(milestone => milestone.id === state.execution.currentMilestone)
@@ -127,8 +128,14 @@ function buildPublicStatus(state: ProjectState): PublicDeliveryStatus {
   if (state.phase === "EXECUTING" && currentStage?.status === "DEPLOY_REVIEW") {
     statusSummary = `${currentStage.id} is fully merged and waiting on deploy / real-world review.`
     nextStep = nextDeferredStage
-      ? `Deploy/test ${currentStage.id}, update PRD / Architecture, then run bun harness:stage --promote ${nextDeferredStage.id}.`
+      ? `Deploy/test ${currentStage.id}, update PRD / Architecture, approve ${nextDeferredStage.id} with bun harness:approve --phase ${nextDeferredStage.id}, then run bun harness:stage --promote ${nextDeferredStage.id}.`
       : "Deploy/test the current release, then run bun harness:advance when validation can begin."
+  } else if (!isPlanApproved(state)) {
+    statusSummary = "Planning is drafted and waiting on explicit overall approval before execution can begin."
+    nextStep = "Review the drafted roadmap, then run bun harness:approve --plan."
+  } else if (currentDeliveryPhase && currentDeliveryPhase.approvalStatus !== "approved") {
+    statusSummary = `${currentDeliveryPhase.id} is drafted but not approved for execution yet.`
+    nextStep = `Review the launch slice, then run bun harness:approve --phase ${currentDeliveryPhase.id}.`
   } else if (state.phase === "EXECUTING") {
     statusSummary = currentMilestone
       ? `${currentStage?.id ?? "Current stage"} is executing ${currentMilestone.id} — ${currentMilestone.name}.`
@@ -222,6 +229,8 @@ ${renderPublicStatusSection(ctx.publicStatus)}
 bun install
 bun harness:orchestrate
 bun harness:upgrade-runtime
+bun harness:approve --plan
+bun harness:approve --phase V1
 bun harness:advance
 bun harness:stage --status
 bun harness:sync-backlog
@@ -236,7 +245,8 @@ Use \`bun .harness/orchestrator.ts\` when you want a read-only preview of the ne
 Use \`bun harness:upgrade-runtime --skill-root <path-to-installed-skill>\` the first time an existing managed repo pulls a newer runtime from the installed skill, then \`bun harness:upgrade-runtime\` for subsequent refreshes. \`bun harness:hooks:install\` only restores the repo's recorded local snapshot.
 Do not bootstrap product frameworks such as Next.js, Tauri, or provider SDK stacks during scaffold setup. Introduce them only inside milestone tasks.
 If product scope changes inside the current delivery version, update the PRD first. Use \`bun harness:scope-change --apply\` for queued changes because it syncs backlog/progress automatically, or run \`bun harness:sync-backlog\` after direct manual PRD edits.
-If the next delivery version is being promoted after deploy / real-world review, update PRD / Architecture and run \`bun harness:stage --promote V[N]\`.
+If execution has not started yet, review the drafted roadmap and record approvals with \`bun harness:approve --plan\` and \`bun harness:approve --phase V1\` before advancing into execution.
+If the next delivery version is being promoted after deploy / real-world review, update PRD / Architecture, approve that draft phase with \`bun harness:approve --phase V[N]\`, then run \`bun harness:stage --promote V[N]\`.
 
 - \`apps/\`: current surfaces -> ${ctx.workspaceList.join(", ")}
 - \`packages/shared/\`: shared contracts and utilities
@@ -259,6 +269,8 @@ bun install
 bun .harness/state.ts --show
 bun harness:orchestrate
 bun harness:upgrade-runtime
+bun harness:approve --plan
+bun harness:approve --phase V1
 bun harness:advance
 bun harness:stage --status
 bun harness:sync-backlog
@@ -271,6 +283,7 @@ bun harness:audit
 After these steps, continue from \`docs/PROGRESS.md\`, \`docs/progress/\`, and \`.harness/state.json\`.
 Use \`bun .harness/orchestrator.ts\` for read-only routing preview; use \`bun harness:orchestrate --json\` when the parent runtime should consume a real launch cycle and lifecycle commands.
 Use \`bun harness:upgrade-runtime --skill-root <path-to-installed-skill>\` when an older managed repo needs the newest installed runtime. After the project records its skill source, \`bun harness:upgrade-runtime\` can be run without flags.
+\`bun harness:approve --plan\` records overall planning approval; \`bun harness:approve --phase V1\` records approval for the launch phase before execution begins.
 \`bun harness:scope-change --apply\` automatically re-syncs backlog/progress after a queued scope change; manual \`bun harness:sync-backlog\` is for direct PRD edits.
 \`.env.local\` is already scaffolded for local use, but framework-specific variables should be added only when the relevant milestone task introduces that framework.${skillLine}`
 }
@@ -325,7 +338,7 @@ ${ctx.description}
 Runtime auto-dispatch currently covers \`project-discovery\`, \`MARKET_RESEARCH\`, \`TECH_STACK\`, \`prd-architect\`, \`scaffold-generator\`, the UI design loop, \`EXECUTING\`, \`VALIDATING\`, and \`context-compactor\`.
 After an interactive phase is complete, advance the lifecycle with \`bun harness:advance\`.
 \`bun harness:autoflow\` advances only after the current phase's required outputs exist; if scaffold artifacts are missing, it stops and surfaces the missing phase work instead of skipping ahead. During \`EXECUTING\`, it auto-compacts and merges \`REVIEW\` milestones. When the current delivery version is fully merged, it stops at a deploy review gate instead of auto-starting the next version.
-Use \`bun harness:stage --status\` to inspect the current delivery roadmap. After deploy / real-world review, update PRD / Architecture and run \`bun harness:stage --promote V[N]\` to activate the next version.
+Use \`bun harness:stage --status\` to inspect the current delivery roadmap. Before the first execution phase begins, record approvals with \`bun harness:approve --plan\` and \`bun harness:approve --phase V1\`. After deploy / real-world review, update PRD / Architecture, approve the next draft phase with \`bun harness:approve --phase V[N]\`, then run \`bun harness:stage --promote V[N]\` to activate it.
 If product scope changes inside the current delivery version, update the PRD first. \`bun harness:scope-change --apply\` already syncs backlog/progress for queued changes; use \`bun harness:sync-backlog\` only after direct PRD edits.
 During scaffold setup, do not pre-install project frameworks such as Next.js or Tauri; add them later inside milestone tasks.
 
@@ -334,6 +347,8 @@ During scaffold setup, do not pre-install project frameworks such as Next.js or 
 \`\`\`bash
 bun install
 bun harness:orchestrate
+bun harness:approve --plan
+bun harness:approve --phase V1
 bun harness:advance
 bun harness:env
 bun harness:audit

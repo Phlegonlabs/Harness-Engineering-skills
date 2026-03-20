@@ -80,13 +80,15 @@ function resolveTargetMilestone(
 
 function resolveTargetStageId(state: ProjectState, request: ScopeChangeRequest): string {
   const milestone = state.execution.milestones.find(candidate => candidate.id === request.targetMilestoneId)
-  if (milestone) return milestone.productStageId
+  if (milestone) return milestone.phaseId ?? milestone.productStageId
 
   return (
-    state.roadmap.currentStageId
+    state.roadmap.activePhaseId
+    || state.roadmap.currentStageId
     || state.roadmap.stages.find(stage => stage.status === "ACTIVE")?.id
     || state.roadmap.stages.find(stage => stage.status === "DEPLOY_REVIEW")?.id
     || state.roadmap.stages.find(stage => stage.status === "COMPLETED")?.id
+    || state.execution.milestones[state.execution.milestones.length - 1]?.phaseId
     || state.execution.milestones[state.execution.milestones.length - 1]?.productStageId
     || "V1"
   )
@@ -96,7 +98,7 @@ function parseStageRanges(prdContent: string): Array<{ id: string; start: number
   const lines = prdContent.split("\n")
   const headings = lines.flatMap((line, index) => {
     const match = line.match(
-      /^##\s+Product Stage\s+(V\d+)\s*:\s*(.+?)(?:\s+\[(ACTIVE|DEFERRED|DEPLOY_REVIEW|COMPLETED)\])?\s*$/i,
+      /^##\s+(?:Product Stage|Delivery Phase)\s+(V\d+)\s*:\s*(.+?)(?:\s+\[(ACTIVE|DEFERRED|DRAFT|DEPLOY_REVIEW|COMPLETED)\])?\s*$/i,
     )
     if (!match) return []
     return [{ id: match[1]!.trim().toUpperCase(), start: index }]
@@ -131,7 +133,7 @@ function findMilestoneInsertLine(prdContent: string, milestoneId: string): numbe
 
     let end = lineIndex
     for (let next = lineIndex + 1; next < lines.length; next++) {
-      if (/^##\s+Product Stage\b/i.test(lines[next]!) || /^###\s+Milestone\b/i.test(lines[next]!)) {
+      if (/^##\s+(?:Product Stage|Delivery Phase)\b/i.test(lines[next]!) || /^###\s+Milestone\b/i.test(lines[next]!)) {
         break
       }
       end = next

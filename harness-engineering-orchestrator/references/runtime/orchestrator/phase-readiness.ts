@@ -1,6 +1,6 @@
 import type { HarnessLevel, Phase, ProjectState } from "../../types"
 import { type StructuralCheck, getPhaseStructuralChecks } from "../phase-structural"
-import { getCurrentProductStage } from "../stages"
+import { getCurrentDeliveryPhase, getCurrentProductStage, isDeliveryPhaseApproved, isPlanApproved } from "../stages"
 
 type OutputCheck = {
   label: string
@@ -68,15 +68,31 @@ export function getPhaseReadiness(state: ProjectState): PhaseReadiness {
       )
     }
     case "EXECUTING":
+      if (!isPlanApproved(state) || !state.roadmap.activePhaseId) {
+        return buildReadiness(state.phase, [
+          check("overall planning approval is recorded", isPlanApproved(state)),
+          check("an active approved delivery phase is selected", Boolean(state.roadmap.activePhaseId)),
+        ])
+      }
       if (getCurrentProductStage(state)?.status === "DEPLOY_REVIEW") {
         return buildReadiness(state.phase, [
           check("current product stage is waiting on deploy / real-world review", true),
         ])
       }
+      const currentDeliveryPhase = getCurrentDeliveryPhase(state)
       return buildReadiness(state.phase, [
+        check("current delivery phase exists", Boolean(currentDeliveryPhase)),
+        check(
+          "current delivery phase has explicit approval",
+          Boolean(currentDeliveryPhase && isDeliveryPhaseApproved(state, currentDeliveryPhase.id)),
+        ),
+        check(
+          "current delivery phase is executing",
+          currentDeliveryPhase?.executionStatus === "executing",
+        ),
         check("execution backlog has at least 1 milestone", state.execution.milestones.length > 0),
         check(
-          "there is an active milestone or a milestone in REVIEW",
+          "there is an active milestone or a milestone in REVIEW for the current delivery phase",
           Boolean(state.execution.currentMilestone) || state.execution.milestones.some(item => item.status === "REVIEW"),
         ),
       ])

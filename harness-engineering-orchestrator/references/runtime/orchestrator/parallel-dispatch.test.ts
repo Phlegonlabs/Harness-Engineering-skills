@@ -70,6 +70,10 @@ function createExecutingState(): ProjectState {
     maxParallelMilestones: 1,
     enableInterMilestone: false,
   }
+  state.roadmap.planApprovalStatus = "approved"
+  state.roadmap.planApprovedAt = "2026-03-15T08:00:00.000Z"
+  state.roadmap.activePhaseId = "V1"
+  state.roadmap.approvedPhaseIds = ["V1"]
   state.roadmap.currentStageId = "V1"
   state.roadmap.stages = [
     {

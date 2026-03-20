@@ -129,6 +129,7 @@ function activateNextTask(state: ProjectState): { milestone: Milestone; task: Ta
   }
 
   for (const milestone of state.execution.milestones) {
+    if (milestone.status === "PLANNED") continue
     const pendingTasks = milestone.tasks.filter(task => task.status === "PENDING")
     // Prefer urgent tasks over normal tasks
     const nextTask = pendingTasks.find(t => t.priority === "urgent") ?? pendingTasks[0]
@@ -156,6 +157,7 @@ export function activateMultipleTasks(
   const activated: Array<{ milestone: Milestone; task: Task }> = []
 
   for (const milestone of state.execution.milestones) {
+    if (milestone.status === "PLANNED") continue
     if (milestone.status === "MERGED" || milestone.status === "COMPLETE") continue
 
     const pendingTasks = milestone.tasks.filter(task => {
@@ -223,6 +225,7 @@ function recordReviewReadyTransitions(
 
 export function refreshMilestoneStatuses(state: ProjectState): void {
   for (const milestone of state.execution.milestones) {
+    const allPlanned = milestone.tasks.length > 0 && milestone.tasks.every(task => task.status === "PLANNED")
     const allFinished = milestone.tasks.every(
       task => task.status === "DONE" || task.status === "SKIPPED",
     )
@@ -230,7 +233,9 @@ export function refreshMilestoneStatuses(state: ProjectState): void {
       ["IN_PROGRESS", "DONE", "BLOCKED"].includes(task.status),
     )
 
-    if (allFinished) {
+    if (allPlanned) {
+      milestone.status = "PLANNED"
+    } else if (allFinished) {
       milestone.status = milestone.status === "MERGED" ? "MERGED" : "REVIEW"
       milestone.completedAt = milestone.completedAt ?? new Date().toISOString()
     } else if (hasWorkStarted) {

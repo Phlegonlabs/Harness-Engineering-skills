@@ -9,8 +9,9 @@
 Runtime auto-dispatch currently covers `project-discovery`, `MARKET_RESEARCH`, `TECH_STACK`, `prd-architect`, `scaffold-generator`, the UI design loop, `EXECUTING`, `VALIDATING`, and `context-compactor`.
 After an interactive phase is complete, advance the lifecycle with `bun harness:advance`.
 `bun harness:autoflow` advances only when the current phase artifacts already exist on disk. Missing scaffold/runtime outputs keep the workflow on the current phase. During `EXECUTING`, it auto-compacts and merges `REVIEW` milestones. When the current delivery version is fully merged, it stops at deploy review instead of auto-starting the next version.
+Before the first execution phase begins, record approvals with `bun harness:approve --plan` and `bun harness:approve --phase V1`.
 If scope changes inside the current delivery version, update the PRD first and run `bun harness:sync-backlog`.
-If the next delivery version is being activated after deploy / real-world review, update PRD / Architecture and run `bun harness:stage --promote V[N]`.
+If the next delivery version is being activated after deploy / real-world review, update PRD / Architecture, run `bun harness:approve --phase V[N]`, then run `bun harness:stage --promote V[N]`.
 
 ## Key Features
 
@@ -23,6 +24,8 @@ If the next delivery version is being activated after deploy / real-world review
 
 ```bash
 bun install
+bun harness:approve --plan
+bun harness:approve --phase V1
 bun harness:advance
 bun harness:env
 bun harness:validate --phase EXECUTING

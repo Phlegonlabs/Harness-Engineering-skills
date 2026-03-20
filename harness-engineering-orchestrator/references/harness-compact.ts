@@ -15,36 +15,20 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
+import type { ProjectState } from "./types"
 
 const STATE_PATH = ".harness/state.json"
 const SNAPSHOT_PATH = "docs/progress/CONTEXT_SNAPSHOT.md"
 const ADR_DIR = "docs/adr"
 const PROGRESS_DIR = "docs/progress"
 
-interface MinimalState {
-  docs: {
-    architecture: {
-      version: string
-    }
-    prd: {
-      version: string
-    }
-  }
-  phase: string
-  roadmap: {
-    currentStageId: string
-    stages: Array<{
-      id: string
-      name: string
-      status: string
-    }>
-  }
-  execution: {
-    currentMilestone: string
-    currentTask: string
-    currentWorktree: string
-    milestones: MinimalMilestone[]
-  }
+type MinimalState = ProjectState
+
+type DeliveryPhaseView = {
+  approvalStatus?: string
+  executionStatus?: string
+  id: string
+  name: string
 }
 
 interface MinimalMilestone {
@@ -59,10 +43,74 @@ interface MinimalMilestone {
   }>
 }
 
+function syncRoadmapPhasesCompat(state: MinimalState): void {
+  const stages = state.roadmap.stages ?? []
+  const approvedPhaseIds = new Set(state.roadmap.approvedPhaseIds ?? [])
+  const activePhaseId =
+    state.roadmap.activePhaseId
+    || state.roadmap.currentStageId
+    || stages.find(stage => stage.status === "ACTIVE")?.id
+    || stages.find(stage => stage.status === "DEPLOY_REVIEW")?.id
+    || ""
+
+  state.roadmap.planApprovalStatus =
+    state.roadmap.planApprovalStatus
+    ?? (state.roadmap.planApproved ? "approved" : "pending")
+  state.roadmap.activePhaseId = activePhaseId || undefined
+  state.roadmap.currentStageId = activePhaseId
+
+  state.roadmap.phases = stages.map((stage, index) => ({
+    id: stage.id,
+    name: stage.name,
+    milestoneIds: [...stage.milestoneIds],
+    order: index + 1,
+    approvalStatus:
+      state.roadmap.phases?.find(phase => phase.id === stage.id)?.approvalStatus
+      ?? (approvedPhaseIds.has(stage.id) ? "approved" : "pending"),
+    approvedAt:
+      state.roadmap.phases?.find(phase => phase.id === stage.id)?.approvedAt
+      ?? (approvedPhaseIds.has(stage.id) ? state.updatedAt : undefined),
+    executionStatus:
+      state.roadmap.phases?.find(phase => phase.id === stage.id)?.executionStatus
+      ?? (stage.status === "COMPLETED"
+        ? "complete"
+        : stage.id === activePhaseId && stage.status === "DEPLOY_REVIEW"
+          ? "deploy_gate"
+          : stage.id === activePhaseId && stage.status === "ACTIVE"
+            ? "executing"
+            : "draft"),
+    isLaunchPhase: index === 0,
+  }))
+}
+
+function getCurrentDeliveryPhaseCompat(state: MinimalState): DeliveryPhaseView | undefined {
+  return (
+    state.roadmap.phases?.find(phase => phase.id === state.roadmap.activePhaseId)
+    ?? state.roadmap.phases?.find(phase => phase.executionStatus === "executing")
+    ?? state.roadmap.phases?.find(phase => phase.executionStatus === "deploy_gate")
+    ?? state.roadmap.phases?.[0]
+  )
+}
+
+function getNextDraftDeliveryPhaseCompat(state: MinimalState): DeliveryPhaseView | undefined {
+  return state.roadmap.phases?.find(phase => phase.executionStatus === "draft")
+}
+
+function getCurrentProductStageCompat(state: MinimalState) {
+  return (
+    state.roadmap.stages.find(stage => stage.id === (state.roadmap.activePhaseId ?? state.roadmap.currentStageId))
+    ?? state.roadmap.stages.find(stage => stage.status === "ACTIVE")
+    ?? state.roadmap.stages.find(stage => stage.status === "DEPLOY_REVIEW")
+    ?? state.roadmap.stages[0]
+  )
+}
+
 function readState(): MinimalState | null {
   if (!existsSync(STATE_PATH)) return null
   try {
-    return JSON.parse(readFileSync(STATE_PATH, "utf-8")) as MinimalState
+    const state = JSON.parse(readFileSync(STATE_PATH, "utf-8")) as MinimalState
+    syncRoadmapPhasesCompat(state)
+    return state
   } catch {
     return null
   }
@@ -134,10 +182,9 @@ function generateSnapshot(state: MinimalState, isMilestone: boolean, milestoneId
   const now = new Date().toISOString()
   const recentTasks = getCompletedTasks(state)
   const targetMilestone = resolveMilestoneTarget(state, milestoneId)
-  const currentStage =
-    state.roadmap.stages.find(stage => stage.id === state.roadmap.currentStageId)
-    ?? state.roadmap.stages.find(stage => stage.status === "ACTIVE")
-    ?? state.roadmap.stages.find(stage => stage.status === "DEPLOY_REVIEW")
+  const currentDeliveryPhase = getCurrentDeliveryPhaseCompat(state)
+  const currentStage = getCurrentProductStageCompat(state)
+  const nextDraftPhase = getNextDraftDeliveryPhaseCompat(state)
   const remaining = getRemainingTasks(state, milestoneId)
   const archiveTasks = getMilestoneArchiveTasks(targetMilestone)
   const adrSummaries = collectAdrSummaries()
@@ -154,12 +201,23 @@ function generateSnapshot(state: MinimalState, isMilestone: boolean, milestoneId
   lines.push(`## 🔴 RETAIN — Must Keep`)
   lines.push(``)
   lines.push(`- **Phase**: ${state.phase}`)
-  lines.push(`- **Product Stage**: ${currentStage ? `${currentStage.id} — ${currentStage.name} [${currentStage.status}]` : "—"}`)
+  lines.push(`- **Plan Approval**: ${state.roadmap.planApprovalStatus ?? "pending"}`)
+  lines.push(
+    `- **Current Delivery Phase**: ${
+      currentDeliveryPhase
+        ? `${currentDeliveryPhase.id} — ${currentDeliveryPhase.name} [execution=${currentDeliveryPhase.executionStatus}; approval=${currentDeliveryPhase.approvalStatus}]`
+        : "—"
+    }`,
+  )
+  lines.push(`- **Legacy Product Stage**: ${currentStage ? `${currentStage.id} — ${currentStage.name} [${currentStage.status}]` : "—"}`)
   lines.push(`- **PRD Version**: ${state.docs.prd.version}`)
   lines.push(`- **Architecture Version**: ${state.docs.architecture.version}`)
   lines.push(`- **Milestone**: ${targetMilestone?.id ?? state.execution.currentMilestone}`)
   lines.push(`- **Task**: ${state.execution.currentTask}`)
   lines.push(`- **Worktree**: ${state.execution.currentWorktree || "main"}`)
+  if (nextDraftPhase) {
+    lines.push(`- **Next Draft Phase**: ${nextDraftPhase.id} — ${nextDraftPhase.name}`)
+  }
   lines.push(``)
   if (adrSummaries.length > 0) {
     lines.push(`### Recent ADR Decisions`)
@@ -242,18 +300,26 @@ function showStatus(state: MinimalState | null): void {
   }
 
   console.log(`Phase:     ${state.phase}`)
+  const currentDeliveryPhase = getCurrentDeliveryPhaseCompat(state)
+  const currentStage = getCurrentProductStageCompat(state)
+  const nextDraftPhase = getNextDraftDeliveryPhaseCompat(state)
+  console.log(`Plan:      ${state.roadmap.planApprovalStatus ?? "pending"}`)
   console.log(
-    `Stage:     ${
-      state.roadmap.stages.find(stage => stage.id === state.roadmap.currentStageId)?.id
-      ?? state.roadmap.stages.find(stage => stage.status === "ACTIVE")?.id
-      ?? "—"
+    `Phase:     ${
+      currentDeliveryPhase
+        ? `${currentDeliveryPhase.id} (${currentDeliveryPhase.executionStatus}, ${currentDeliveryPhase.approvalStatus})`
+        : "—"
     }`,
   )
+  console.log(`Stage:     ${currentStage?.id ?? "—"}`)
   console.log(`PRD:       ${state.docs.prd.version}`)
   console.log(`Arch:      ${state.docs.architecture.version}`)
   console.log(`Milestone: ${state.execution.currentMilestone}`)
   console.log(`Task:      ${state.execution.currentTask}`)
   console.log(`Worktree:  ${state.execution.currentWorktree || "main"}`)
+  if (nextDraftPhase) {
+    console.log(`Next:      ${nextDraftPhase.id} (${nextDraftPhase.approvalStatus})`)
+  }
   console.log("")
 
   const snapshotExists = existsSync(SNAPSHOT_PATH)
@@ -267,6 +333,13 @@ function showStatus(state: MinimalState | null): void {
 
   console.log("")
   console.log("Recommendations:")
+  if ((state.roadmap.planApprovalStatus ?? "pending") !== "approved") {
+    console.log("  • Run `bun harness:approve --plan` before execution starts")
+  } else if (currentDeliveryPhase && currentDeliveryPhase.approvalStatus !== "approved") {
+    console.log(`  • Run \`bun harness:approve --phase ${currentDeliveryPhase.id}\` before execution starts`)
+  } else if (currentDeliveryPhase?.executionStatus === "deploy_gate") {
+    console.log("  • Complete deploy / real-world review before promoting the next phase")
+  }
   console.log("  • Run `bun harness:compact` after each Task completion")
   console.log("  • Milestone closeout auto-runs `bun .harness/compact.ts --milestone --milestone-id M[N]`")
   console.log("  • Use snapshot as /compact retention guidance")

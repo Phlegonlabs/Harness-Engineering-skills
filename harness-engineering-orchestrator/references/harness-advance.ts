@@ -95,7 +95,8 @@ if (
   console.error(
     `❌ Product stage ${currentStage.id} is waiting on deploy / real-world review and the roadmap still has deferred follow-up stages.`,
   )
-  console.error("   Promote the next stage explicitly after updating PRD / Architecture:")
+  console.error("   Approve and promote the next stage explicitly after updating PRD / Architecture:")
+  console.error("   bun harness:approve --phase V[N]")
   console.error("   bun harness:stage --promote V[N]")
   process.exit(1)
 }

@@ -2,13 +2,15 @@ import { mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
 import type { Milestone, ProjectState, Task, WorkflowEvent } from "../types"
 import { PROGRESS_DIR, PROGRESS_PATH } from "./shared"
-import { getCurrentProductStage, getNextDeferredProductStage } from "./stages"
+import { getCurrentDeliveryPhase, getCurrentProductStage, getNextDeferredProductStage } from "./stages"
 import { collectWorkflowEvents, findLatestWorkflowEvent } from "./workflow-history"
 
 function statusIcon(status: Task["status"]): string {
   switch (status) {
     case "DONE":
       return "[x]"
+    case "PLANNED":
+      return "[·]"
     case "SKIPPED":
       return "[-]"
     case "BLOCKED":
@@ -56,6 +58,8 @@ function milestoneHeading(milestone: Milestone): string {
   const icon =
     milestone.status === "COMPLETE" || milestone.status === "MERGED"
       ? "✅ Complete"
+      : milestone.status === "PLANNED"
+        ? "📝 Planned"
       : milestone.status === "IN_PROGRESS"
         ? "🔄 In Progress"
         : milestone.status === "REVIEW"
@@ -123,6 +127,7 @@ function buildProgressSnapshot(state: ProjectState) {
   const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100)
   const currentTask = findCurrentTask(state)
   const currentMilestone = findCurrentMilestone(state, currentTask) ?? state.execution.milestones[0]
+  const currentDeliveryPhase = getCurrentDeliveryPhase(state)
   const currentStage = getCurrentProductStage(state)
   const nextDeferredStage = getNextDeferredProductStage(state)
   const blockedTasks = tasks.filter(task => task.status === "BLOCKED")
@@ -176,24 +181,32 @@ function buildProgressSnapshot(state: ProjectState) {
     ? `${currentTask.id} — ${currentTask.name} (${currentTask.status})`
     : "Not started (use harness:advance to create backlog)"
 
-  const stageLabel = currentStage
-    ? `${currentStage.id} — ${currentStage.name} (${currentStage.status})`
-    : "Not yet defined"
+  const stageLabel =
+    currentDeliveryPhase
+      ? `${currentDeliveryPhase.id} — ${currentDeliveryPhase.name} (${currentDeliveryPhase.executionStatus}, ${currentDeliveryPhase.approvalStatus})`
+      : currentStage
+        ? `${currentStage.id} — ${currentStage.name} (${currentStage.status})`
+        : "Not yet defined"
   const roadmapLines =
-    state.roadmap.stages.length === 0
-      ? ["- No product stages have been parsed from the PRD yet."]
-      : state.roadmap.stages.map(stage => {
-          const versions = [stage.prdVersion, stage.architectureVersion].filter(Boolean).join(" / ")
-          const suffix = stage.id === state.roadmap.currentStageId ? " — <- Current Stage" : ""
-          return `- ${stage.id}: ${stage.name} [${stage.status}]${versions ? ` — ${versions}` : ""}${suffix}`
+    (state.roadmap.phases?.length ?? 0) === 0
+      ? ["- No delivery phases have been parsed from the PRD yet."]
+      : (state.roadmap.phases ?? []).map(phase => {
+          const stage = state.roadmap.stages.find(candidate => candidate.id === phase.id)
+          const versions = [stage?.prdVersion, stage?.architectureVersion].filter(Boolean).join(" / ")
+          const suffix = phase.id === (state.roadmap.activePhaseId ?? state.roadmap.currentStageId) ? " — <- Active Phase" : ""
+          return `- ${phase.id}: ${phase.name} [execution=${phase.executionStatus}; approval=${phase.approvalStatus}]${versions ? ` — ${versions}` : ""}${suffix}`
         })
   const nextAction =
     currentStage?.status === "DEPLOY_REVIEW"
       ? nextDeferredStage
-        ? `Deploy/test the current version, then update PRD / Architecture and run \`bun harness:stage --promote ${nextDeferredStage.id}\`.`
-        : "Deploy/test the current version. If this is the final release, run `bun harness:advance` after review."
+        ? `Deploy/test the current launch phase, approve the next phase if needed, then run \`bun harness:stage --promote ${nextDeferredStage.id}\`.`
+        : "Deploy/test the current launch phase. If this is the final release, run `bun harness:advance` after review."
       : currentTask
-        ? `Continue ${currentTask.id} in ${currentStage?.id ?? "the current product stage"}.`
+        ? `Continue ${currentTask.id} in ${currentDeliveryPhase?.id ?? currentStage?.id ?? "the active delivery phase"}.`
+        : state.roadmap.planApprovalStatus !== "approved"
+          ? "Approve the overall plan with `bun harness:approve --plan`."
+          : currentDeliveryPhase && currentDeliveryPhase.approvalStatus !== "approved"
+            ? `Approve ${currentDeliveryPhase.id} with \`bun harness:approve --phase ${currentDeliveryPhase.id}\`.`
         : "Run `bun .harness/orchestrator.ts` to determine the next step."
 
   return {
@@ -232,7 +245,8 @@ function generateProgressIndexMarkdown(state: ProjectState): string {
 ## Current Summary
 
 **Current Phase**: ${state.phase}
-**Current Product Stage**: ${snapshot.stageLabel}
+**Current Delivery Phase**: ${snapshot.stageLabel}
+**Plan Approval**: ${state.roadmap.planApprovalStatus ?? "pending"}
 **PRD Version**: ${state.docs.prd.version}
 **Architecture Version**: ${state.docs.architecture.version}
 **Current Milestone**: ${snapshot.currentMilestone ? `${snapshot.currentMilestone.id} — ${snapshot.currentMilestone.name}` : "Not yet created"}
@@ -262,10 +276,11 @@ function generateProgressModules(state: ProjectState): Record<string, string> {
   const snapshot = buildProgressSnapshot(state)
 
   return {
-    "01-summary.md": `## 1. Summary
+      "01-summary.md": `## 1. Summary
 
 - **Current phase**: ${state.phase}
-- **Current product stage**: ${snapshot.stageLabel}
+- **Current delivery phase**: ${snapshot.stageLabel}
+- **Plan approval**: ${state.roadmap.planApprovalStatus ?? "pending"}
 - **PRD version**: ${state.docs.prd.version}
 - **Architecture version**: ${state.docs.architecture.version}
 - **Current milestone**: ${snapshot.currentMilestone ? `${snapshot.currentMilestone.id} — ${snapshot.currentMilestone.name}` : "Not yet created"}
@@ -274,12 +289,12 @@ function generateProgressModules(state: ProjectState): Record<string, string> {
 - **Latest workflow event**: ${formatEventSummary(snapshot.latestEvent)}
 - **Latest phase transition**: ${formatEventSummary(snapshot.latestPhaseEvent)}
 - **Latest milestone event**: ${formatEventSummary(snapshot.latestMilestoneEvent)}`,
-    "02-current-state.md": `## 2. Current State
+      "02-current-state.md": `## 2. Current State
 
 - **Worktree**: \`${nextWorktreePath(state, snapshot.currentMilestone)}\`
 - **Last updated**: ${state.updatedAt}
 - **Execution source of truth**: \`.harness/state.json\`
-- **Current product stage**: ${snapshot.stageLabel}
+- **Current delivery phase**: ${snapshot.stageLabel}
 - **Current phase gate**: Run \`bun harness:validate --phase ${state.phase}\` (if applicable)
 - **Latest stage transition**: ${formatEventSummary(snapshot.latestStageEvent)}
 - **Latest public-doc sync**: ${formatEventSummary(snapshot.latestPublicSync)}`,
@@ -324,9 +339,9 @@ ${snapshot.recentEvents.length > 0
 
 ${snapshot.activityLog.length > 0 ? snapshot.activityLog.join("\n") : "- No workflow events recorded yet."}
 `,
-    "08-roadmap.md": `## 8. Product Roadmap
+    "08-roadmap.md": `## 8. Delivery Phases
 
-- **Current stage**: ${snapshot.stageLabel}
+- **Current delivery phase**: ${snapshot.stageLabel}
 - **PRD version**: ${state.docs.prd.version}
 - **Architecture version**: ${state.docs.architecture.version}
 - **Latest stage transition**: ${formatEventSummary(snapshot.latestStageEvent)}

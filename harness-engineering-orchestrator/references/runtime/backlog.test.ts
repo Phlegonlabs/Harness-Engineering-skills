@@ -60,6 +60,20 @@ test("syncExecutionFromPrd appends new milestones and reopens EXECUTING", () => 
   state.projectInfo.types = ["cli"]
   state.docs.prd.exists = true
   state.docs.prd.milestoneCount = 2
+  state.roadmap.planApprovalStatus = "approved"
+  state.roadmap.activePhaseId = "V1"
+  state.roadmap.currentStageId = "V1"
+  state.roadmap.approvedPhaseIds = ["V1"]
+  state.roadmap.stages = [
+    {
+      id: "V1",
+      name: "Current Delivery",
+      status: "ACTIVE",
+      milestoneIds: ["M1", "M2"],
+      prdVersion: "v1.0",
+      architectureVersion: "v1.0",
+    },
+  ]
   state.execution.milestones = [
     {
       id: "M1",
@@ -93,13 +107,16 @@ test("syncExecutionFromPrd appends new milestones and reopens EXECUTING", () => 
   const result = syncExecutionFromPrd(state)
 
   expect(result.addedMilestones).toBe(1)
-  expect(result.addedStages).toBe(1)
+  expect(result.addedStages).toBe(0)
   expect(result.addedTasks).toBe(1)
   expect(result.state.phase).toBe("EXECUTING")
   expect(result.state.roadmap.currentStageId).toBe("V1")
+  expect(result.state.roadmap.activePhaseId).toBe("V1")
+  expect(result.state.roadmap.planApproved).toBe(true)
   expect(result.state.execution.currentMilestone).toBe("M2")
   expect(result.state.execution.currentTask).toBe("T002")
   expect(result.state.execution.milestones[0]?.status).toBe("MERGED")
+  expect(result.state.execution.milestones[0]?.phaseId).toBe("V1")
   expect(result.state.execution.milestones[0]?.tasks[0]?.id).toBe("T001")
   expect(result.state.execution.milestones[1]?.tasks[0]?.status).toBe("IN_PROGRESS")
 })
@@ -177,13 +194,21 @@ test("syncExecutionFromPrd only materializes the ACTIVE product stage", () => {
 
   const result = syncExecutionFromPrd(state)
 
-  expect(result.state.roadmap.currentStageId).toBe("V1")
+  expect(result.state.roadmap.currentStageId).toBe("")
   expect(result.state.roadmap.stages).toHaveLength(2)
   expect(result.state.roadmap.stages[0]?.status).toBe("ACTIVE")
   expect(result.state.roadmap.stages[1]?.status).toBe("DEFERRED")
-  expect(result.state.execution.milestones.map(milestone => milestone.id)).toEqual(["M1"])
+  expect(result.state.roadmap.activePhaseId).toBe("")
+  expect(result.state.roadmap.planApprovalStatus).toBe("pending")
+  expect(result.state.roadmap.phases?.[0]?.executionStatus).toBe("draft")
+  expect(result.state.roadmap.phases?.[0]?.approvalStatus).toBe("pending")
+  expect(result.state.roadmap.phases?.[1]?.executionStatus).toBe("draft")
+  expect(result.state.execution.milestones.map(milestone => milestone.id)).toEqual(["M1", "M2"])
   expect(result.state.execution.milestones[0]?.productStageId).toBe("V1")
-  expect(result.state.execution.currentTask).toBe("T001")
+  expect(result.state.execution.milestones[0]?.phaseId).toBe("V1")
+  expect(result.state.execution.milestones[0]?.status).toBe("PLANNED")
+  expect(result.state.execution.milestones[1]?.status).toBe("PLANNED")
+  expect(result.state.execution.currentTask).toBe("")
 })
 
 test("syncExecutionFromPrd rejects scaffold placeholder planning docs", () => {
@@ -235,6 +260,9 @@ test("syncExecutionFromPrd reopens a deploy-review stage when new remediation sc
   state.projectInfo.types = ["cli"]
   state.docs.prd.exists = true
   state.docs.architecture.exists = true
+  state.roadmap.planApprovalStatus = "approved"
+  state.roadmap.activePhaseId = "V1"
+  state.roadmap.approvedPhaseIds = ["V1"]
   state.roadmap.currentStageId = "V1"
   state.roadmap.stages = [
     {
@@ -282,6 +310,7 @@ test("syncExecutionFromPrd reopens a deploy-review stage when new remediation sc
   expect(result.state.phase).toBe("EXECUTING")
   expect(result.state.roadmap.currentStageId).toBe("V1")
   expect(result.state.roadmap.stages[0]?.status).toBe("ACTIVE")
+  expect(result.state.roadmap.phases?.[0]?.executionStatus).toBe("executing")
   expect(result.state.roadmap.stages[0]?.deployReviewStartedAt).toBeUndefined()
   expect(result.state.execution.currentMilestone).toBe("M2")
   expect(result.state.execution.currentTask).toBe("T002")
@@ -365,4 +394,38 @@ test("syncExecutionFromPrd refreshes explicit dependency metadata on existing ta
   const task = result.state.execution.milestones[0]?.tasks[0]
 
   expect(task?.dependsOn).toEqual(["T000"])
+})
+
+test("syncExecutionFromPrd accepts delivery phase headings and keeps later phases as draft", () => {
+  writePlanningDocs(
+    [
+      "> **Version**: v1.0",
+      "",
+      "## Delivery Phase V1: Launch MVP [ACTIVE]",
+      "### Milestone 1: Foundation",
+      "#### F001: Ship foundation",
+      "- [ ] finish setup",
+      "",
+      "## Delivery Phase V2: Enhancements [DRAFT]",
+      "### Milestone 2: Enhancements",
+      "#### F002: Add polish",
+      "- [ ] add polish",
+      "",
+    ].join("\n"),
+  )
+
+  const state = initState({})
+  state.phase = "EXECUTING"
+  state.projectInfo.name = "delivery-phase-fixture"
+  state.projectInfo.types = ["cli"]
+  state.docs.prd.exists = true
+  state.docs.architecture.exists = true
+
+  const result = syncExecutionFromPrd(state)
+
+  expect(result.state.roadmap.activePhaseId).toBe("")
+  expect(result.state.roadmap.planApprovalStatus).toBe("pending")
+  expect(result.state.roadmap.phases?.map(phase => phase.executionStatus)).toEqual(["draft", "draft"])
+  expect(result.state.execution.milestones.map(milestone => milestone.id)).toEqual(["M1", "M2"])
+  expect(result.state.execution.milestones.every(milestone => milestone.status === "PLANNED")).toBe(true)
 })

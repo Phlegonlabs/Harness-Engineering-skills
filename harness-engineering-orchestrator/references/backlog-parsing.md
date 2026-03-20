@@ -2,24 +2,26 @@
 
 ## Overview
 
-The `parsePrdStageSpecs()` function in `runtime/backlog.ts` transforms a PRD document into structured stage specifications with milestones, tasks, and definitions of done. This is the bridge between human-authored PRD prose and the machine-readable execution backlog.
+The `parsePrdStageSpecs()` function in `runtime/backlog.ts` transforms a PRD document into structured delivery-phase specifications with milestones, tasks, and definitions of done. This is the bridge between human-authored PRD prose and the machine-readable execution backlog.
 
 ## Input
 
 - PRD content (from `docs/PRD.md` or modular `docs/prd/*.md` files)
-- Active product stage context (from `state.roadmap`)
+- Existing roadmap context (from `state.roadmap`) so approvals and active execution state can be preserved while the PRD is re-synced
 
 ## Heading Format
 
 The parser recognizes a strict heading hierarchy:
 
 ```
-## Product Stage V1: Stage Name [ACTIVE]
+## Delivery Phase V1: Launch Scope
 ### Milestone M1: Milestone Name
 #### T001: Task Name
 ```
 
-- Stage headings (`##`) include an optional status tag: `[ACTIVE]`, `[DEFERRED]`, `[COMPLETED]`, `[DEPLOY_REVIEW]`
+- Delivery-phase headings (`##`) define phase order and milestone membership
+- Status tags such as `[ACTIVE]`, `[DEFERRED]`, `[COMPLETED]`, and `[DEPLOY_REVIEW]` are accepted only for backward compatibility
+- PRD headings are planning metadata, not the source of truth for approval or execution state
 - Milestone headings (`###`) must include an `M{n}` identifier
 - Task headings (`####`) must include a `T{nnn}` identifier
 
@@ -49,15 +51,15 @@ A task is marked `isUI: true` when any of these conditions hold:
 3. The task appears under a milestone tagged with `[UI]`
 4. The PRD section references design specs or wireframes
 
-## Stage Assignment
+## Delivery-Phase Assignment
 
-Tasks are assigned to stages based on their containing `## Product Stage` heading:
+Tasks are assigned to delivery phases based on their containing `## Delivery Phase` heading:
 
-1. Parse all stage headings and their line ranges
-2. For each milestone heading, find the enclosing stage by line number
+1. Parse all delivery-phase headings and their line ranges
+2. For each milestone heading, find the enclosing delivery phase by line number
 3. Set `task.milestoneId` from the milestone heading
-4. Set `milestone.productStageId` from the stage heading
-5. If no stage heading exists, assign all milestones to a default `V1` stage
+4. Set `milestone.productStageId` and `milestone.phaseId` from the delivery-phase heading
+5. If no delivery-phase heading exists, assign all milestones to a default `V1` launch phase
 
 ## Affected Files Extraction
 
@@ -75,7 +77,7 @@ The parser looks for an affected files annotation in the task body:
 
 | Scenario | Fallback |
 |----------|----------|
-| No stage headings found | Create a single default `V1` stage |
+| No delivery-phase headings found | Create a single default `V1` launch phase |
 | No milestone headings | Create a single `M1` milestone |
 | Milestone without tasks | Log warning, create milestone with empty task list |
 | Task without DoD | Set `dod: []`, log warning |
@@ -90,7 +92,7 @@ Returns `StageSpec[]` where each spec contains:
 interface StageSpec {
   stageId: string          // "V1", "V2", etc.
   stageName: string
-  stageStatus: string      // "ACTIVE", "DEFERRED", etc.
+  stageStatus?: string     // legacy tag only; runtime approval/execution lives in state.json
   milestones: MilestoneSpec[]
 }
 
@@ -113,9 +115,11 @@ interface TaskSpec {
 
 ## Sync Behavior
 
-After parsing, `syncBacklog()` merges specs into the existing `state.execution.milestones` array:
+After parsing, `syncBacklog()` merges specs into the existing `state.execution.milestones` array and preserves runtime approval state:
 
-1. New tasks are appended with `status: "PENDING"`
-2. Existing tasks retain their current status and metadata
-3. Removed tasks are marked `SKIPPED` with reason `"Removed from PRD"`
-4. Milestone ordering follows the PRD document order
+1. New tasks in the active approved phase are appended with `status: "PENDING"`
+2. New tasks in future phases are appended with `status: "PLANNED"`
+3. Existing tasks retain their current status and metadata
+4. Removed tasks are marked `SKIPPED` with reason `"Removed from PRD"`
+5. Milestone ordering follows the PRD document order
+6. Plan approval, phase approval, and active execution phase remain in runtime state; they are not re-derived from PRD heading tags

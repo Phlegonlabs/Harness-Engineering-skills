@@ -1,5 +1,6 @@
 import type {
   AgentId,
+  AgentPacketDeliveryPhase,
   AgentPacketMilestone,
   AgentPacketStage,
   AgentPacketTask,
@@ -12,7 +13,7 @@ import type {
 import { getAgentEntry } from "./agent-registry"
 import { getAgentMaterialPolicy } from "./material-policy"
 import { getPhaseReadiness } from "./phase-readiness"
-import { getCurrentProductStage } from "../stages"
+import { getCurrentDeliveryPhase, getCurrentProductStage } from "../stages"
 
 function hasCodexRuntimeSignals(): boolean {
   return Boolean(
@@ -57,6 +58,20 @@ function serializeStage(state: ProjectState): AgentPacketStage | undefined {
     name: stage.name,
     prdVersion: stage.prdVersion,
     status: stage.status,
+  }
+}
+
+function serializeDeliveryPhase(state: ProjectState): AgentPacketDeliveryPhase | undefined {
+  const deliveryPhase = getCurrentDeliveryPhase(state)
+  if (!deliveryPhase) return undefined
+  return {
+    id: deliveryPhase.id,
+    isLaunchPhase: deliveryPhase.isLaunchPhase,
+    name: deliveryPhase.name,
+    order: deliveryPhase.order,
+    approvalStatus: deliveryPhase.approvalStatus,
+    approvedAt: deliveryPhase.approvedAt,
+    executionStatus: deliveryPhase.executionStatus,
   }
 }
 
@@ -286,6 +301,7 @@ export function buildAgentTaskPacket(agentId: AgentId, state: ProjectState, plat
     agentName: entry.name,
     afterCompletion: buildAfterCompletion(agentId, state, validationCmd, task),
     architectureVersion: state.docs.architecture.version,
+    currentDeliveryPhase: serializeDeliveryPhase(state),
     currentMilestone: serializeMilestone(milestone),
     currentStage: serializeStage(state),
     currentTask: serializeTask(task),
@@ -341,6 +357,7 @@ export function buildAgentTaskPacketForTask(
     agentName: entry.name,
     afterCompletion: buildAfterCompletion(agentId, state, validationCmd, task),
     architectureVersion: state.docs.architecture.version,
+    currentDeliveryPhase: serializeDeliveryPhase(state),
     currentMilestone: serializeMilestone(milestone),
     currentStage: serializeStage(state),
     currentTask: serializeTask(task),
@@ -375,6 +392,17 @@ export function renderAgentTaskPacket(packet: AgentTaskPacket): string {
 
   lines.push(`${"─".repeat(40)} Inline Context`)
   lines.push(`Phase: ${packet.phase}`)
+  if (packet.currentDeliveryPhase) {
+    lines.push(
+      `Delivery Phase: ${packet.currentDeliveryPhase.id} — ${packet.currentDeliveryPhase.name} (execution=${packet.currentDeliveryPhase.executionStatus}; approval=${packet.currentDeliveryPhase.approvalStatus})`,
+    )
+    if (packet.currentDeliveryPhase.isLaunchPhase) {
+      lines.push("Launch Phase: yes")
+    }
+    if (packet.currentDeliveryPhase.approvedAt) {
+      lines.push(`Phase Approved At: ${packet.currentDeliveryPhase.approvedAt}`)
+    }
+  }
   if (packet.currentStage) {
     lines.push(
       `Product Stage: ${packet.currentStage.id} — ${packet.currentStage.name} (${packet.currentStage.status})`,
