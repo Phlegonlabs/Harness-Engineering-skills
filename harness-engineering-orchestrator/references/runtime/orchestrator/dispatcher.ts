@@ -1,10 +1,12 @@
 import type { ActiveAgent, AgentId, AgentPlatform, AgentTaskPacket, Milestone, ProjectState, SubagentDispatchPolicy, Task } from "../../types"
 import {
-  countExecutionMilestonesForStage,
-  getActiveProductStage,
+  getCurrentDeliveryPhase,
   getCurrentProductStage,
   getNextDeferredProductStage,
   hasDeferredProductStages,
+  isDeliveryPhaseApproved,
+  isPlanApproved,
+  milestoneBelongsToActivePhase,
 } from "../stages"
 import { getPhaseStructuralChecks } from "../phase-structural"
 import {
@@ -29,7 +31,9 @@ export interface DispatchResult {
 }
 
 function getCurrentMilestone(state: ProjectState): Milestone | undefined {
-  return state.execution.milestones.find(m => m.id === state.execution.currentMilestone)
+  return state.execution.milestones.find(
+    m => m.id === state.execution.currentMilestone && milestoneBelongsToActivePhase(state, m),
+  )
 }
 
 function getCurrentTask(state: ProjectState): Task | undefined {
@@ -159,9 +163,7 @@ export function buildTaskLaunchMetadata(
 }
 
 function needsBacklogSync(state: ProjectState): boolean {
-  const activeStage = getActiveProductStage(state)
-  if (!activeStage) return false
-  return state.docs.prd.milestoneCount > countExecutionMilestonesForStage(state, activeStage.id)
+  return state.docs.prd.milestoneCount > state.execution.milestones.length
 }
 
 function agentDispatch(
@@ -236,6 +238,23 @@ function getDiscoveryAction(state: ProjectState, platform: AgentPlatform): Dispa
 }
 
 function getExecutingAction(state: ProjectState, platform: AgentPlatform): DispatchResult {
+  const currentDeliveryPhase = getCurrentDeliveryPhase(state)
+  if (
+    !isPlanApproved(state) ||
+    !state.roadmap.activePhaseId ||
+    !currentDeliveryPhase ||
+    !isDeliveryPhaseApproved(state, currentDeliveryPhase.id) ||
+    !["executing", "deploy_gate"].includes(currentDeliveryPhase.executionStatus)
+  ) {
+    return manualGuidance(
+      "Execution is blocked until the overall plan and Phase 1 slice are approved.\n" +
+      "Record approvals explicitly, then re-run:\n" +
+      "  bun harness:approve --plan\n" +
+      `  bun harness:approve --phase ${(state.roadmap.phases?.[0]?.id ?? "V1")}\n` +
+      "  bun .harness/orchestrator.ts",
+    )
+  }
+
   // --- Scope change pending check (single-dispatch path) ---
   // If there are unresolved scope changes, surface them before dispatching any task.
   const pendingScopeChanges = (state.execution.pendingScopeChanges ?? []).filter(
@@ -258,6 +277,8 @@ function getExecutingAction(state: ProjectState, platform: AgentPlatform): Dispa
       return manualGuidance(
         `Product stage ${currentStage.id} is in DEPLOY_REVIEW.\n` +
         "Deploy and test the current version in the real environment before activating the next stage.\n" +
+        `Approve the next delivery phase first if needed:\n` +
+        `  bun harness:approve --phase ${nextDeferredStage.id}\n` +
         `When the next version is ready in PRD / Architecture, run:\n` +
         `  bun harness:stage --promote ${nextDeferredStage.id}\n` +
         "  bun .harness/orchestrator.ts"
@@ -457,7 +478,8 @@ function getCompleteAction(state: ProjectState, platform: AgentPlatform): Dispat
     const nextDeferredStage = getNextDeferredProductStage(state)
     return manualGuidance(
       "Deferred product stages are still present in the roadmap.\n" +
-      "If you are continuing delivery, update PRD / Architecture and run:\n" +
+      "If you are continuing delivery, approve the next phase and promote it after deploy review:\n" +
+      `  bun harness:approve --phase ${nextDeferredStage?.id ?? "V2"}\n` +
       `  bun harness:stage --promote ${nextDeferredStage?.id ?? "V2"}`
     )
   }
@@ -530,6 +552,7 @@ function getEligibleTasks(state: ProjectState): EligibleTaskCandidate[] {
   const activeFiles = new Set(activeAgents.flatMap(a => a.ownershipScope))
 
   for (const milestone of state.execution.milestones) {
+    if (!milestoneBelongsToActivePhase(state, milestone)) continue
     if (milestone.status === "MERGED" || milestone.status === "COMPLETE") continue
     if (milestone.status === "REVIEW") continue
 

@@ -14,7 +14,7 @@ This skill turns a project idea or an existing repository into a repo-backed del
 
 - Planning is written into `docs/PRD.md` and `docs/ARCHITECTURE.md`
 - Execution state is written into `.harness/state.json` and `docs/PROGRESS.md`
-- Work is organized by milestones and tasks, not just chat turns
+- Work is organized as `Project Plan -> Delivery Phase -> Milestone -> Task`, not just chat turns
 - Validation decides whether the project can actually advance
 
 Use it when you want Claude or Codex to operate inside a controlled engineering workflow rather than free-form prompting.
@@ -25,9 +25,9 @@ The skill operates at three levels of ceremony, auto-detected or user-specified:
 
 | Level | When | Discovery Pacing | Active Guardians | Approval Stops |
 |-------|------|-----------------|------------------|----------------|
-| **Lite** | Small projects, quick prototypes | Batch 1-2 Qs/turn | Core (G1,G3,G4,G6,G8,G9,G11) | Fast Path summary, execution phase completion, blockers |
-| **Standard** | Most projects (default) | Groups of 2-3 Qs/turn | Most (G1-G11, G12 active) | Milestone plan approval, execution phase completion, blockers |
-| **Full** | Enterprise / compliance projects | Sequential Q0-Q9 | All (G1-G12) | Milestone plan approval, execution phase completion, blockers, deploy review |
+| **Lite** | Small projects, quick prototypes | Batch 1-2 Qs/turn | Core (G1,G3,G4,G6,G8,G9,G11) | Fast Path summary, delivery phase completion, blockers |
+| **Standard** | Most projects (default) | Groups of 2-3 Qs/turn | Most (G1-G11, G12 active) | Overall plan approval, delivery phase completion, blockers |
+| **Full** | Enterprise / compliance projects | Sequential Q0-Q9 | All (G1-G12) | Overall plan approval, delivery phase completion, blockers, deploy review |
 
 The level is stored in `state.projectInfo.harnessLevel` and can be upgraded mid-project. See [references/level-upgrade-backfill.md](./references/level-upgrade-backfill.md) for the backfill protocol when upgrading.
 
@@ -74,6 +74,13 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 3. a milestone and task plan in `docs/PROGRESS.md`
 4. a runnable scaffold with Harness runtime files
 5. validated implementation until the project reaches `COMPLETE`
+
+### Changes in v1.8.2
+
+- Unified the published approval model around `Project Plan -> Delivery Phase -> Milestone -> Task` across runtime docs, prompts, and generated project surfaces
+- Updated Fast Path, scaffold closeout, public-doc generation, and project templates so execution starts only after `bun harness:approve --plan` and `bun harness:approve --phase V1`
+- Added approval-aware resume and compact output so paused projects clearly show whether they are blocked on plan approval, phase approval, or deploy review
+- Realigned backlog parsing, version-history guidance, and reference docs so PRD phase headings remain planning metadata while runtime approval state stays in `.harness/state.json`
 
 ### Changes in v1.8.1
 
@@ -183,43 +190,44 @@ For the runtime state model and phase gate discipline, see [agents/orchestrator.
 
 CRITICAL — these rules override all other guidance when there is a conflict:
 
-1. **One harness phase per response until the current milestone plan is approved.** Discovery, research, stack, PRD/Architecture, and scaffold still follow the runtime phase model and must complete honestly.
+1. **One harness phase per response until the overall project plan and current launch phase are approved.** Discovery, research, stack, PRD/Architecture, and scaffold still follow the runtime phase model and must complete honestly.
 2. **One question per response during Discovery (Full level).** Standard: 2-3 questions per turn. Lite: batch 1-2 per turn. At Full level, each discovery question (Q0–Q9) must be its own message. End your response after asking the question. Wait for the user's answer before continuing.
-3. **Use milestone-level approval, not task-level approval.** Stop for explicit user confirmation when the current milestone plan and its execution-phase split are ready for approval. After that approval, do not pause again for routine implementation choices inside an approved execution phase.
+3. **Use delivery-phase approval, not milestone-level approval.** Stop for explicit user confirmation when the overall project plan is ready and the current launch phase (`Phase 1`) split is drafted. After that approval, milestones inside the approved delivery phase run without routine milestone-by-milestone pauses.
 4. **Verify before advancing.** Run the relevant gate validation command before `bun harness:advance` or milestone closeout. If the approved plan still holds and validation passes, continue without asking for another acknowledgment.
 5. **Stop only at the true decision points.** The allowed approval stops are:
-   - initial milestone plan approval
-   - execution phase completion
+   - overall project plan + current delivery phase approval
+   - delivery phase completion
    - deploy review / stage promotion
    - scope change, architecture change, risky dependency change, or hard blocker
 
-### Milestone Approval Model
+### Delivery Phase Approval Model
 
-Once `docs/PRD.md` and `docs/ARCHITECTURE.md` define the current milestone clearly enough to execute, present one consolidated review surface:
+Once `docs/PRD.md` and `docs/ARCHITECTURE.md` define the project clearly enough to execute, present one consolidated review surface:
 
-- milestone goal and acceptance criteria
-- task breakdown
-- proposed execution phases for that milestone
-- MVP cutoff or deferred scope
+- overall milestone inventory
+- proposed `Phase 1` launch slice vs later delivery phases
+- milestone-to-phase assignment
+- MVP cutoff and deferred enhancements
 
-After the user approves that milestone plan:
+After the user approves the project plan and current delivery phase:
 
-- treat the approval as standing authorization for the approved execution phases
+- record the approval in runtime state with `bun harness:approve --plan` and `bun harness:approve --phase V1`
+- treat the approval as standing authorization for milestones inside the approved delivery phase
 - advance through remaining non-execution runtime phases without asking again, unless the approved plan changes materially
-- inside each approved execution phase, continue task-by-task without stopping for implementation details
-- stop again only when the current execution phase is complete, or when a blocker requires human judgment
+- inside the approved delivery phase, continue milestone-by-milestone and task-by-task without stopping for implementation details
+- stop again only when the current delivery phase is complete, or when a blocker requires human judgment
 
 ### Mandatory Checkpoints
 
 | Decision Point | Lite | Standard | Full |
 |---|---|---|---|
 | Fast Path inferred summary | STOP | — | — |
-| Current milestone plan + execution phases ready | STOP | STOP | STOP |
-| Current execution phase complete | STOP | STOP | STOP |
+| Overall project plan + current delivery phase ready | STOP | STOP | STOP |
+| Current delivery phase complete | STOP | STOP | STOP |
 | Scope / architecture / risky dependency change | STOP | STOP | STOP |
 | Deploy review / stage promotion | STOP | STOP | STOP |
 
-**Summary**: use one milestone-plan approval, then run each approved execution phase autonomously until completion or blocker.
+**Summary**: use one plan-and-phase approval, then run milestones inside that approved delivery phase autonomously until completion or blocker.
 
 ## Runtime Path
 
@@ -309,7 +317,7 @@ Rules:
 
 - recommend first, then explain
 - present the main alternative(s)
-- keep clarifying stack choices only until the milestone plan is concrete enough to approve
+- keep clarifying stack choices only until the delivery plan and launch-phase split are concrete enough to approve
 - record every confirmed decision
 - generate ADRs when a material architecture choice is locked in
 
@@ -323,7 +331,7 @@ End this phase with a confirmed stack table or structured object. Use:
 
 This phase creates the planning contract for the rest of the project.
 
-**Level-specific format**: Lite produces ~50-line minimal PRD + ~30-line Architecture (single files). Standard produces full content in single files. Full produces modular multi-file output with product stage definitions (V1/V2/V3).
+**Level-specific format**: Lite produces ~50-line minimal PRD + ~30-line Architecture (single files). Standard produces full content in single files. Full produces modular multi-file output with delivery phase definitions (`V1` launch, `V2+` later phases).
 
 Required outputs:
 
@@ -419,16 +427,17 @@ Task types:
 8. Update `docs/PROGRESS.md` and runtime state
 9. Continue only when the task gate passes
 
-### Execution Phase Autonomy
+### Delivery Phase Autonomy
 
-Treat an execution phase as a user-approved grouping of tasks inside the current milestone.
+Treat a delivery phase as a user-approved grouping of milestones inside the overall project plan.
 
-- If the user asked for phase-based execution, derive the phase split from the approved milestone plan.
-- If no explicit split was approved, default the whole milestone to one execution phase.
-- Within the current approved execution phase, keep moving through tasks without asking for implementation-level approval.
-- Status updates inside the phase are one-way progress reports, not requests to pause.
+- Draft the initial delivery phase split during PRD / Architecture generation.
+- Default `V1` / `Phase 1` to the minimum shippable launch scope.
+- Default later phases to enhancements, polish, optional integrations, and post-launch improvements.
+- Within the current approved delivery phase, keep moving through milestones and tasks without asking for implementation-level approval.
+- Status updates inside the delivery phase are one-way progress reports, not requests to pause.
 - Stop only when:
-  - the current execution phase is complete
+  - the current delivery phase is complete
   - scope must change
   - an architecture or risky dependency decision exceeds the approved plan
   - retries are exhausted or no executable task remains
@@ -441,24 +450,24 @@ When all tasks in a milestone are complete (status: REVIEW):
 2. From the main worktree, run `bun harness:autoflow` to auto-compact and merge the REVIEW milestone. Auto-compact is mandatory at every milestone boundary and is tracked via `MilestoneChecklist.compactCompleted`. `completeMilestone()` enforces the milestone checklist gate at Standard/Full levels (warn-only at Lite).
 3. Manual fallback: run `bun harness:merge-milestone M[N]` from the main worktree; compact, validation, and checklist population now run inside the merge command
 4. If more milestones remain in the same delivery version, autoflow continues there
-5. If the current delivery version is fully merged, the workflow stops at deploy review; update the main PRD / Architecture, then run `bun harness:stage --promote V[N]`
+5. If the current delivery version is fully merged, the workflow stops at deploy review; update the main PRD / Architecture, approve the next phase with `bun harness:approve --phase V[N]`, then run `bun harness:stage --promote V[N]`
 6. Only use `bun harness:advance` after the final delivery version is fully merged and no deferred stages remain
 
-### Staged Delivery (V1 / V2 / V3)
+### Delivery Phases (V1 / V2 / V3)
 
-Projects with multiple delivery versions use product stages:
+Projects with multiple launch / post-launch slices use delivery phases:
 
-- Each stage groups milestones under a version label (e.g., "V1: MVP", "V2: Expansion")
-- Only one stage is `ACTIVE` at a time; others are `DEFERRED`
-- When all milestones in a stage are merged, the stage enters `DEPLOY_REVIEW`
+- Each phase groups milestones under a version label (e.g., "V1: Launch MVP", "V2: Enhancements")
+- Only one phase is executable at a time; future phases remain `DRAFT` / deferred
+- When all milestones in the active phase are merged, the phase enters `DEPLOY_REVIEW`
 - At deploy review, the workflow pauses for human deployment and testing
-- After confirming deployment, promote the next stage: `bun harness:stage --promote V[N]`
+- After confirming deployment, approve and promote the next phase: `bun harness:approve --phase V[N]` then `bun harness:stage --promote V[N]`
 - PRD and Architecture are snapshot-versioned to `docs/prd/versions/` and `docs/architecture/versions/`
 
-Define stages in the PRD using headings:
+Define delivery phases in the PRD using headings:
 
-    ## Product Stage V1: MVP [ACTIVE]
-    ## Product Stage V2: Expansion [DEFERRED]
+    ## Delivery Phase V1: Launch MVP
+    ## Delivery Phase V2: Enhancements
 
 See [references/version-history.md](./references/version-history.md) and `harness-stage.ts`.
 
@@ -664,8 +673,8 @@ Prefer progressive disclosure:
 
 Keep approval points simple and predictable:
 
-1. answer discovery and stack questions until the milestone plan can be written
-2. review and approve the current milestone plan, task breakdown, and execution-phase split
+1. answer discovery and stack questions until the delivery plan and launch-phase split can be written
+2. review and approve the overall project plan and current delivery phase split
 3. receive phase-level progress reports while execution continues autonomously
 4. review only completed execution phases, milestone-level blockers, scope changes, or deploy review
 
@@ -701,6 +710,9 @@ bun harness:hooks:install                   # Restore the repo's recorded local 
 bun harness:add-surface --type=<TYPE>       # Add a new project surface (e.g. api, android-app)
 bun harness:audit                           # Full audit: guardians, phase gate, workspace, docs drift
 bun harness:sync-docs                       # Synchronize managed documentation files
+bun harness:approve --plan                  # Record overall planning approval
+bun harness:approve --phase V[N]            # Record approval for one delivery phase
+bun harness:approve --status                # Show current approval / execution state
 bun harness:metrics                         # Collect and display metrics summary (all categories)
 bun harness:metrics --category <name>       # Metrics for a single category (throughput/quality/human_attention/harness_health/safety)
 bun harness:entropy-scan                    # Run entropy scan: AI slop, doc staleness, pattern drift, dependency health

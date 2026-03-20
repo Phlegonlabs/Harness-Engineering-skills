@@ -2,16 +2,23 @@
 /**
  * .harness/stage.ts
  *
- * Product-stage management for continuous delivery:
- * - inspect current V1 / V2 / V3 roadmap state
- * - promote the next deferred stage after deploy / real-world review
+ * Delivery-phase promotion for continuous delivery:
+ * - inspect roadmap approval/execution state
+ * - promote the next approved draft phase after deploy / real-world review
  */
 
 import { mkdirSync, writeFileSync } from "fs"
 import { dirname } from "path"
 import { syncExecutionFromPrd, syncRoadmapFromPrd } from "./runtime/backlog"
 import { syncPublicManagedDocs } from "./runtime/public-docs"
-import { getCurrentProductStage, getNextDeferredProductStage } from "./runtime/stages"
+import {
+  getCurrentDeliveryPhase,
+  getCurrentProductStage,
+  getDeliveryPhase,
+  getNextDeferredProductStage,
+  isDeliveryPhaseApproved,
+  syncRoadmapPhases,
+} from "./runtime/stages"
 import { readState, writeState } from "./runtime/state-core"
 import { ARCHITECTURE_DIR, ARCHITECTURE_PATH, PRD_DIR, PRD_PATH, readDocument } from "./runtime/shared"
 import { appendWorkflowEvent, createStagePromotedEvent, createTaskStartedEvent } from "./runtime/workflow-history"
@@ -87,27 +94,35 @@ function assertStageDocumentVersion(label: string, actualVersion: string, stageI
 
 function printStatus(): void {
   const synced = readSyncedStageState()
+  const currentDeliveryPhase = getCurrentDeliveryPhase(synced)
   const currentStage = getCurrentProductStage(synced)
 
   console.log(`\n${"═".repeat(50)}`)
-  console.log("  Product Stage Status")
+  console.log("  Delivery Phase Status")
   console.log(`${"═".repeat(50)}\n`)
   console.log(`Runtime Phase: ${synced.phase}`)
-  console.log(`Current Stage: ${currentStage ? `${currentStage.id} — ${currentStage.name} (${currentStage.status})` : "—"}`)
+  console.log(`Plan Approval: ${synced.roadmap.planApprovalStatus ?? "pending"}`)
+  console.log(
+    `Current Delivery Phase: ${currentDeliveryPhase ? `${currentDeliveryPhase.id} — ${currentDeliveryPhase.name} (execution=${currentDeliveryPhase.executionStatus}; approval=${currentDeliveryPhase.approvalStatus})` : "—"}`,
+  )
+  console.log(`Current Stage Runtime: ${currentStage ? `${currentStage.id} — ${currentStage.name} (${currentStage.status})` : "—"}`)
   console.log(`PRD Version: ${synced.docs.prd.version}`)
   console.log(`Architecture Version: ${synced.docs.architecture.version}`)
   console.log("")
 
   if (synced.roadmap.stages.length === 0) {
-    console.log("No product stages have been parsed from docs/PRD.md yet.")
+    console.log("No delivery phases have been parsed from docs/PRD.md yet.")
     return
   }
 
-  console.log("Roadmap:")
-  for (const stage of synced.roadmap.stages) {
-    const versions = [stage.prdVersion, stage.architectureVersion].filter(Boolean).join(" / ")
+  console.log("Delivery phases:")
+  for (const phase of synced.roadmap.phases ?? []) {
+    const stage = synced.roadmap.stages.find(candidate => candidate.id === phase.id)
+    const versions = [stage?.prdVersion, stage?.architectureVersion].filter(Boolean).join(" / ")
     const suffix = versions ? ` — ${versions}` : ""
-    console.log(`- ${stage.id}: ${stage.name} [${stage.status}]${suffix}`)
+    console.log(
+      `- ${phase.id}: ${phase.name} [execution=${phase.executionStatus}; approval=${phase.approvalStatus}]${suffix}`,
+    )
   }
   console.log("")
 }
@@ -116,14 +131,15 @@ function promoteStage(stageId: string): void {
   const baseState = writeState(readState())
   const roadmapState = syncRoadmapFromPrd(baseState).state
   const currentStage = getCurrentProductStage(roadmapState)
+  const currentDeliveryPhase = getCurrentDeliveryPhase(roadmapState)
 
-  if (!currentStage) {
-    throw new Error("No current product stage is available in state.")
+  if (!currentStage || !currentDeliveryPhase) {
+    throw new Error("No current delivery phase is available in state.")
   }
 
-  if (currentStage.status !== "DEPLOY_REVIEW") {
+  if (currentDeliveryPhase.executionStatus !== "deploy_gate" || currentStage.status !== "DEPLOY_REVIEW") {
     throw new Error(
-      `Current product stage ${currentStage.id} is ${currentStage.status}. Promote the next stage only after merge + compact has placed the current stage into DEPLOY_REVIEW.`,
+      `Current delivery phase ${currentDeliveryPhase.id} is ${currentDeliveryPhase.executionStatus}. Promote the next phase only after merge + compact has placed the current phase into DEPLOY_REVIEW.`,
     )
   }
 
@@ -136,6 +152,10 @@ function promoteStage(stageId: string): void {
     throw new Error(
       `Next deferred product stage is ${nextDeferred.id}. Promote stages in order; requested ${stageId}.`,
     )
+  }
+
+  if (!isDeliveryPhaseApproved(roadmapState, stageId)) {
+    throw new Error(`Delivery phase ${stageId} is not approved. Run bun harness:approve --phase ${stageId} first.`)
   }
 
   const targetStage = roadmapState.roadmap.stages.find(stage => stage.id === stageId)
@@ -170,7 +190,14 @@ function promoteStage(stageId: string): void {
   targetStage.prdVersion = roadmapState.docs.prd.version
   targetStage.architectureVersion = roadmapState.docs.architecture.version
   targetStage.promotedAt = now
+  roadmapState.roadmap.activePhaseId = targetStage.id
   roadmapState.roadmap.currentStageId = targetStage.id
+  syncRoadmapPhases(roadmapState)
+
+  const targetPhase = getDeliveryPhase(roadmapState, stageId)
+  if (!targetPhase || targetPhase.executionStatus !== "executing") {
+    throw new Error(`Delivery phase ${stageId} did not enter executing state after promotion.`)
+  }
 
   const syncedExecution = syncExecutionFromPrd(roadmapState)
   appendWorkflowEvent(

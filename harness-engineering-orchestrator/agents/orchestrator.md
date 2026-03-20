@@ -75,7 +75,7 @@ Evaluate these branches in order:
 
 | Priority | Condition | Result |
 |----------|-----------|--------|
-| 1 | Current product stage is `DEPLOY_REVIEW` | Manual deploy/test, then `bun harness:stage --promote V[N]` if another stage exists |
+| 1 | Current product stage is `DEPLOY_REVIEW` | Manual deploy/test, then `bun harness:approve --phase V[N]` and `bun harness:stage --promote V[N]` if another stage exists |
 | 2 | No current milestone and backlog is behind the PRD | Manual `bun harness:sync-backlog` |
 | 3 | No current milestone and a milestone is in `REVIEW` | Manual `bun harness:autoflow` or `bun harness:merge-milestone M[N]` |
 | 4 | Current milestone is `REVIEW` | Manual merge/closeout guidance |
@@ -106,29 +106,31 @@ The commit contract is:
 
 ### Enforce the Approval Protocol
 
-Before the current milestone enters execution:
+Before execution begins for the current delivery phase:
 
-1. Summarize the current milestone plan.
-2. Show acceptance criteria, task breakdown, and proposed execution phases.
-3. Run the relevant validation command for the next runtime step.
-4. Ask for milestone-plan approval.
-5. Stop.
-6. Only after approval, continue the remaining setup and execution flow.
+1. Summarize the overall project plan.
+2. Show the proposed delivery phase split, especially the `V1` / Phase 1 launch slice.
+3. Show milestone assignment, acceptance criteria, and what is deferred to later phases.
+4. Run the relevant validation command for the next runtime step.
+5. Ask for overall-plan + current-phase approval.
+6. After approval, record it with `bun harness:approve --plan` and `bun harness:approve --phase V1`.
+7. Stop.
+8. Only after approval, continue the remaining setup and execution flow.
 
-After the milestone plan is approved:
+After the project plan and current delivery phase are approved:
 
 1. Keep validating phase and task gates honestly.
 2. Advance through non-execution runtime phases without asking again if the approved plan still holds.
-3. Inside each approved execution phase, continue task-by-task without pausing for implementation details.
+3. Inside the approved delivery phase, continue milestone-by-milestone and task-by-task without pausing for implementation details.
 4. Stop only when:
-   - the current execution phase is complete
+   - the current delivery phase is complete
    - a blocker, scope change, architecture change, or risky dependency change needs a decision
    - deploy review / stage promotion is reached
 
 Rules:
 
-- Never combine work from two harness phases in one response before milestone-plan approval.
-- Never ask for confirmation on routine task-level choices inside an approved execution phase.
+- Never combine work from two harness phases in one response before plan approval.
+- Never ask for confirmation on routine milestone/task choices inside an approved delivery phase.
 - If validation fails, fix the issue first.
 - `bun harness:autoflow` may continue only when required artifacts already exist on disk.
 
@@ -235,7 +237,7 @@ When the current delivery stage is fully merged:
 
 - Stop at deploy review.
 - Deploy and validate in the real environment.
-- Promote the next deferred stage with `bun harness:stage --promote V[N]`, or advance only when no deferred stages remain.
+- Approve the next deferred stage with `bun harness:approve --phase V[N]`, then promote it with `bun harness:stage --promote V[N]`, or advance only when no deferred stages remain.
 
 ### Enforce Guardians
 
@@ -268,7 +270,7 @@ Hooks are guardrails, not orchestration. They never replace dispatch or child li
 ## Outputs
 
 - One dispatch decision, manual action, or no-action result per invocation
-- Milestone-plan approval summaries, execution-phase closeout summaries, and validation guidance
+- Plan-and-phase approval summaries, delivery-phase closeout summaries, and validation guidance
 - Structured agent packets for downstream agents
 
 ## Done-When
@@ -277,8 +279,8 @@ The workflow reaches `COMPLETE`, all required gates pass, and no active mileston
 
 ## Constraints
 
-- One phase per response before milestone-plan approval
-- Stop only at milestone-plan approval, execution-phase completion, deploy review, or blockers
+- One phase per response before plan-and-phase approval
+- Stop only at plan-and-phase approval, delivery-phase completion, deploy review, or blockers
 - Read only what is needed for the current step
 - Never fake completion or bypass gate failures
 

@@ -1,6 +1,6 @@
 ## 4. Functional Requirements
 
-## Product Stage V1: Initial Delivery [ACTIVE]
+## Delivery Phase V1: Initial Delivery
 
 ### Milestone 1: Foundation
 
@@ -33,7 +33,7 @@
 - Add new surfaces such as iOS, CLI, desktop, or agent work as new milestones inside the same monorepo.
 - Do not fork into a separate repo just because a new surface is introduced later.
 
-## Product Stage V2: Deferred Expansion [DEFERRED]
+## Delivery Phase V2: Deferred Expansion [DRAFT]
 
 ### Milestone 3: Deferred Expansion
 

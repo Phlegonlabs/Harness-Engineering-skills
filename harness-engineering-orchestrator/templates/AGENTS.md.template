@@ -24,7 +24,7 @@ Use this file as a startup and compatibility index. Orchestrator-dispatched task
 3. **The PRD is the source of truth** — every feature must map back to `docs/prd/`
 4. **Atomic commits** — each task must land as one independently verifiable commit
 5. **New scope returns to planning first** — if the user adds requirements outside the current task, update PRD / milestone planning first; manual edits require `bun harness:sync-backlog`, while `bun harness:scope-change --apply` queues, applies, and syncs automatically
-6. **Delivery versions are explicit** — `V1` / `V2` / `V3` are product stages, not runtime phases. Future stages may be documented early, but they stay deferred until the current version is merged, compacted, deploy-tested, and manually promoted.
+6. **Delivery versions are explicit** — `V1` / `V2` / `V3` are product stages, not runtime phases. Future stages may be documented early, but they stay deferred until the current version is merged, compacted, deploy-tested, explicitly approved, and manually promoted.
 
 Full principles: `docs/ai/01-operating-principles.md`
 
@@ -148,7 +148,7 @@ Milestone closeout now auto-runs milestone compact during `bun harness:merge-mil
 Task agents should prefer `.harness/state.json`, `docs/PROGRESS.md`, and `docs/progress/CONTEXT_SNAPSHOT.md` over scanning `docs/progress/`.
 
 If the user introduces new feature scope that is not represented by the current task's `prdRef`, do not implement it directly. First update `docs/PRD.md` / `docs/prd/`, then run `bun harness:sync-backlog` or `bun harness:scope-change --apply`, then resume execution from the new milestone/task.
-If the request belongs to a future delivery version (`V2+`), keep it deferred. Finish the current version, run deploy / real-world validation, then promote the next version with `bun harness:stage --promote V[N]`.
+If the request belongs to a future delivery version (`V2+`), keep it deferred. Finish the current version, run deploy / real-world validation, approve the next version with `bun harness:approve --phase V[N]`, then promote it with `bun harness:stage --promote V[N]`.
 
 Full details: `docs/ai/06-context-health.md`
 
@@ -165,6 +165,9 @@ bun harness:orchestrate --confirm <launchId> --handle <runtimeHandle>
 bun harness:orchestrate --rollback <launchId> --reason "<why>"
 bun harness:orchestrate --release <launchId>
 bun harness:upgrade-runtime
+bun harness:approve --plan
+bun harness:approve --phase V1
+bun harness:approve --status
 bun harness:autoflow
 bun harness:stage --status
 bun harness:stage --promote V2

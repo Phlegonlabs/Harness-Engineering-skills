@@ -20,7 +20,7 @@
 
 > If the user adds new feature scope that is not already represented by the current Task / PRD mapping, stop implementation. Update `docs/PRD.md` / `docs/prd/` first, run `bun harness:sync-backlog`, then resume execution from the new milestone/task.
 >
-> If the request belongs to a future delivery version (`V2` or later), keep it deferred. Finish the current version, run deploy / real-world validation, then promote the next version with `bun harness:stage --promote V[N]`.
+> If the request belongs to a future delivery version (`V2` or later), keep it deferred. Finish the current version, run deploy / real-world validation, approve the next version with `bun harness:approve --phase V[N]`, then promote it with `bun harness:stage --promote V[N]`.
 
 ### Context Compact
 

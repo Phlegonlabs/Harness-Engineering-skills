@@ -115,6 +115,7 @@ function materializeScaffoldArtifacts(state: ProjectState): void {
     "advance.ts",
     "state.ts",
     "validate.ts",
+    "approve.ts",
     "orchestrator.ts",
     "orchestrate.ts",
     "stage.ts",
@@ -147,6 +148,7 @@ function materializeScaffoldArtifacts(state: ProjectState): void {
           "harness:init:prd": "bun .harness/init.ts --from-prd",
           "harness:advance": "bun .harness/advance.ts",
           "harness:stage": "bun .harness/stage.ts",
+          "harness:approve": "bun .harness/approve.ts",
           "harness:state": "bun .harness/state.ts",
           "harness:env": "bun .harness/validate.ts --env",
           "harness:validate": "bun .harness/validate.ts",
@@ -256,6 +258,9 @@ test("dispatch sends scaffold-generator when scaffold outputs are missing", () =
 
 test("dispatch switches to manual advance guidance once scaffold outputs are ready", () => {
   const state = createState("SCAFFOLD")
+  state.roadmap.planApprovalStatus = "approved"
+  state.roadmap.activePhaseId = "V1"
+  state.roadmap.approvedPhaseIds = ["V1"]
   materializeScaffoldArtifacts(state)
   const syncedState = deriveStateFromFilesystem(state)
 
@@ -306,4 +311,38 @@ test("discovery readiness stays false for UI projects until designStyle is captu
 
   expect(readiness.ready).toBe(false)
   expect(readiness.missingOutputs).toContain("designStyle is selected [Q9] (required for UI projects)")
+})
+
+test("dispatch blocks execution until an active delivery phase is approved", () => {
+  const state = createState("EXECUTING")
+  state.roadmap.currentStageId = ""
+  state.roadmap.stages = [
+    {
+      id: "V1",
+      name: "Launch MVP",
+      status: "DRAFT",
+      milestoneIds: ["M1"],
+      prdVersion: "v1.0",
+      architectureVersion: "v1.0",
+    },
+  ]
+  state.execution.milestones = [
+    {
+      id: "M1",
+      name: "Foundation",
+      productStageId: "V1",
+      phaseId: "V1",
+      branch: "milestone/m1-foundation",
+      worktreePath: "../phase-ready-project-m1",
+      status: "PENDING",
+      tasks: [],
+    },
+  ]
+
+  const result = dispatch(deriveStateFromFilesystem(state))
+
+  expect(result.type).toBe("manual")
+  expect(result.message).toContain("Phase 1 slice are approved")
+  expect(result.message).toContain("harness:approve --plan")
+  expect(result.message).toContain("harness:approve --phase V1")
 })

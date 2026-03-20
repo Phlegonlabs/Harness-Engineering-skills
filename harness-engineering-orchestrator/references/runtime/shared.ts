@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "fs"
 import { join } from "path"
 import type { ProjectState, ProjectType } from "../types"
+import { syncRoadmapPhases } from "./stages"
 
 export const STATE_PATH = ".harness/state.json"
 export const PRD_PATH = "docs/PRD.md"
@@ -77,7 +78,7 @@ function parseStageHeadings(content: string): StageHeading[] {
     .split(/\r?\n/)
     .flatMap((line, index) => {
       const match = line.match(
-        /^##\s+Product Stage\s+(V\d+)\s*:\s*(.+?)(?:\s+\[(ACTIVE|DEFERRED|DEPLOY_REVIEW|COMPLETED)\])?\s*$/i,
+        /^##\s+(?:Product Stage|Delivery Phase)\s+(V\d+)\s*:\s*(.+?)(?:\s+\[(ACTIVE|DEFERRED|DRAFT|DEPLOY_REVIEW|COMPLETED)\])?\s*$/i,
       )
       if (!match) return []
       return [
@@ -94,25 +95,7 @@ export function countMilestonesFromPrd(): number {
   const content = readDocument(PRD_PATH, PRD_DIR)
   if (!content) return 0
 
-  const stageHeadings = parseStageHeadings(content)
-  if (stageHeadings.length === 0) {
-    return Array.from(content.matchAll(/^###\s+Milestone\b/gm)).length
-  }
-
-  const lines = content.split(/\r?\n/)
-  const activeStage =
-    stageHeadings.find(stage => stage.status === "ACTIVE")
-    ?? stageHeadings[0]
-  if (!activeStage) return 0
-
-  const nextStageLine =
-    stageHeadings.find(stage => stage.line > activeStage.line)?.line
-    ?? lines.length
-
-  return lines
-    .slice(activeStage.line + 1, nextStageLine)
-    .filter(line => /^###\s+Milestone\b/.test(line))
-    .length
+  return Array.from(content.matchAll(/^###\s+Milestone\b/gm)).length
 }
 
 export function collectDesignSpecs(): string[] {
@@ -168,16 +151,14 @@ export function deriveStateFromFilesystem(
   const prdContent = readDocument(PRD_PATH, PRD_DIR)
   const architectureContent = readDocument(ARCHITECTURE_PATH, ARCHITECTURE_DIR)
   const currentStage =
-    next.roadmap.stages.find(stage => stage.id === next.roadmap.currentStageId)
+    next.roadmap.stages.find(stage => stage.id === (next.roadmap.activePhaseId || next.roadmap.currentStageId))
     ?? next.roadmap.stages.find(stage => stage.status === "ACTIVE")
     ?? next.roadmap.stages.find(stage => stage.status === "DEPLOY_REVIEW")
 
   next.updatedAt = now
   next.docs.prd.exists = documentExists(PRD_PATH, PRD_DIR)
   next.docs.prd.version = parseDocumentVersion(prdContent) ?? next.docs.prd.version
-  next.docs.prd.milestoneCount =
-    currentStage?.milestoneIds.length
-    ?? countMilestonesFromPrd()
+  next.docs.prd.milestoneCount = countMilestonesFromPrd()
 
   next.docs.architecture.exists = documentExists(ARCHITECTURE_PATH, ARCHITECTURE_DIR)
   next.docs.architecture.version = parseDocumentVersion(architectureContent) ?? next.docs.architecture.version
@@ -224,6 +205,12 @@ export function deriveStateFromFilesystem(
     next.execution.milestones.every(milestone =>
       milestone.status === "COMPLETE" || milestone.status === "MERGED",
     )
+  next.execution.milestones = next.execution.milestones.map(milestone => ({
+    ...milestone,
+    phaseId: milestone.phaseId ?? milestone.productStageId,
+  }))
+
+  syncRoadmapPhases(next)
 
   next.validation.criticalTotal = getHarnessCriticalTotal(next.projectInfo?.harnessLevel?.level ?? "standard")
   if (options.updateValidationTimestamp) {

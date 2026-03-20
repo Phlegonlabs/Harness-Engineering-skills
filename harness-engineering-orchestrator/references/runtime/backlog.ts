@@ -1,8 +1,17 @@
 import { existsSync } from "fs"
-import type { Milestone, ProductStage, ProductStageStatus, ProjectState, ProjectType, Task } from "../types"
+import type {
+  Milestone,
+  ProductStage,
+  ProductStageStatus,
+  ProjectState,
+  ProjectType,
+  Task,
+  TaskStatus,
+} from "../types"
 import { assertPlanningDocumentsReady } from "./planning-docs"
 import { initState, readState, writeState } from "./state-core"
 import { ARCHITECTURE_DIR, ARCHITECTURE_PATH, isUiProject, PRD_DIR, PRD_PATH, readDocument, STATE_PATH } from "./shared"
+import { getDeliveryPhase, isPlanApproved, milestoneIsExecutable, syncRoadmapPhases } from "./stages"
 import { createEmptyTaskChecklist } from "./task-checklist"
 
 type ParsedTaskSpec = {
@@ -55,6 +64,7 @@ function inferUiTask(text: string, projectTypes: ProjectType[]): boolean {
 function parseStageStatusHint(raw?: string): ProductStageStatus | undefined {
   const value = raw?.trim().toUpperCase()
   switch (value) {
+    case "DRAFT":
     case "ACTIVE":
     case "DEFERRED":
     case "DEPLOY_REVIEW":
@@ -75,7 +85,6 @@ function defaultStage(): ParsedStageSpec {
     id: "V1",
     name: "Current Delivery",
     milestoneSpecs: [],
-    statusHint: "ACTIVE",
   }
 }
 
@@ -168,7 +177,7 @@ function parsePrdStageSpecs(state: ProjectState): ParsedStageSpec[] {
 
   for (const line of lines) {
     const stageMatch = line.match(
-      /^##\s+Product Stage\s+(V\d+)\s*:\s*(.+?)(?:\s+\[(ACTIVE|DEFERRED|DEPLOY_REVIEW|COMPLETED)\])?\s*$/i,
+      /^##\s+(?:Product Stage|Delivery Phase)\s+(V\d+)\s*:\s*(.+?)(?:\s+\[(ACTIVE|DEFERRED|DRAFT|DEPLOY_REVIEW|COMPLETED)\])?\s*$/i,
     )
     if (stageMatch) {
       flushStage()
@@ -263,24 +272,6 @@ function parsePrdStageSpecs(state: ProjectState): ParsedStageSpec[] {
     stages[0]!.milestoneSpecs.push(defaultMilestone(state))
   }
 
-  let sawActive = false
-  for (const [index, stage] of stages.entries()) {
-    if (stage.statusHint === "ACTIVE" && !sawActive) {
-      sawActive = true
-      continue
-    }
-    if (stage.statusHint === "ACTIVE" && sawActive) {
-      stage.statusHint = "DEFERRED"
-      continue
-    }
-    if (!stage.statusHint) {
-      stage.statusHint = sawActive || index > 0 ? "DEFERRED" : "ACTIVE"
-      if (stage.statusHint === "ACTIVE") {
-        sawActive = true
-      }
-    }
-  }
-
   return stages
 }
 
@@ -298,7 +289,7 @@ function createTaskFromSpec(spec: ParsedTaskSpec, taskId: string): Task {
     id: taskId,
     name: spec.name,
     type: "TASK",
-    status: "PENDING",
+    status: "PLANNED",
     prdRef: spec.prdRef,
     milestoneId: spec.milestoneId,
     dod: [...spec.dod],
@@ -310,26 +301,47 @@ function createTaskFromSpec(spec: ParsedTaskSpec, taskId: string): Task {
   }
 }
 
-function buildMilestonesFromSpecs(specs: ParsedMilestoneSpec[]): Milestone[] {
-  let taskCounter = 1
-
-  return specs.map(spec => ({
-    id: spec.id,
-    name: spec.name,
-    productStageId: spec.productStageId,
-    branch: spec.branch,
-    worktreePath: spec.worktreePath,
-    status: "PENDING",
-    tasks: spec.tasks.map(task => createTaskFromSpec(task, nextTaskId(taskCounter++))),
-  }))
+function isFinishedTaskStatus(status: TaskStatus): boolean {
+  return status === "DONE" || status === "SKIPPED"
 }
 
-function activateNextAvailableTask(milestones: Milestone[]): {
+function refreshPlannedAwareMilestoneStatuses(milestones: Milestone[]): void {
+  for (const milestone of milestones) {
+    if (milestone.status === "MERGED" || milestone.status === "COMPLETE") continue
+
+    const allTasksPlanned = milestone.tasks.length > 0 && milestone.tasks.every(task => task.status === "PLANNED")
+    const allFinished = milestone.tasks.length > 0 && milestone.tasks.every(task => isFinishedTaskStatus(task.status))
+    const hasWorkStarted = milestone.tasks.some(task =>
+      ["IN_PROGRESS", "DONE", "BLOCKED"].includes(task.status),
+    )
+
+    if (allTasksPlanned) {
+      milestone.status = "PLANNED"
+      continue
+    }
+
+    if (allFinished) {
+      milestone.status = "REVIEW"
+      milestone.completedAt = milestone.completedAt ?? new Date().toISOString()
+      continue
+    }
+
+    if (hasWorkStarted) {
+      milestone.status = "IN_PROGRESS"
+      continue
+    }
+
+    milestone.status = "PENDING"
+  }
+}
+
+function activateNextAvailableTask(milestones: Milestone[], state: ProjectState): {
   currentMilestone: string
   currentTask: string
   currentWorktree: string
 } {
   const activeTask = milestones
+    .filter(milestone => milestoneIsExecutable(state, milestone))
     .flatMap(milestone => milestone.tasks.map(task => ({ milestone, task })))
     .find(entry => entry.task.status === "IN_PROGRESS")
 
@@ -346,6 +358,7 @@ function activateNextAvailableTask(milestones: Milestone[]): {
   }
 
   for (const milestone of milestones) {
+    if (!milestoneIsExecutable(state, milestone)) continue
     const nextTask = milestone.tasks.find(task => task.status === "PENDING")
     if (!nextTask) continue
 
@@ -364,19 +377,12 @@ function activateNextAvailableTask(milestones: Milestone[]): {
   return { currentMilestone: "", currentTask: "", currentWorktree: "" }
 }
 
-function hasOpenMilestones(milestones: Milestone[]): boolean {
-  return milestones.some(milestone => !["MERGED", "COMPLETE"].includes(milestone.status))
-}
-
 function buildRoadmapStageFromSpec(
   spec: ParsedStageSpec,
   existingStage: ProductStage | undefined,
   currentVersions: { architectureVersion: string; prdVersion: string },
 ): ProductStage {
-  let status = existingStage?.status
-  if (!status) {
-    status = spec.statusHint ?? "DEFERRED"
-  }
+  const status = existingStage?.status ?? spec.statusHint ?? "DRAFT"
 
   return {
     id: spec.id,
@@ -385,10 +391,10 @@ function buildRoadmapStageFromSpec(
     milestoneIds: spec.milestoneSpecs.map(milestone => milestone.id),
     prdVersion:
       existingStage?.prdVersion
-      ?? (status === "ACTIVE" ? currentVersions.prdVersion : undefined),
+      ?? (["ACTIVE", "DEPLOY_REVIEW", "COMPLETED"].includes(status) ? currentVersions.prdVersion : undefined),
     architectureVersion:
       existingStage?.architectureVersion
-      ?? (status === "ACTIVE" ? currentVersions.architectureVersion : undefined),
+      ?? (["ACTIVE", "DEPLOY_REVIEW", "COMPLETED"].includes(status) ? currentVersions.architectureVersion : undefined),
     promotedAt: existingStage?.promotedAt,
     deployReviewStartedAt: existingStage?.deployReviewStartedAt,
     deployReviewedAt: existingStage?.deployReviewedAt,
@@ -410,38 +416,31 @@ function syncRoadmapState(baseState: ProjectState, parsedStages: ParsedStageSpec
   }
 
   let addedStages = 0
-  const syncedStages = parsedStages.map((spec, index) => {
+  const syncedStages = parsedStages.map(spec => {
     const existingStage = existingStageMap.get(spec.id)
     if (!existingStage) {
       addedStages += 1
     }
-
-    const nextStage = buildRoadmapStageFromSpec(spec, existingStage, currentVersions)
-    if (!existingStage && !spec.statusHint) {
-      nextStage.status = index === 0 ? "ACTIVE" : "DEFERRED"
-    }
-    return nextStage
+    return buildRoadmapStageFromSpec(spec, existingStage, currentVersions)
   })
-
-  const activeOrReviewStage =
-    syncedStages.find(stage => stage.status === "ACTIVE")
-    ?? syncedStages.find(stage => stage.status === "DEPLOY_REVIEW")
-
-  if (!activeOrReviewStage && syncedStages[0]) {
-    syncedStages[0].status = "ACTIVE"
-  }
 
   const parsedIds = new Set(parsedStages.map(stage => stage.id))
   const orphanStages = existingStages.filter(stage => !parsedIds.has(stage.id))
+  const orderedStages = [...syncedStages, ...orphanStages]
+
+  const persistedCurrentStageId =
+    (baseState.roadmap.currentStageId && orderedStages.some(stage => stage.id === baseState.roadmap.currentStageId))
+      ? baseState.roadmap.currentStageId
+      : (baseState.roadmap.activePhaseId && orderedStages.some(stage => stage.id === baseState.roadmap.activePhaseId)
+        ? baseState.roadmap.activePhaseId
+        : "")
 
   return {
     addedStages,
     roadmap: {
-      currentStageId:
-        activeOrReviewStage?.id
-        ?? syncedStages[0]?.id
-        ?? baseState.roadmap.currentStageId,
-      stages: [...syncedStages, ...orphanStages],
+      ...baseState.roadmap,
+      currentStageId: persistedCurrentStageId,
+      stages: orderedStages,
     },
   }
 }
@@ -449,32 +448,68 @@ function syncRoadmapState(baseState: ProjectState, parsedStages: ParsedStageSpec
 function buildOrderedMilestones(
   existingMilestones: Milestone[],
   parsedStages: ParsedStageSpec[],
-  activeStageId: string,
-  mergeActiveStage: (spec: ParsedStageSpec) => Milestone[],
+  mergeStageMilestones: (spec: ParsedStageSpec) => Milestone[],
 ): Milestone[] {
-  const milestonesByStage = new Map<string, Milestone[]>()
+  const existingByStage = new Map<string, Milestone[]>()
   for (const milestone of existingMilestones) {
-    const current = milestonesByStage.get(milestone.productStageId) ?? []
+    const current = existingByStage.get(milestone.phaseId ?? milestone.productStageId) ?? []
     current.push(milestone)
-    milestonesByStage.set(milestone.productStageId, current)
+    existingByStage.set(milestone.phaseId ?? milestone.productStageId, current)
   }
 
   const ordered: Milestone[] = []
   for (const stage of parsedStages) {
-    if (stage.id === activeStageId) {
-      ordered.push(...mergeActiveStage(stage))
-      continue
-    }
-
-    ordered.push(...(milestonesByStage.get(stage.id) ?? []))
-    milestonesByStage.delete(stage.id)
+    ordered.push(...mergeStageMilestones(stage))
+    existingByStage.delete(stage.id)
   }
 
-  for (const stageMilestones of milestonesByStage.values()) {
+  for (const stageMilestones of existingByStage.values()) {
     ordered.push(...stageMilestones)
   }
 
   return ordered
+}
+
+function normalizeExecutionBacklog(state: ProjectState): void {
+  syncRoadmapPhases(state)
+
+  for (const milestone of state.execution.milestones) {
+    milestone.phaseId = milestone.phaseId ?? milestone.productStageId
+    const executable = milestoneIsExecutable(state, milestone)
+
+    for (const task of milestone.tasks) {
+      if (executable) {
+        if (task.status === "PLANNED") {
+          task.status = "PENDING"
+        }
+        continue
+      }
+
+      if (!isFinishedTaskStatus(task.status)) {
+        task.status = "PLANNED"
+        task.startedAt = undefined
+        task.blockedAt = undefined
+      }
+    }
+
+    if (executable) {
+      if (milestone.status === "PLANNED") {
+        milestone.status = "PENDING"
+      }
+      continue
+    }
+
+    if (!["MERGED", "COMPLETE"].includes(milestone.status)) {
+      milestone.status = "PLANNED"
+      milestone.completedAt = undefined
+    }
+  }
+
+  refreshPlannedAwareMilestoneStatuses(state.execution.milestones)
+}
+
+function countParsedMilestones(parsedStages: ParsedStageSpec[]): number {
+  return parsedStages.reduce((total, stage) => total + stage.milestoneSpecs.length, 0)
 }
 
 export function syncRoadmapFromPrd(baseState: ProjectState): {
@@ -483,65 +518,29 @@ export function syncRoadmapFromPrd(baseState: ProjectState): {
 } {
   const parsedStages = parsePrdStageSpecs(baseState)
   const roadmapSync = syncRoadmapState(baseState, parsedStages)
-
-  return {
-    addedStages: roadmapSync.addedStages,
-    state: {
-      ...baseState,
-      roadmap: roadmapSync.roadmap,
-    },
-  }
-}
-
-export function deriveExecutionFromPrd(baseState: ProjectState): ProjectState {
-  assertPlanningDocumentsReady()
-  const parsedStages = parsePrdStageSpecs(baseState)
-  const roadmapSync = syncRoadmapState(baseState, parsedStages)
-  const activeStage =
-    roadmapSync.roadmap.stages.find(stage => stage.status === "ACTIVE")
-    ?? roadmapSync.roadmap.stages[0]
-
-  if (!activeStage) {
-    throw new Error("No product stage is available in docs/PRD.md.")
-  }
-
-  const activeStageSpecs = parsedStages.find(stage => stage.id === activeStage.id)
-  if (!activeStageSpecs) {
-    throw new Error(`Product stage ${activeStage.id} was not found in docs/PRD.md.`)
-  }
-
-  const milestones = buildMilestonesFromSpecs(activeStageSpecs.milestoneSpecs)
-  const pointers = activateNextAvailableTask(milestones)
-
-  return {
+  const nextState = {
     ...baseState,
-    phase:
-      baseState.phase === "VALIDATING" || baseState.phase === "COMPLETE"
-        ? baseState.phase
-        : "EXECUTING",
     roadmap: roadmapSync.roadmap,
-    execution: {
-      ...baseState.execution,
-      currentMilestone: pointers.currentMilestone,
-      currentTask: pointers.currentTask,
-      currentWorktree: pointers.currentWorktree,
-      milestones,
-      allMilestonesComplete: false,
-    },
     docs: {
       ...baseState.docs,
       prd: {
         ...baseState.docs.prd,
         exists: true,
-        milestoneCount: activeStage.milestoneIds.length,
-      },
-      progress: {
-        ...baseState.docs.progress,
-        exists: true,
-        lastUpdated: new Date().toISOString(),
+        milestoneCount: countParsedMilestones(parsedStages),
       },
     },
   }
+
+  syncRoadmapPhases(nextState)
+
+  return {
+    addedStages: roadmapSync.addedStages,
+    state: nextState,
+  }
+}
+
+export function deriveExecutionFromPrd(baseState: ProjectState): ProjectState {
+  return syncExecutionFromPrd(baseState).state
 }
 
 export function syncExecutionFromPrd(baseState: ProjectState): {
@@ -553,22 +552,6 @@ export function syncExecutionFromPrd(baseState: ProjectState): {
   assertPlanningDocumentsReady()
   const parsedStages = parsePrdStageSpecs(baseState)
   const roadmapSync = syncRoadmapState(baseState, parsedStages)
-  const activeStage =
-    roadmapSync.roadmap.stages.find(stage => stage.status === "ACTIVE")
-    ?? roadmapSync.roadmap.stages.find(stage => stage.id === roadmapSync.roadmap.currentStageId)
-    ?? roadmapSync.roadmap.stages.find(stage => stage.status === "DEPLOY_REVIEW")
-    ?? roadmapSync.roadmap.stages.find(stage => stage.status === "COMPLETED")
-  if (!activeStage) {
-    throw new Error(
-      "No product stage is available. If the current stage is waiting on deploy/test, update PRD / Architecture, then run bun harness:sync-backlog or promote the next stage when ready.",
-    )
-  }
-
-  const activeStageSpecs = parsedStages.find(stage => stage.id === activeStage.id)
-  if (!activeStageSpecs) {
-    throw new Error(`Product stage ${activeStage.id} was not found in docs/PRD.md.`)
-  }
-
   const existingMilestones = baseState.execution.milestones
   const existingMilestoneMap = new Map(existingMilestones.map(milestone => [milestone.id, milestone]))
   const highestTaskNumber = existingMilestones
@@ -579,7 +562,7 @@ export function syncExecutionFromPrd(baseState: ProjectState): {
   let addedMilestones = 0
   let addedTasks = 0
 
-  const mergeActiveStageMilestones = (stage: ParsedStageSpec): Milestone[] =>
+  const mergeStageMilestones = (stage: ParsedStageSpec): Milestone[] =>
     stage.milestoneSpecs.map(spec => {
       const existingMilestone = existingMilestoneMap.get(spec.id)
       const existingTaskMap = new Map(existingMilestone?.tasks.map(task => [task.prdRef, task]) ?? [])
@@ -620,6 +603,7 @@ export function syncExecutionFromPrd(baseState: ProjectState): {
             ...existingMilestone,
             name: spec.name,
             productStageId: spec.productStageId,
+            phaseId: spec.productStageId,
             branch: existingMilestone.branch || spec.branch,
             worktreePath: existingMilestone.worktreePath || spec.worktreePath,
             tasks: [...tasks, ...orphanTasks],
@@ -628,9 +612,10 @@ export function syncExecutionFromPrd(baseState: ProjectState): {
             id: spec.id,
             name: spec.name,
             productStageId: spec.productStageId,
+            phaseId: spec.productStageId,
             branch: spec.branch,
             worktreePath: spec.worktreePath,
-            status: "PENDING",
+            status: "PLANNED",
             tasks,
           }
 
@@ -641,57 +626,25 @@ export function syncExecutionFromPrd(baseState: ProjectState): {
       return milestone
     })
 
-  const milestones = buildOrderedMilestones(
-    existingMilestones,
-    parsedStages,
-    activeStage.id,
-    mergeActiveStageMilestones,
-  )
-  const pointers = activateNextAvailableTask(milestones)
-  const shouldReopenExecution = hasOpenMilestones(milestones)
-  const activeStageHasOpenMilestones = milestones.some(milestone =>
-    milestone.productStageId === activeStage.id &&
-    !["MERGED", "COMPLETE"].includes(milestone.status),
-  )
-
-  if (activeStageHasOpenMilestones) {
-    for (const stage of roadmapSync.roadmap.stages) {
-      if (stage.id === activeStage.id) {
-        stage.status = "ACTIVE"
-        stage.deployReviewStartedAt = undefined
-        stage.deployReviewedAt = undefined
-        stage.completedAt = undefined
-        continue
-      }
-
-      if (stage.status === "ACTIVE" && stage.id !== activeStage.id) {
-        stage.status = "DEFERRED"
-      }
-    }
-    roadmapSync.roadmap.currentStageId = activeStage.id
-  }
-
+  const milestones = buildOrderedMilestones(existingMilestones, parsedStages, mergeStageMilestones)
   const nextState: ProjectState = {
     ...baseState,
     phase:
-      shouldReopenExecution && ["VALIDATING", "COMPLETE"].includes(baseState.phase)
-        ? "EXECUTING"
-        : baseState.phase,
+      baseState.phase === "VALIDATING" || baseState.phase === "COMPLETE"
+        ? baseState.phase
+        : "EXECUTING",
     roadmap: roadmapSync.roadmap,
     execution: {
       ...baseState.execution,
-      currentMilestone: pointers.currentMilestone,
-      currentTask: pointers.currentTask,
-      currentWorktree: pointers.currentWorktree,
       milestones,
-      allMilestonesComplete: !shouldReopenExecution && milestones.length > 0,
+      allMilestonesComplete: false,
     },
     docs: {
       ...baseState.docs,
       prd: {
         ...baseState.docs.prd,
         exists: true,
-        milestoneCount: activeStage.milestoneIds.length,
+        milestoneCount: countParsedMilestones(parsedStages),
       },
       progress: {
         ...baseState.docs.progress,
@@ -700,6 +653,31 @@ export function syncExecutionFromPrd(baseState: ProjectState): {
       },
     },
   }
+
+  const activePhaseId = nextState.roadmap.activePhaseId ?? nextState.roadmap.currentStageId
+  const activeStage = nextState.roadmap.stages.find(stage => stage.id === activePhaseId)
+  const activePhaseHasOpenMilestones = nextState.execution.milestones.some(milestone =>
+    (milestone.phaseId ?? milestone.productStageId) === activePhaseId &&
+    !["MERGED", "COMPLETE"].includes(milestone.status),
+  )
+  if (activeStage && activePhaseHasOpenMilestones && activeStage.status === "DEPLOY_REVIEW") {
+    activeStage.status = "ACTIVE"
+    activeStage.deployReviewStartedAt = undefined
+    activeStage.deployReviewedAt = undefined
+    activeStage.completedAt = undefined
+  }
+
+  normalizeExecutionBacklog(nextState)
+  const pointers = activateNextAvailableTask(nextState.execution.milestones, nextState)
+  nextState.execution.currentMilestone = pointers.currentMilestone
+  nextState.execution.currentTask = pointers.currentTask
+  nextState.execution.currentWorktree = pointers.currentWorktree
+  if (isPlanApproved(nextState) && nextState.execution.currentTask) {
+    nextState.phase = "EXECUTING"
+  }
+  nextState.execution.allMilestonesComplete =
+    nextState.execution.milestones.length > 0 &&
+    nextState.execution.milestones.every(milestone => ["MERGED", "COMPLETE"].includes(milestone.status))
 
   return {
     addedMilestones,

@@ -19,6 +19,75 @@ import { existsSync, readdirSync, readFileSync } from "fs"
 import { join } from "path"
 import type { ProjectState } from "./types"
 
+type DeliveryPhaseView = {
+  approvalStatus?: string
+  executionStatus?: string
+  id: string
+  name: string
+}
+
+function syncRoadmapPhasesCompat(state: ProjectState): void {
+  const stages = state.roadmap.stages ?? []
+  const approvedPhaseIds = new Set(state.roadmap.approvedPhaseIds ?? [])
+  const activePhaseId =
+    state.roadmap.activePhaseId
+    || state.roadmap.currentStageId
+    || stages.find(stage => stage.status === "ACTIVE")?.id
+    || stages.find(stage => stage.status === "DEPLOY_REVIEW")?.id
+    || ""
+
+  state.roadmap.planApprovalStatus =
+    state.roadmap.planApprovalStatus
+    ?? (state.roadmap.planApproved ? "approved" : "pending")
+  state.roadmap.activePhaseId = activePhaseId || undefined
+  state.roadmap.currentStageId = activePhaseId
+
+  state.roadmap.phases = stages.map((stage, index) => ({
+    id: stage.id,
+    name: stage.name,
+    milestoneIds: [...stage.milestoneIds],
+    order: index + 1,
+    approvalStatus:
+      state.roadmap.phases?.find(phase => phase.id === stage.id)?.approvalStatus
+      ?? (approvedPhaseIds.has(stage.id) ? "approved" : "pending"),
+    approvedAt:
+      state.roadmap.phases?.find(phase => phase.id === stage.id)?.approvedAt
+      ?? (approvedPhaseIds.has(stage.id) ? state.updatedAt : undefined),
+    executionStatus:
+      state.roadmap.phases?.find(phase => phase.id === stage.id)?.executionStatus
+      ?? (stage.status === "COMPLETED"
+        ? "complete"
+        : stage.id === activePhaseId && stage.status === "DEPLOY_REVIEW"
+          ? "deploy_gate"
+          : stage.id === activePhaseId && stage.status === "ACTIVE"
+            ? "executing"
+            : "draft"),
+    isLaunchPhase: index === 0,
+  }))
+}
+
+function getCurrentDeliveryPhaseCompat(state: ProjectState): DeliveryPhaseView | undefined {
+  return (
+    state.roadmap.phases?.find(phase => phase.id === state.roadmap.activePhaseId)
+    ?? state.roadmap.phases?.find(phase => phase.executionStatus === "executing")
+    ?? state.roadmap.phases?.find(phase => phase.executionStatus === "deploy_gate")
+    ?? state.roadmap.phases?.[0]
+  )
+}
+
+function getNextDraftDeliveryPhaseCompat(state: ProjectState): DeliveryPhaseView | undefined {
+  return state.roadmap.phases?.find(phase => phase.executionStatus === "draft")
+}
+
+function getCurrentProductStageCompat(state: ProjectState) {
+  return (
+    state.roadmap.stages.find(stage => stage.id === (state.roadmap.activePhaseId ?? state.roadmap.currentStageId))
+    ?? state.roadmap.stages.find(stage => stage.status === "ACTIVE")
+    ?? state.roadmap.stages.find(stage => stage.status === "DEPLOY_REVIEW")
+    ?? state.roadmap.stages[0]
+  )
+}
+
 function loadState(): ProjectState | null {
   if (!existsSync(".harness/state.json")) return null
   return JSON.parse(readFileSync(".harness/state.json", "utf-8"))
@@ -85,6 +154,18 @@ console.log(`${"═".repeat(60)}`)
 
 console.log(`\n  Current phase: ${phaseLabel(state.phase)}`)
 console.log(`  Last updated: ${new Date(state.updatedAt).toLocaleString()}`)
+syncRoadmapPhasesCompat(state)
+const currentDeliveryPhase = getCurrentDeliveryPhaseCompat(state)
+const currentProductStage = getCurrentProductStageCompat(state)
+const nextDraftPhase = getNextDraftDeliveryPhaseCompat(state)
+console.log(`  Plan approval: ${state.roadmap.planApprovalStatus ?? "pending"}`)
+if (currentDeliveryPhase) {
+  console.log(
+    `  Current delivery phase: ${currentDeliveryPhase.id} — ${currentDeliveryPhase.name} (${currentDeliveryPhase.executionStatus}, ${currentDeliveryPhase.approvalStatus})`,
+  )
+} else if (currentProductStage) {
+  console.log(`  Current delivery phase: ${currentProductStage.id} — ${currentProductStage.name} (${currentProductStage.status})`)
+}
 if (progress) {
   console.log("  Progress docs: docs/PROGRESS.md + docs/progress/CONTEXT_SNAPSHOT.md")
 }
@@ -98,8 +179,9 @@ if (state.techStack.confirmed) {
 
 if (state.phase === "EXECUTING") {
   const { execution } = state
-  const totalTasks = execution.milestones.flatMap(m => m.tasks).length
-  const doneTasks = execution.milestones.flatMap(m => m.tasks).filter(t => t.status === "DONE").length
+  const visibleTasks = execution.milestones.flatMap(m => m.tasks).filter(t => t.status !== "PLANNED")
+  const totalTasks = visibleTasks.length
+  const doneTasks = visibleTasks.filter(t => t.status === "DONE").length
   const blockedTasks = execution.milestones.flatMap(m => m.tasks).filter(t => t.status === "BLOCKED")
   const pct = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0
   const bar = "█".repeat(Math.round(pct / 5)) + "░".repeat(20 - Math.round(pct / 5))
@@ -140,7 +222,19 @@ if (state.execution.milestones.length > 0) {
 console.log(`\n${"─".repeat(60)}`)
 console.log("  Next step:")
 
-if (state.phase === "EXECUTING" && state.execution.currentTask) {
+if ((state.roadmap.planApprovalStatus ?? "pending") !== "approved") {
+  console.log("    bun harness:approve --plan         → record overall planning approval")
+} else if (currentDeliveryPhase && currentDeliveryPhase.approvalStatus !== "approved") {
+  console.log(`    bun harness:approve --phase ${currentDeliveryPhase.id} → approve the current delivery phase`)
+} else if (currentDeliveryPhase?.executionStatus === "deploy_gate") {
+  console.log(`    Deploy/test ${currentDeliveryPhase.id} in the real environment`)
+  if (nextDraftPhase) {
+    console.log(`    bun harness:approve --phase ${nextDraftPhase.id} → approve the next draft phase`)
+    console.log(`    bun harness:stage --promote ${nextDraftPhase.id} → promote the next approved phase`)
+  } else {
+    console.log("    bun harness:advance               → move into final validation after deploy review")
+  }
+} else if (state.phase === "EXECUTING" && state.execution.currentTask) {
   console.log("")
   console.log("  With Codex:")
   console.log(

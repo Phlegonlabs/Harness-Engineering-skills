@@ -138,9 +138,10 @@ function copyHarnessRuntime(skillRoot: string, logger: SetupLogger): void {
 
   const entryFiles = [
     ["harness-types.ts", ".harness/types.ts"],
-    ["harness-init.ts", ".harness/init.ts"],
-    ["harness-stage.ts", ".harness/stage.ts"],
-    ["harness-advance.ts", ".harness/advance.ts"],
+      ["harness-init.ts", ".harness/init.ts"],
+      ["harness-stage.ts", ".harness/stage.ts"],
+      ["harness-approve.ts", ".harness/approve.ts"],
+      ["harness-advance.ts", ".harness/advance.ts"],
     ["harness-state.ts", ".harness/state.ts"],
     ["harness-validate.ts", ".harness/validate.ts"],
     ["harness-orchestrator.ts", ".harness/orchestrator.ts"],
@@ -413,7 +414,8 @@ function updatePackageJson(logger: SetupLogger): void {
     "harness:init": "bun .harness/init.ts",
     "harness:init:prd": "bun .harness/init.ts --from-prd",
     "harness:stage": "bun .harness/stage.ts",
-    "harness:sync-backlog": "bun .harness/init.ts --sync-from-prd",
+    "harness:approve": "bun .harness/approve.ts",
+      "harness:sync-backlog": "bun .harness/init.ts --sync-from-prd",
     "harness:advance": "bun .harness/advance.ts",
     "harness:add-surface": "bun .harness/add-surface.ts",
     "harness:autoflow": "bun .harness/orchestrator.ts --auto",

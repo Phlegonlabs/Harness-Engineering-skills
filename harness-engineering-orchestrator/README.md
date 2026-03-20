@@ -3,7 +3,7 @@
 [![Release](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/release.yml/badge.svg)](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../LICENSE)
 ![Harness Level](https://img.shields.io/badge/Harness%20levels-Lite%20%7C%20Standard%20%7C%20Full-1f6feb)
-![Delivery Model](https://img.shields.io/badge/Delivery-milestone--driven-0a7ea4)
+![Delivery Model](https://img.shields.io/badge/Delivery-phase--first-0a7ea4)
 ![Workflow](https://img.shields.io/badge/Workflow-PRD--to--Code-111827)
 
 > Repo-backed PRD-to-code orchestration for Claude and Codex.
@@ -12,7 +12,7 @@
 
 Harness Engineering and Orchestrator is a repo-backed engineering delivery system for turning an idea or an existing repository into a controlled loop:
 
-`PRD -> Architecture -> Scaffold -> Milestone -> Task -> Validation -> Release`
+`Project Plan -> Delivery Phase -> Milestone -> Task -> Validation -> Release`
 
 This README is the high-level map of the current system. The operating contract still lives in [SKILL.md](./SKILL.md) and [agents/orchestrator.md](./agents/orchestrator.md).
 
@@ -43,8 +43,8 @@ Within about a minute, you should have a repo with:
 
 - Inputs: a project idea or an existing repository
 - Outputs: `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, `.harness/state.json`, milestone/task backlog, scaffold, validation state
-- Best for: greenfield bootstraps, existing repo hydration, milestone-driven delivery, staged `V1 -> deploy review -> V2` execution
-- Control model: milestone-plan approval, phase/task gates, guardian checks, orchestrator-owned dispatch, repo-backed state
+- Best for: greenfield bootstraps, existing repo hydration, phase-first delivery, staged `V1 -> deploy review -> V2` execution
+- Control model: overall-plan approval, delivery-phase approval, guardian checks, orchestrator-owned dispatch, repo-backed state
 
 ## Install in 30 Seconds
 
@@ -96,9 +96,9 @@ The skill operates at three levels of ceremony, auto-detected or user-specified:
 
 | Level | Best For | Discovery | Approval Stops | Guardians |
 |-------|----------|-----------|----------------|-----------|
-| **Lite** | Small projects, prototypes | Batch 1-2 Qs/turn | Fast Path summary, execution phase completion, blockers | Core 7 (G1,G3,G4,G6,G8,G9,G11) |
-| **Standard** | Most projects (default) | Groups 2-3 Qs/turn | Milestone plan approval, execution phase completion, blockers | 11 (G1-G11, G12 active) |
-| **Full** | Enterprise / compliance | Sequential Q0-Q9 | Milestone plan approval, execution phase completion, blockers, deploy review | All 12 (G1-G12) |
+| **Lite** | Small projects, prototypes | Batch 1-2 Qs/turn | Fast Path summary, delivery phase completion, blockers | Core 7 (G1,G3,G4,G6,G8,G9,G11) |
+| **Standard** | Most projects (default) | Groups 2-3 Qs/turn | Overall plan approval, delivery phase completion, blockers | 11 (G1-G11, G12 active) |
+| **Full** | Enterprise / compliance | Sequential Q0-Q9 | Overall plan approval, delivery phase completion, blockers, deploy review | All 12 (G1-G12) |
 
 Level is auto-detected or user-specified. Upgrade mid-project with backfill. See [SKILL.md](./SKILL.md#harness-levels) for the full approval-stop model and [references/level-upgrade-backfill.md](./references/level-upgrade-backfill.md) for upgrade protocol.
 
@@ -150,7 +150,7 @@ If you are evaluating the project from the outside, read this README first, then
 The workflow has two layers:
 
 - Runtime `phase`: `DISCOVERY -> MARKET_RESEARCH -> TECH_STACK -> PRD_ARCH -> SCAFFOLD -> EXECUTING -> VALIDATING -> COMPLETE`
-- Product `stage`: `V1 / V2 / V3`, tracked inside `roadmap`, with exactly one `ACTIVE` stage at a time
+- Delivery `phase`: `V1 / V2 / V3`, tracked inside `roadmap`, with explicit approval state and one active executable phase at a time
 
 The harness level controls which gates activate at each boundary and how much ceremony each phase requires.
 
@@ -158,8 +158,8 @@ Important invariants:
 
 - Setup creates the full docs and runtime skeleton up front.
 - Gates decide whether content is truly complete; file existence alone is not enough.
-- Only the current `ACTIVE` stage is materialized into execution backlog.
-- Future stages stay `DEFERRED` until explicit promotion.
+- The PRD drafts the full milestone inventory across all delivery phases.
+- Future phases stay visible in runtime state as planned backlog, but remain non-executable until explicitly approved and promoted.
 
 ## Agent Inventory
 
@@ -272,13 +272,15 @@ Commands below are run from the managed project checkout unless noted otherwise.
 | `bun harness:orchestrate --release <launchId>` | After integration / closeout when the child reservation should be cleared | Deregister the active agent reservation from state |
 | `bun harness:upgrade-runtime --skill-root <path-to-skill>` | Existing managed repos need the latest runtime from the installed skill | Refresh `.harness/`, `agents/`, local runtime wrappers, and managed docs from the current skill version |
 | `bun harness:advance` | At a phase boundary | Validate the next phase gate and advance state only if it passes |
-| `bun harness:sync-backlog` | PRD changed inside the current active stage | Append new stage/milestone/task scope without destroying completed history |
+| `bun harness:approve --plan` | After the overall project plan is drafted | Record explicit overall planning approval before execution starts |
+| `bun harness:approve --phase V1` | After reviewing the current launch slice | Record explicit approval for one delivery phase; Phase 1 approval activates execution |
+| `bun harness:sync-backlog` | PRD changed inside the current active or future draft phases | Sync PRD milestone/task scope into runtime state without destroying completed history |
 | `bun harness:scope-change --preview` | Before applying a scope change | Preview structured scope changes without modifying state |
 | `bun harness:scope-change --apply` | After confirming a scope change | Apply structured scope changes to PRD, sync backlog/progress, and reopen execution when new work lands |
 | `bun harness:scope-change --reject <id>` | When a pending scope change should be discarded | Reject a queued change without applying it |
 | `bun harness:autoflow` | A milestone is in `REVIEW` | Compact, merge, clean up the milestone, then continue until the next true stop point |
 | `bun harness:stage --status` | During execution or deploy review | Show the current `V1 / V2 / V3` roadmap state |
-| `bun harness:stage --promote V2` | After deploy review for the current version | Activate the next deferred stage and snapshot PRD / Architecture versions |
+| `bun harness:stage --promote V2` | After deploy review for the current version and after `V2` is approved | Activate the next approved draft stage and snapshot PRD / Architecture versions |
 | `bun harness:validate --phase <PHASE>` | At phase boundaries | Enforce structural and heavy gate checks |
 | `bun harness:validate --task T001` | Before closing a task | Validate the task gate and atomic-commit expectations |
 | `bun harness:guardian` | When you want guardian-only checks | Alias for `bun harness:validate --guardian` |
@@ -304,7 +306,7 @@ Use this as the practical runbook from project start to project finish.
 
 2. Complete discovery and early planning phases in order.
    - Move through `DISCOVERY`, `MARKET_RESEARCH`, and `TECH_STACK`
-   - Validate honestly at each boundary, but use one milestone-plan approval instead of asking for confirmation at every phase boundary
+   - Validate honestly at each boundary, but use one overall-plan + current-phase approval instead of asking for confirmation at every runtime phase boundary
 
 3. Write the real PRD and Architecture.
    - Fill `docs/PRD.md` and `docs/ARCHITECTURE.md` with real project content
@@ -313,7 +315,7 @@ Use this as the practical runbook from project start to project finish.
 4. Finish scaffold and enter execution.
    - Make sure runtime files, CI, env skeleton, and local Harness files are present
    - Run `bun install`
-   - If the milestone plan is already approved and `bun harness:validate --phase EXECUTING` passes, run `bun harness:advance` to derive the execution backlog from the active stage in the PRD
+   - After the plan and `Phase 1` are approved, run `bun harness:approve --plan`, `bun harness:approve --phase V1`, then `bun harness:validate --phase EXECUTING` and `bun harness:advance`
 
 5. Use the orchestrator as the control tower.
    - Run `bun harness:orchestrator` (or `bun .harness/orchestrator.ts`)
@@ -322,9 +324,9 @@ Use this as the practical runbook from project start to project finish.
    - Use `bun harness:orchestrate --parallel` only when you want the parent runtime to actually launch that batch
    - Use `bun harness:orchestrate --json` when the parent runtime needs the launch cycle, lifecycle commands, and reservation metadata in machine-readable form
 
-6. Execute one approved execution phase at a time.
+6. Execute one approved delivery phase at a time.
    - The current task must match its `prdRef`
-   - Group tasks according to the approved milestone plan; if no split was approved, treat the whole milestone as one execution phase
+   - Run milestones and tasks only from the current approved phase
    - UI tasks go through Frontend Designer -> Execution Engine -> Design Reviewer
    - Non-UI tasks go through Execution Engine -> Code Reviewer
 
@@ -342,7 +344,7 @@ Use this as the practical runbook from project start to project finish.
 
 10. Continue the current version or promote the next one.
     - If scope changed inside the current active version: update PRD / Architecture, then run `bun harness:sync-backlog` or use `bun harness:scope-change --apply` for queue + apply + sync
-    - If `V1` is done and `V2` is ready: update the main PRD / Architecture to the next version, then run `bun harness:stage --promote V2`
+    - If `V1` is done and `V2` is ready: update the main PRD / Architecture to the next version, run `bun harness:approve --phase V2`, then run `bun harness:stage --promote V2`
     - If there is no next version left: finish validation and close out the project
 
 ## Operational Features

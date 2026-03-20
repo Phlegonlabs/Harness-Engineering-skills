@@ -73,9 +73,9 @@ The generated result uses a "thin entry + modules" structure:
 ## 4. Functional Requirements
 
 > Each feature is organized by Milestone; the Orchestrator uses this as the basis for splitting Tasks.
-> Continuous-delivery projects should also group Milestones by explicit product stages such as `V1`, `V2`, and `V3`.
-> Use headings like `## Product Stage V1: Initial Delivery [ACTIVE]` and `## Product Stage V2: Deferred Expansion [DEFERRED]`.
-> Only the current `ACTIVE` stage is executable. Deferred stages stay in the PRD until the current version is merged, deploy-tested, and explicitly promoted.
+> Phase-first delivery projects should also group Milestones by explicit delivery phases such as `V1`, `V2`, and `V3`.
+> Use headings like `## Delivery Phase V1: Launch MVP` and `## Delivery Phase V2: Enhancements`.
+> The PRD defines phase order and milestone membership. Runtime approval and activation are recorded with `bun harness:approve --plan`, `bun harness:approve --phase V[N]`, and `bun harness:stage --promote V[N]`.
 
 ### Milestone 1: Foundation (MVP Base)
 
@@ -177,10 +177,10 @@ Record items that are currently uncertain, to be updated in the PRD after user c
 
 When a user proposes new features or changes requirements:
 
-1. If the scope belongs to the current delivery version, update the current stage's Milestone list and run `bun harness:sync-backlog`
-2. If the scope belongs to a future delivery version, add a deferred stage (for example `V2`) instead of activating it immediately
+1. If the scope belongs to the current delivery phase, update the current phase's Milestone list and run `bun harness:sync-backlog`
+2. If the scope belongs to a later delivery phase, add it to a draft phase bucket (for example `V2`) instead of activating it immediately
 3. Update the version number (v1.0 → v1.1 / v2.0)
 4. Record this update in the change log
-5. After the current version passes deploy / real-world review, promote the deferred stage with `bun harness:stage --promote V[N]`
+5. After the current launch phase passes deploy / real-world review, approve the next draft phase with `bun harness:approve --phase V[N]`, then promote it with `bun harness:stage --promote V[N]`
 
 **The PRD is the single source of truth for requirements.** Any feature not written into the PRD will not be executed by the Orchestrator.

@@ -123,17 +123,18 @@ Required outputs are evaluation notes plus an ADR or equivalent decision record.
 
 ## Stage Boundary Handoffs
 
-When a delivery stage changes state:
+When a delivery phase changes state:
 
+- `draft -> executing`: record `bun harness:approve --plan` and `bun harness:approve --phase V[N]`, then advance into execution
 - `DEFERRED -> ACTIVE`: promote with `bun harness:stage --promote V[N]`, snapshot PRD/Architecture versions, then materialize the next stage backlog
 - `ACTIVE -> DEPLOY_REVIEW`: stop execution, surface deployment checklist, wait for human validation
 - milestone `REVIEW -> MERGED`: run entropy scan, compact, validate, merge in order
 
 ## Approval Model
 
-- The default human approval stop is the current milestone plan, not each task or runtime phase boundary.
-- A milestone plan review should include acceptance criteria, task breakdown, and any user-requested execution-phase split.
-- After that approval, execution phases run autonomously until the phase completes or a blocker requires a decision.
+- The default human approval stops are the overall project plan and the current delivery phase split, not each task or milestone.
+- The approval review should include the full milestone inventory, the proposed `Phase 1` launch slice, and which milestones are deferred to later phases.
+- After plan + current-phase approval, milestones inside that approved phase run autonomously until the phase completes or a blocker requires a decision.
 - Deploy review, scope change, architecture change, and risky dependency changes still require human confirmation.
 
 ## Level Impact

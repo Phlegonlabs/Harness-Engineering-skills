@@ -10,7 +10,7 @@
 > 面向 Claude 与 Codex 的 AI 原生工程工作流 skill 仓库。
 >
 > 安装 `harness-engineering-orchestrator` 后，可以把软件项目放进一个 repo-backed 的交付闭环：
-> `PRD -> Architecture -> Scaffold -> Milestone -> Task -> Validation`
+> `Project Plan -> Delivery Phase -> Milestone -> Task -> Validation`
 
 Harness Engineering 的核心思想很直接：规划和执行不应该只存在于聊天记录里。重要决策会被持续写回仓库里的版本化文件，例如 `docs/PRD.md`、`docs/ARCHITECTURE.md`、`docs/PROGRESS.md`、`AGENTS.md`、`CLAUDE.md` 和 `.harness/state.json`。这样一来，项目状态就能在不同会话、不同 Agent、以及人与 Agent 之间稳定传递。
 
@@ -47,6 +47,7 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 ## 从这里开始
 
 - 安装：`npx skills add https://github.com/Phlegonlabs/Harness-Engineering-skills --skill harness-engineering-orchestrator`
+- 当前发布目标：`v1.8.2`
 - 最适合：希望 AI 编码 Agent 在受控 PRD-to-code 交付系统里工作，而不是依赖自由提示链的团队
 - 主力 skill：`harness-engineering-orchestrator`，覆盖 discovery、技术栈确认、PRD、架构、里程碑/任务执行和验证
 - 下一步阅读：[harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)
@@ -55,7 +56,7 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 
 | Skill | 能做什么 | 适合什么场景 |
 |---|---|---|
-| `harness-engineering-orchestrator` | 把一个想法或已有仓库推进成带文档、runtime state、backlog、执行和验证的 repo-backed 交付工作流 | 新项目 bootstrap、既有仓库 hydration、按里程碑推进的 agent 协作交付 |
+| `harness-engineering-orchestrator` | 把一个想法或已有仓库推进成带文档、runtime state、backlog、执行和验证的 repo-backed 交付工作流 | 新项目 bootstrap、既有仓库 hydration、phase-first 的 agent 协作交付 |
 
 ## 为什么团队会安装它
 
@@ -124,6 +125,8 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 ```bash
 bun .harness/orchestrator.ts
 bun harness:orchestrate
+bun harness:approve --plan
+bun harness:approve --phase V1
 bun harness:advance
 ```
 
@@ -163,7 +166,7 @@ bun harness:hooks:install
 
 - 仓库本身就是工作记忆，不再把聊天记录当唯一上下文。
 - 新 scope 必须先回写 PRD，再恢复实现。
-- 执行按 milestone 和 review gate 推进，而不是一次性长跑。
+- 执行按 phase-first 和 review gate 推进，而不是一次性长跑。
 - 验证结果会写回 runtime state，下一次进入时可以从事实继续，而不是从记忆继续。
 
 ## 工作流简图
@@ -180,7 +183,7 @@ Orchestrator 强制逐步执行：
 
 - **按等级控制 Discovery 节奏** — Lite 会批量提问或直接走 Fast Path，Standard 每轮 2-3 个问题，Full 每轮只问 1 个问题。
 - **每次响应只完成一个阶段** — 不会在同一条消息中混合两个阶段的工作。
-- **每个阶段边界强制检查点** — Orchestrator 会总结、验证并请求用户确认后才推进。
+- **显式审批停止点** — 先批准整体计划，再批准 `Phase 1`，之后只在交付 phase 完成、deploy review、或真实 blocker 时再停下。
 - **细粒度 scaffold 验证** — 每个 `.harness/` 运行时文件、配置、文档和构建脚本在进入 EXECUTING 前都会被逐项检查。
 
 这样可以防止 LLM 跳过阶段、略过验证、或在 scaffold 不完整的情况下进入执行的常见失败模式。

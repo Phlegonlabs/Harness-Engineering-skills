@@ -29,6 +29,10 @@ function createDeployReviewState(): ProjectState {
   state.docs.prd.milestoneCount = 1
   state.docs.architecture.exists = true
   state.docs.architecture.version = "v1.0"
+  state.roadmap.planApprovalStatus = "approved"
+  state.roadmap.planApprovedAt = "2026-03-15T09:00:00.000Z"
+  state.roadmap.activePhaseId = "V1"
+  state.roadmap.approvedPhaseIds = ["V1", "V2"]
   state.roadmap.currentStageId = "V1"
   state.roadmap.stages = [
     {
@@ -97,6 +101,7 @@ test("dispatch surfaces deploy review guidance when the current stage is waiting
 
   expect(result.type).toBe("manual")
   expect(result.message).toContain("DEPLOY_REVIEW")
+  expect(result.message).toContain("bun harness:approve --phase V2")
   expect(result.message).toContain("bun harness:stage --promote V2")
 })
 
