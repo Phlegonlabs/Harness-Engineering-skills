@@ -129,6 +129,13 @@ When a delivery stage changes state:
 - `ACTIVE -> DEPLOY_REVIEW`: stop execution, surface deployment checklist, wait for human validation
 - milestone `REVIEW -> MERGED`: run entropy scan, compact, validate, merge in order
 
+## Approval Model
+
+- The default human approval stop is the current milestone plan, not each task or runtime phase boundary.
+- A milestone plan review should include acceptance criteria, task breakdown, and any user-requested execution-phase split.
+- After that approval, execution phases run autonomously until the phase completes or a blocker requires a decision.
+- Deploy review, scope change, architecture change, and risky dependency changes still require human confirmation.
+
 ## Level Impact
 
 | Phase area | Lite | Standard | Full |
@@ -149,6 +156,7 @@ When parallel execution is enabled:
 - Scoped-write batches require disjoint `affectedFiles`.
 - Worktree-isolated writes use separate milestone worktrees.
 - `dispatchParallel()` is planning-only; `bun harness:orchestrate --parallel` owns actual spawn/wait/close behavior.
+- Each launch cycle is persisted under `.harness/launches/`, and the parent runtime must drive `--confirm`, `--rollback`, or `--release` to keep child lifecycle state aligned.
 
 ## Core Invariants
 

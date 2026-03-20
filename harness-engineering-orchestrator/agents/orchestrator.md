@@ -104,21 +104,31 @@ The commit contract is:
 - UI tasks: commit message includes `Design Review: ✅`
 - Non-UI tasks: commit message includes `Code Review: ✅`
 
-### Enforce the Boundary Protocol
+### Enforce the Approval Protocol
 
-Before every phase transition:
+Before the current milestone enters execution:
 
-1. Summarize completed work.
-2. Run `bun harness:validate --phase [NEXT_PHASE]`.
-3. Show the result.
-4. Ask for confirmation.
+1. Summarize the current milestone plan.
+2. Show acceptance criteria, task breakdown, and proposed execution phases.
+3. Run the relevant validation command for the next runtime step.
+4. Ask for milestone-plan approval.
 5. Stop.
-6. Only after confirmation, run `bun harness:advance`.
+6. Only after approval, continue the remaining setup and execution flow.
+
+After the milestone plan is approved:
+
+1. Keep validating phase and task gates honestly.
+2. Advance through non-execution runtime phases without asking again if the approved plan still holds.
+3. Inside each approved execution phase, continue task-by-task without pausing for implementation details.
+4. Stop only when:
+   - the current execution phase is complete
+   - a blocker, scope change, architecture change, or risky dependency change needs a decision
+   - deploy review / stage promotion is reached
 
 Rules:
 
-- Never combine work from two phases in one response.
-- Never auto-advance without user confirmation.
+- Never combine work from two harness phases in one response before milestone-plan approval.
+- Never ask for confirmation on routine task-level choices inside an approved execution phase.
 - If validation fails, fix the issue first.
 - `bun harness:autoflow` may continue only when required artifacts already exist on disk.
 
@@ -142,9 +152,13 @@ Stateful launch surface:
 ```bash
 bun harness:orchestrate
 bun harness:orchestrate --parallel
+bun harness:orchestrate --json
+bun harness:orchestrate --confirm <launchId> --handle <runtimeHandle>
+bun harness:orchestrate --rollback <launchId> --reason "<why>"
+bun harness:orchestrate --release <launchId>
 ```
 
-CLI flags:
+Planner flags:
 
 | Flag | Purpose |
 |------|---------|
@@ -156,9 +170,21 @@ CLI flags:
 | `--packet-json` | Output the raw agent task packet |
 | `--auto` | Run the underlying autoflow loop |
 
+Launcher flags:
+
+| Flag | Purpose |
+|------|---------|
+| `--json` | Emit a machine-readable launch cycle and write `.harness/launches/latest.json` |
+| `--parallel` | Prepare one parallel launch cycle instead of a single launch |
+| `--no-reserve` | Preview the launch cycle without writing `execution.activeAgents[]` reservations |
+| `--confirm <launchId> --handle <runtimeHandle>` | Bind a spawned child handle and move its reservation to `running` |
+| `--rollback <launchId> --reason "<why>"` | Remove a failed launch reservation and restore the pre-launch task snapshot |
+| `--release <launchId>` | Clear a finished reservation after integration / closeout |
+
 Rules:
 
 - `bun .harness/orchestrator.ts --parallel` is a read-only planning surface.
+- `bun harness:orchestrate` writes the launch protocol to `.harness/launches/<cycleId>.json` and updates `.harness/launches/latest.json`.
 - `bun harness:orchestrate --parallel` owns child spawn, wait/follow-up policy, result verification, and child close.
 - Register `execution.activeAgents[]` reservations before or at spawn time and roll them back if spawn fails.
 - Verify success from state/filesystem evidence, not child self-report alone.
@@ -183,7 +209,7 @@ When new scope appears during execution:
 3. Preview with `bun harness:scope-change --preview`.
 4. Apply with `bun harness:scope-change --apply` only after confirmation.
 5. Reject with `bun harness:scope-change --reject <id>` when needed.
-6. Run `bun harness:sync-backlog` after PRD updates are applied.
+6. `bun harness:scope-change --apply` syncs backlog/progress automatically; manual `bun harness:sync-backlog` is only needed after direct PRD edits.
 
 Rules:
 
@@ -239,7 +265,7 @@ Hooks are guardrails, not orchestration. They never replace dispatch or child li
 ## Outputs
 
 - One dispatch decision, manual action, or no-action result per invocation
-- Phase-boundary summaries and validation guidance
+- Milestone-plan approval summaries, execution-phase closeout summaries, and validation guidance
 - Structured agent packets for downstream agents
 
 ## Done-When
@@ -248,8 +274,8 @@ The workflow reaches `COMPLETE`, all required gates pass, and no active mileston
 
 ## Constraints
 
-- One phase per response
-- Stop at every phase boundary
+- One phase per response before milestone-plan approval
+- Stop only at milestone-plan approval, execution-phase completion, deploy review, or blockers
 - Read only what is needed for the current step
 - Never fake completion or bypass gate failures
 

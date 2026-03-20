@@ -23,11 +23,11 @@ Use it when you want Claude or Codex to operate inside a controlled engineering 
 
 The skill operates at three levels of ceremony, auto-detected or user-specified:
 
-| Level | When | Discovery Pacing | Active Guardians | Checkpoints |
-|-------|------|-----------------|------------------|-------------|
-| **Lite** | Small projects, quick prototypes | Batch 1-2 Qs/turn | Core (G1,G3,G4,G6,G8,G9,G11) | 1 (Fast Path confirm) |
-| **Standard** | Most projects (default) | Groups of 2-3 Qs/turn | Most (G1-G11, G12 active) | 4 |
-| **Full** | Enterprise / compliance projects | Sequential Q0-Q9 | All (G1-G12) | All phase boundaries |
+| Level | When | Discovery Pacing | Active Guardians | Approval Stops |
+|-------|------|-----------------|------------------|----------------|
+| **Lite** | Small projects, quick prototypes | Batch 1-2 Qs/turn | Core (G1,G3,G4,G6,G8,G9,G11) | Fast Path summary, execution phase completion, blockers |
+| **Standard** | Most projects (default) | Groups of 2-3 Qs/turn | Most (G1-G11, G12 active) | Milestone plan approval, execution phase completion, blockers |
+| **Full** | Enterprise / compliance projects | Sequential Q0-Q9 | All (G1-G12) | Milestone plan approval, execution phase completion, blockers, deploy review |
 
 The level is stored in `state.projectInfo.harnessLevel` and can be upgraded mid-project. See [references/level-upgrade-backfill.md](./references/level-upgrade-backfill.md) for the backfill protocol when upgrading.
 
@@ -171,7 +171,7 @@ When this skill runs, act as the **Orchestrator**.
 - Treat `docs/PRD.md` and `docs/ARCHITECTURE.md` as the only planning source of truth
 - Advance phases through the runtime (`bun harness:advance` or the underlying `.harness/*` scripts); do not fake completion
 - `bun harness:autoflow` may only advance after the current phase's required outputs exist on disk; missing scaffold/runtime artifacts must keep the workflow on the current phase
-- If the user adds scope outside the current task or milestone, write it back into the PRD first, then run `bun harness:sync-backlog` before any implementation starts. For structured scope changes, see [references/scope-change-protocol.md](./references/scope-change-protocol.md)
+- If the user adds scope outside the current task or milestone, write it back into the PRD first. Manual PRD edits still require `bun harness:sync-backlog`; `bun harness:scope-change --apply` now performs the PRD update plus backlog/progress sync in one step. For structured scope changes, see [references/scope-change-protocol.md](./references/scope-change-protocol.md)
 - When `pendingScopeChanges` exist with `status: "pending"`, surface them before dispatching any agent
 - Read only the agent or reference file needed for the current step
 - Default the conversation to milestone and task progress, not long file inventories
@@ -183,27 +183,43 @@ For the runtime state model and phase gate discipline, see [agents/orchestrator.
 
 CRITICAL — these rules override all other guidance when there is a conflict:
 
-1. **One phase per response.** Complete only the current phase. Never combine work from two phases in a single response.
+1. **One harness phase per response until the current milestone plan is approved.** Discovery, research, stack, PRD/Architecture, and scaffold still follow the runtime phase model and must complete honestly.
 2. **One question per response during Discovery (Full level).** Standard: 2-3 questions per turn. Lite: batch 1-2 per turn. At Full level, each discovery question (Q0–Q9) must be its own message. End your response after asking the question. Wait for the user's answer before continuing.
-3. **STOP at every phase boundary.** After completing a phase's work, you MUST:
-   - Present a completion summary for that phase
-   - Ask the user to confirm before advancing
-   - STOP. Do not call `bun harness:advance` until the user confirms.
-4. **Verify before advancing.** Run the phase gate validation command and show the result before asking to advance.
-5. **Never auto-advance through multiple phases.** Even if a gate passes, wait for user acknowledgment.
+3. **Use milestone-level approval, not task-level approval.** Stop for explicit user confirmation when the current milestone plan and its execution-phase split are ready for approval. After that approval, do not pause again for routine implementation choices inside an approved execution phase.
+4. **Verify before advancing.** Run the relevant gate validation command before `bun harness:advance` or milestone closeout. If the approved plan still holds and validation passes, continue without asking for another acknowledgment.
+5. **Stop only at the true decision points.** The allowed approval stops are:
+   - initial milestone plan approval
+   - execution phase completion
+   - deploy review / stage promotion
+   - scope change, architecture change, risky dependency change, or hard blocker
+
+### Milestone Approval Model
+
+Once `docs/PRD.md` and `docs/ARCHITECTURE.md` define the current milestone clearly enough to execute, present one consolidated review surface:
+
+- milestone goal and acceptance criteria
+- task breakdown
+- proposed execution phases for that milestone
+- MVP cutoff or deferred scope
+
+After the user approves that milestone plan:
+
+- treat the approval as standing authorization for the approved execution phases
+- advance through remaining non-execution runtime phases without asking again, unless the approved plan changes materially
+- inside each approved execution phase, continue task-by-task without stopping for implementation details
+- stop again only when the current execution phase is complete, or when a blocker requires human judgment
 
 ### Mandatory Checkpoints
 
-| Checkpoint | Lite | Standard | Full |
+| Decision Point | Lite | Standard | Full |
 |---|---|---|---|
-| Discovery → Market Research | — | STOP | STOP |
-| Market Research → Tech Stack | — | — | STOP |
-| Each tech stack layer → next layer | — | — | STOP |
-| All stack decisions → PRD & Architecture | Fast Path confirm | STOP | STOP |
-| PRD + Architecture → Scaffold | — | STOP | STOP |
-| Scaffold → EXECUTING | — | STOP | STOP |
+| Fast Path inferred summary | STOP | — | — |
+| Current milestone plan + execution phases ready | STOP | STOP | STOP |
+| Current execution phase complete | STOP | STOP | STOP |
+| Scope / architecture / risky dependency change | STOP | STOP | STOP |
+| Deploy review / stage promotion | STOP | STOP | STOP |
 
-**Summary**: Lite = 1 checkpoint, Standard = 4 checkpoints, Full = all phase boundaries.
+**Summary**: use one milestone-plan approval, then run each approved execution phase autonomously until completion or blocker.
 
 ## Runtime Path
 
@@ -285,7 +301,7 @@ Rules:
 
 - recommend first, then explain
 - present the main alternative(s)
-- wait for confirmation before moving to the next layer
+- keep clarifying stack choices only until the milestone plan is concrete enough to approve
 - record every confirmed decision
 - generate ADRs when a material architecture choice is locked in
 
@@ -394,6 +410,20 @@ Task types:
 7. Create one Atomic Commit
 8. Update `docs/PROGRESS.md` and runtime state
 9. Continue only when the task gate passes
+
+### Execution Phase Autonomy
+
+Treat an execution phase as a user-approved grouping of tasks inside the current milestone.
+
+- If the user asked for phase-based execution, derive the phase split from the approved milestone plan.
+- If no explicit split was approved, default the whole milestone to one execution phase.
+- Within the current approved execution phase, keep moving through tasks without asking for implementation-level approval.
+- Status updates inside the phase are one-way progress reports, not requests to pause.
+- Stop only when:
+  - the current execution phase is complete
+  - scope must change
+  - an architecture or risky dependency decision exceeds the approved plan
+  - retries are exhausted or no executable task remains
 
 ### Milestone Merge
 
@@ -624,14 +654,12 @@ Prefer progressive disclosure:
 
 ## Expected User Interaction
 
-Keep checkpoints simple and predictable:
+Keep approval points simple and predictable:
 
-1. confirm the discovery answers
-2. confirm the stack
-3. review the PRD
-4. review the Architecture
-5. confirm the milestone and task breakdown or the MVP cutoff
-6. review milestone-level progress or blockers
+1. answer discovery and stack questions until the milestone plan can be written
+2. review and approve the current milestone plan, task breakdown, and execution-phase split
+3. receive phase-level progress reports while execution continues autonomously
+4. review only completed execution phases, milestone-level blockers, scope changes, or deploy review
 
 If the user only wants to review milestone, task, architecture, and PRD, default to exactly that.
 
@@ -647,7 +675,12 @@ bun harness:validate --milestone M[N]       # Validate a specific milestone
 bun harness:guardian                        # Alias for bun harness:validate --guardian
 bun harness:compact                         # Generate context snapshot
 bun harness:orchestrator                    # Preferred package-script alias for bun .harness/orchestrator.ts
-bun harness:orchestrate                     # Execute one parent-owned child launch cycle
+bun harness:orchestrate                     # Prepare and reserve one parent-owned child launch cycle
+bun harness:orchestrate --json              # Emit launch-cycle JSON and persist .harness/launches/latest.json
+bun harness:orchestrate --confirm <id> --handle <runtimeHandle>  # Confirm a spawned child handle
+bun harness:orchestrate --rollback <id> --reason "<why>"         # Roll back a failed launch reservation
+bun harness:orchestrate --release <id>                           # Clear a finished child reservation
+bun harness:orchestrate --no-reserve              # Preview launch cycle without reserving activeAgents[]
 bun .harness/orchestrator.ts                # Direct orchestrator entry point
 bun .harness/orchestrator.ts --status       # Show orchestrator status
 bun .harness/orchestrator.ts --next         # Output only the next agent/action
@@ -674,7 +707,10 @@ bun harness:scope-change --apply            # Apply confirmed scope changes
 bun harness:scope-change --urgent           # Mark scope change as urgent priority
 bun harness:scope-change --milestone M[N]   # Target specific milestone for scope change
 bun harness:scope-change --reject <id>      # Reject a queued scope change
+bun harness:scope-change --from-stdin             # Read scope change request from stdin
 bun .harness/orchestrator.ts --parallel     # Preview parallel-eligible dispatches
 bun harness:orchestrate --parallel          # Execute one parent-owned parallel launch cycle
 bun .harness/orchestrator.ts --packet-json  # Output agent task packet as JSON
 ```
+
+`bun .harness/orchestrator.ts` remains planning-only. `bun harness:orchestrate` is the stateful launcher boundary: it writes `.harness/launches/*.json`, reserves `execution.activeAgents[]` when needed, and exposes `--confirm`, `--rollback`, and `--release` so the parent runtime can keep child lifecycle state aligned with the repository.
