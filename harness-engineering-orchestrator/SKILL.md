@@ -75,6 +75,12 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 4. a runnable scaffold with Harness runtime files
 5. validated implementation until the project reaches `COMPLETE`
 
+### Changes in v1.8.4
+
+- Fixed the end-to-end matrix so deep orchestrator checks match the current delivery-phase approval model and deferred-stage behavior
+- Hardened E2E assertions to use generated milestone IDs instead of stale hardcoded IDs after roadmap expansion and scope-change application
+- Made the E2E runner fail the process when any smoke, command, or deep coverage step fails, so CI and release tagging reflect the real result
+
 ### Changes in v1.8.3
 
 - Fixed guardian table in SKILL.md: G2 Full column no longer shows misleading `(from SCAFFOLD)` parenthetical; G5 Lite column corrected from `Inactive` to `Relaxed` to match `harness-types.ts` definitions

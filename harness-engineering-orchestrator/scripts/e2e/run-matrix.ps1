@@ -600,7 +600,9 @@ function New-Task {
     [string]$Name,
     [bool]$IsUi,
     [int]$RetryCount = 0,
-    [string]$Status = "IN_PROGRESS"
+    [string]$Status = "IN_PROGRESS",
+    [string]$MilestoneId = "M1",
+    [string]$PhaseId = "V1"
   )
 
   @{
@@ -609,7 +611,9 @@ function New-Task {
     type = "TASK"
     status = $Status
     prdRef = "PRD#F900"
-    milestoneId = "M1"
+    milestoneId = $MilestoneId
+    productStageId = $PhaseId
+    phaseId = $PhaseId
     dod = @("Mock DoD")
     isUI = $IsUi
     affectedFiles = @("src/app")
@@ -622,16 +626,74 @@ function New-Milestone {
   param(
     [string]$Name,
     [array]$Tasks,
-    [string]$Status = "IN_PROGRESS"
+    [string]$Status = "IN_PROGRESS",
+    [string]$Id = "M1",
+    [string]$PhaseId = "V1",
+    [string]$Branch = "milestone/m1-mock",
+    [string]$WorktreePath = "../mock-m1"
   )
 
   @{
-    id = "M1"
+    id = $Id
     name = $Name
-    branch = "milestone/m1-mock"
-    worktreePath = "../mock-m1"
+    branch = $Branch
+    worktreePath = $WorktreePath
+    productStageId = $PhaseId
+    phaseId = $PhaseId
     status = $Status
     tasks = $Tasks
+  }
+}
+
+function New-ApprovedRoadmap {
+  param(
+    [string]$ActivePhaseId = "V1"
+  )
+
+  @{
+    currentStageId = $ActivePhaseId
+    stages = @(
+      @{
+        id = "V1"
+        name = "Initial Delivery"
+        status = "ACTIVE"
+        milestoneIds = @("M1")
+        prdVersion = "v1.1"
+        architectureVersion = "v1.1"
+      },
+      @{
+        id = "V2"
+        name = "Deferred Expansion"
+        status = "DEFERRED"
+        milestoneIds = @("M2")
+        prdVersion = "v2.0"
+        architectureVersion = "v2.0"
+      }
+    )
+    planApprovalStatus = "approved"
+    activePhaseId = $ActivePhaseId
+    approvedPhaseIds = @($ActivePhaseId)
+    planApproved = $true
+    planApprovedAt = "2026-03-21T00:00:00.000Z"
+    phases = @(
+      @{
+        id = "V1"
+        name = "Initial Delivery"
+        approvalStatus = "approved"
+        approvedAt = "2026-03-21T00:00:00.000Z"
+        executionStatus = "executing"
+        isLaunchPhase = $true
+        milestoneIds = @("M1")
+      },
+      @{
+        id = "V2"
+        name = "Deferred Expansion"
+        approvalStatus = "pending"
+        executionStatus = "draft"
+        isLaunchPhase = $false
+        milestoneIds = @("M2")
+      }
+    )
   }
 }
 
@@ -750,10 +812,10 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
     @{ Name = "tech-stack"; Expected = "tech-stack-advisor"; Patch = @{ phase = "TECH_STACK"; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") }; techStack = @{ confirmed = $false; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
     @{ Name = "prd-arch"; Expected = "prd-architect"; Patch = @{ phase = "PRD_ARCH"; techStack = @{ confirmed = $true; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
     @{ Name = "scaffold"; Expected = "prd-architect"; Patch = @{ phase = "SCAFFOLD" } },
-    @{ Name = "executing"; Expected = "execution-engine"; Patch = @{ phase = "EXECUTING"; execution = @{ currentMilestone = "M1"; currentTask = "T701"; currentWorktree = "../mock-m1"; milestones = @($nonUiMilestone); allMilestonesComplete = $false } } },
-    @{ Name = "executing-retry"; Expected = "Recovery steps:"; ExpectFailure = $true; Patch = @{ phase = "EXECUTING"; execution = @{ currentMilestone = "M1"; currentTask = "T702"; currentWorktree = "../mock-m1"; milestones = @($retryMilestone); allMilestonesComplete = $false } } },
-    @{ Name = "validating"; Expected = "harness-validator"; Patch = @{ phase = "VALIDATING"; execution = @{ currentMilestone = "M1"; currentTask = "T703"; currentWorktree = "../mock-m1"; milestones = @($doneMilestone); allMilestonesComplete = $true } } },
-    @{ Name = "complete"; Expected = "context-compactor"; Patch = @{ phase = "COMPLETE"; docs = @{ readme = @{ isFinal = $true } }; techStack = @{ confirmed = $true } } }
+    @{ Name = "executing"; Expected = "execution-engine"; Patch = @{ phase = "EXECUTING"; roadmap = (New-ApprovedRoadmap); execution = @{ currentMilestone = "M1"; currentTask = "T701"; currentWorktree = "../mock-m1"; milestones = @($nonUiMilestone); allMilestonesComplete = $false } } },
+    @{ Name = "executing-retry"; Expected = "Recovery steps:"; ExpectFailure = $true; Patch = @{ phase = "EXECUTING"; roadmap = (New-ApprovedRoadmap); execution = @{ currentMilestone = "M1"; currentTask = "T702"; currentWorktree = "../mock-m1"; milestones = @($retryMilestone); allMilestonesComplete = $false } } },
+    @{ Name = "validating"; Expected = "harness-validator"; Patch = @{ phase = "VALIDATING"; roadmap = (New-ApprovedRoadmap); execution = @{ currentMilestone = "M1"; currentTask = "T703"; currentWorktree = "../mock-m1"; milestones = @($doneMilestone); allMilestonesComplete = $true } } },
+    @{ Name = "complete"; Expected = "Deferred product stages are still present in the roadmap."; ExpectFailure = $true; Patch = @{ phase = "COMPLETE"; roadmap = (New-ApprovedRoadmap); docs = @{ readme = @{ isFinal = $true } }; techStack = @{ confirmed = $true } } }
   )) {
     $patchStep = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName ("patch-{0}" -f $phaseCase.Name) -Patch $phaseCase.Patch
     Add-DeepResult -CaseId "03-cli" -Scenario ("patch {0}" -f $phaseCase.Name) -Expected "patch ok" -Step $patchStep
@@ -764,6 +826,7 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
 
   $cliPacketPatch = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-cli-packet" -Patch @{
     phase = "EXECUTING"
+    roadmap = New-ApprovedRoadmap
     execution = @{
       currentMilestone = "M1"
       currentTask = "T701"
@@ -792,6 +855,7 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
   $launcherMilestone = New-Milestone -Name "Parallel Launcher Flow" -Tasks @((New-Task -Id "T704" -Name "Parallel CLI Task" -IsUi $false -Status "PENDING")) -Status "PENDING"
   $launcherPatch = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-launcher-cycle" -Patch @{
     phase = "EXECUTING"
+    roadmap = New-ApprovedRoadmap
     projectInfo = @{
       concurrency = @{
         maxParallelTasks = 2
@@ -897,14 +961,14 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
 
   $completePacketPatch = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-complete-packet" -Patch @{
     phase = "COMPLETE"
+    roadmap = New-ApprovedRoadmap
     docs = @{ readme = @{ isFinal = $true } }
     techStack = @{ confirmed = $true }
   }
   Add-DeepResult -CaseId "03-cli" -Scenario "patch complete packet" -Expected "patch ok" -Step $completePacketPatch
 
-  $completePacketStep = Invoke-Step -CaseId "03-cli" -StepName "packet-complete" -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/orchestrator.ts", "--packet-json")
-  $completePacketCheckResult = Test-PacketDispatch -Step $completePacketStep -ExpectedAgentId "context-compactor" -RequiredRefs @("docs/PROGRESS.md") -ForbiddenExact @("docs/progress/") -ForbiddenPatterns @("docs/public/*")
-  $completePacketCheck = New-CheckedStep -Step $completePacketStep -Ok ([bool]$completePacketCheckResult.Ok) -Reason $completePacketCheckResult.Reason
+  $completePacketStep = Invoke-Step -CaseId "03-cli" -StepName "packet-complete" -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/orchestrator.ts", "--packet-json") -ExpectFailure
+  $completePacketCheck = New-CheckedStep -Step $completePacketStep -Ok ([bool]($completePacketStep.Ok -and $completePacketStep.Output.Contains("Deferred product stages are still present in the roadmap."))) -Reason "expected deferred-stage manual guidance instead of a compactor packet"
   Add-DeepResult -CaseId "03-cli" -Scenario "context compactor packet stays selective" -Expected "complete packet avoids directory scans" -Step $completePacketCheck
 
   foreach ($advanceCase in @(
@@ -913,7 +977,7 @@ if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
     @{ Name = "advance-tech-stack"; Expected = "PRD_ARCH"; NextAgent = "prd-architect"; Patch = @{ phase = "TECH_STACK"; projectInfo = @{ name = "detailed-cli"; displayName = "Detailed CLI"; concept = "Mock concept"; problem = "Mock problem"; goal = "Mock goal"; types = @("cli"); aiProvider = "none"; teamSize = "solo"; isGreenfield = $true }; marketResearch = @{ summary = "Mock summary"; competitors = @("Comp A"); techTrends = @("Trend") }; techStack = @{ confirmed = $true; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
     @{ Name = "advance-prd-arch"; Expected = "stock scaffold feature"; NextAgent = "prd-architect"; ExpectFailure = $true; Patch = @{ phase = "PRD_ARCH"; techStack = @{ confirmed = $true; decisions = @(@{ layer = "runtime"; choice = "Bun"; rejectedOptions = @("npm"); reason = "Fast loop"; adrFile = "docs/adr/ADR-001-initial-tech-stack.md"; confirmedAt = "2026-03-13T00:00:00.000Z" }) } } },
     @{ Name = "advance-scaffold"; Expected = "stock scaffold feature"; NextAgent = "prd-architect"; ExpectFailure = $true; Patch = @{ phase = "SCAFFOLD" } },
-    @{ Name = "advance-validating"; Expected = "git worktree list only shows main / master"; NextAgent = "harness-validator"; ExpectFailure = $true; Patch = @{ phase = "VALIDATING"; execution = @{ currentMilestone = "M1"; currentTask = ""; currentWorktree = ""; milestones = @($doneMilestone); allMilestonesComplete = $true }; docs = @{ readme = @{ isFinal = $true } }; techStack = @{ confirmed = $true } } }
+    @{ Name = "advance-validating"; Expected = "VALIDATING -> COMPLETE"; NextAgent = "Deferred product stages are still present in the roadmap."; NextExpectFailure = $true; Patch = @{ phase = "VALIDATING"; roadmap = (New-ApprovedRoadmap); execution = @{ currentMilestone = "M1"; currentTask = ""; currentWorktree = ""; milestones = @($doneMilestone); allMilestonesComplete = $true }; docs = @{ readme = @{ isFinal = $true } }; techStack = @{ confirmed = $true } } }
   )) {
     $patchStep = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName ("patch-{0}" -f $advanceCase.Name) -Patch $advanceCase.Patch
     Add-DeepResult -CaseId "03-cli" -Scenario ("patch {0}" -f $advanceCase.Name) -Expected "patch ok" -Step $patchStep
@@ -961,12 +1025,36 @@ CLI-first Harness execution baseline.
 types -> config -> lib -> services -> app
 '@
 
+  $realBacklogReset = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-happy-reset-backlog-real" -Patch @{
+    phase = "SCAFFOLD"
+    roadmap = @{
+      currentStageId = ""
+      stages = @()
+      planApprovalStatus = "pending"
+      activePhaseId = ""
+      approvedPhaseIds = @()
+      planApproved = $false
+      phases = @()
+    }
+    execution = @{
+      currentMilestone = ""
+      currentTask = ""
+      currentWorktree = ""
+      milestones = @()
+      allMilestonesComplete = $false
+      activeAgents = @()
+    }
+  }
+  Add-DeepResult -CaseId "03-cli" -Scenario "patch happy reset backlog real" -Expected "patch ok" -Step $realBacklogReset
+
   $realBacklogStep = Invoke-Step -CaseId "03-cli" -StepName "happy-reset-backlog-real" -WorkingDir $CliDir -Exe "bun" -Arguments @(".harness/init.ts", "--from-prd")
   $realBacklogState = Get-JsonFile -Path (Join-Path $CliDir ".harness\state.json")
   $realBacklogStep.Ok = $realBacklogStep.Ok `
     -and ($null -ne $realBacklogState) `
-    -and ($realBacklogState.execution.currentMilestone -eq "M1") `
-    -and ($realBacklogState.execution.currentTask -eq "T001")
+    -and ($realBacklogStep.Output.Contains("Created 1 milestone(s)")) `
+    -and ($realBacklogState.execution.milestones[0].id -eq "M1") `
+    -and ($realBacklogState.execution.milestones[0].tasks[0].id -eq "T001") `
+    -and ($realBacklogState.execution.milestones[0].phaseId -eq "V1")
   Add-DeepResult -CaseId "03-cli" -Scenario "happy path reset backlog after real planning docs" -Expected "T001 materialized from real PRD" -Step $realBacklogStep
 
   $happyBacklogReady = $realBacklogStep.Ok
@@ -1038,6 +1126,7 @@ types -> config -> lib -> services -> app
       if ($returnMainStep.Ok) {
         $finalReadyPatch = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-happy-final-ready" -Patch @{
           phase = "VALIDATING"
+          roadmap = New-ApprovedRoadmap
           execution = @{
             currentMilestone = ""
             currentTask = ""
@@ -1045,6 +1134,8 @@ types -> config -> lib -> services -> app
             milestones = @(@{
               id = "M1"
               name = "Foundation"
+              productStageId = "V1"
+              phaseId = "V1"
               branch = "milestone/m1-foundation"
               worktreePath = "../detailed-cli-m1"
               status = "COMPLETE"
@@ -1119,8 +1210,9 @@ types -> config -> lib -> services -> app
         Add-DeepResult -CaseId "03-cli" -Scenario "happy path scope change queue" -Expected "pending scope change is recorded" -Step $scopeQueueStep
 
         $scopePreviewStep = Invoke-Step -CaseId "03-cli" -StepName "happy-scope-preview" -WorkingDir $CliDir -Exe "bun" -Arguments @("run", "harness:scope-change", "--preview")
+        $scopePreviewMilestoneMatch = [regex]::Match([string]$scopePreviewStep.Output, 'New Milestone:\s+(M\d+)')
         $scopePreviewStep.Ok = $scopePreviewStep.Ok `
-          -and $scopePreviewStep.Output.Contains("New Milestone: M2") `
+          -and $scopePreviewMilestoneMatch.Success `
           -and $scopePreviewStep.Output.Contains("T002: Patch post-release regression")
         Add-DeepResult -CaseId "03-cli" -Scenario "happy path scope change preview" -Expected "preview shows new milestone and task" -Step $scopePreviewStep
 
@@ -1132,10 +1224,11 @@ types -> config -> lib -> services -> app
           -and $scopeApplyStep.Output.Contains("+1 milestone(s), +1 task(s)") `
           -and ($null -ne $scopeAppliedState) `
           -and ($scopeAppliedState.phase -eq "EXECUTING") `
-          -and ($scopeAppliedState.execution.currentMilestone -eq "M2") `
           -and ($scopeAppliedState.execution.currentTask -eq "T002") `
+          -and ($scopeAppliedState.execution.currentMilestone -match '^M\d+$') `
+          -and ($scopeAppliedState.execution.currentMilestone -ne "M1") `
           -and (@($scopeAppliedState.execution.pendingScopeChanges).Count -eq 0) `
-          -and $progressContent.Contains("M2") `
+          -and $progressContent.Contains($scopeAppliedState.execution.currentMilestone) `
           -and $progressContent.Contains("T002")
         Add-DeepResult -CaseId "03-cli" -Scenario "happy path scope change apply" -Expected "execution reopens with new milestone and progress sync" -Step $scopeApplyStep
 
@@ -1155,6 +1248,7 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
 
   $uiPatch = Invoke-StatePatch -CaseId "01-web-app" -CaseDir $WebDir -StepName "patch-ui-base" -Patch @{
     phase = "EXECUTING"
+    roadmap = New-ApprovedRoadmap
     execution = @{
       currentMilestone = "M1"
       currentTask = "T801"
@@ -1216,6 +1310,7 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
   Add-DeepResult -CaseId "01-web-app" -Scenario "ui design review" -Expected "Design Reviewer Agent" -Step $reviewStep
 
   $retryPatch = Invoke-StatePatch -CaseId "01-web-app" -CaseDir $WebDir -StepName "patch-ui-retry" -Patch @{
+    roadmap = New-ApprovedRoadmap
     execution = @{
       currentMilestone = "M1"
       currentTask = "T802"
@@ -1314,6 +1409,21 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
     -and (Test-Path (Join-Path $cloneDir ".env.local"))
   Add-DeepResult -CaseId "10-recovery" -Scenario "clone recovery restore locals" -Expected "local harness files restored" -Step $cloneHooks
 
+  $cloneApprovePatch = Invoke-StatePatch -CaseId "10-recovery" -CaseDir $cloneDir -StepName "clone-approve-patch" -Patch @{
+    roadmap = New-ApprovedRoadmap
+    execution = @{
+      currentMilestone = "M1"
+      currentTask = "T801"
+      currentWorktree = "../mock-m1"
+      milestones = @(
+        (New-Milestone -Name "Recovered UI Flow" -Tasks @((New-Task -Id "T801" -Name "Recovered UI Task" -IsUi $true)) -Id "M1")
+      )
+      allMilestonesComplete = $false
+      activeAgents = @()
+    }
+  }
+  Add-DeepResult -CaseId "10-recovery" -Scenario "clone recovery patch approvals" -Expected "patch ok" -Step $cloneApprovePatch
+
   $cloneValidate = Invoke-Step -CaseId "10-recovery" -StepName "clone-validate-executing" -WorkingDir $cloneDir -Exe "bun" -Arguments @("harness:validate", "--phase", "EXECUTING")
   Add-DeepResult -CaseId "10-recovery" -Scenario "clone recovery phase gate" -Expected "EXECUTING gate passes after restore" -Step $cloneValidate
 }
@@ -1321,6 +1431,7 @@ if ((Test-Path $WebDir) -and $WebSmoke -and $WebSmoke.SmokePassed) {
 if ((Test-Path $CliDir) -and $CliSmoke -and $CliSmoke.SmokePassed) {
   $autoPatch = Invoke-StatePatch -CaseId "03-cli" -CaseDir $CliDir -StepName "patch-autoflow-scaffold" -Patch @{
     phase = "SCAFFOLD"
+    roadmap = New-ApprovedRoadmap
     execution = @{
       activeAgents = @()
       currentMilestone = ""
@@ -1457,3 +1568,12 @@ $summary.Add($line) | Out-Null
 
 Set-Content -Path $SummaryPath -Value ($summary -join "`n")
 Write-Host "Summary written to $SummaryPath"
+
+$hasFailures = (@($SmokeResults | Where-Object { -not $_.SmokePassed }).Count -gt 0) `
+  -or (@($CommandResults | Where-Object { -not $_.Passed }).Count -gt 0) `
+  -or (@($DeepResults | Where-Object { -not $_.Passed }).Count -gt 0)
+
+if ($hasFailures) {
+  Write-Error "Harness E2E matrix recorded one or more failures. See $SummaryPath"
+  exit 1
+}
