@@ -1,6 +1,6 @@
 import type { ProjectState } from "../../types"
 import { getCurrentProductStage, hasDeferredProductStages } from "../stages"
-import { runBun } from "../validation/helpers"
+import { resolveToolchainCommand, runBun, runToolchainCommand } from "../validation/helpers"
 import { loadState, saveState, syncStateFromFilesystem } from "../validation/state"
 import { dispatch } from "./dispatcher"
 import { getPhaseReadiness } from "./phase-readiness"
@@ -51,6 +51,18 @@ function stopAtBoundary(state: ProjectState): number {
   return 0
 }
 
+async function runInstallCommand(state: ProjectState): Promise<boolean> {
+  const install = resolveToolchainCommand(state.toolchain?.commands, "install")
+  logStep(install.command)
+  const result = await runToolchainCommand(install)
+  if (result.ok) return true
+
+  if (result.output.trim()) {
+    console.error(result.output.trim())
+  }
+  return false
+}
+
 function getReviewMilestone(state: ProjectState) {
   return state.execution.milestones.find(milestone => milestone.status === "REVIEW")
 }
@@ -87,7 +99,7 @@ export async function runAutoflow(): Promise<number> {
         if (!readiness.ready) {
           return stopAtBoundary(state)
         }
-        if (!(await runCommand("bun install", ["install"]))) return 1
+        if (!(await runInstallCommand(state))) return 1
         if (!(await runCommand("bun harness:env", ["run", "harness:env"]))) return 1
         if (!(await runCommand("bun .harness/init.ts --from-prd", [".harness/init.ts", "--from-prd"]))) return 1
         if (!(await runCommand("bun harness:validate --phase EXECUTING", ["run", "harness:validate", "--phase", "EXECUTING"]))) return 1

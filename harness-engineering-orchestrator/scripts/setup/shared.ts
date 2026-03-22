@@ -6,6 +6,7 @@ import type {
   HarnessSkillConfig,
   ProjectState,
   ProjectType,
+  SupportedEcosystem,
   TeamSize,
 } from "../../references/harness-types"
 import { readProjectStateFromDisk } from "../../references/runtime/state-io"
@@ -43,7 +44,7 @@ export type Context = {
   visibility: "public" | "private"
   skipGithub: boolean
   githubRepo: string   // "owner/repo" for existing repos, or "" for auto
-  ecosystem: string
+  ecosystem: SupportedEcosystem
   packageManagerLabel: string
   installCommand: string
   workspaceModel: string
@@ -104,10 +105,9 @@ const DESIGN_STYLE_LABELS: Record<DesignStyle, string> = {
 
 // [packageManagerLabel, installCommand, workspaceModel]
 const ECOSYSTEM_TOOLCHAIN: Record<string, [string, string, string]> = {
-  "bun":           ["Bun",        "bun install",                   "Monorepo (Bun workspaces)"],
-  "node-npm":      ["npm",        "npm install",                   "Monorepo (npm workspaces)"],
-  "node-pnpm":     ["pnpm",       "pnpm install",                  "Monorepo (pnpm workspaces)"],
-  "node-yarn":     ["Yarn",       "yarn install",                  "Monorepo (Yarn workspaces)"],
+  "bun":           ["Bun",        "bun install",                   "Monorepo (Bun workspaces + Turborepo)"],
+  "node-npm":      ["npm",        "npm install",                   "Monorepo (npm workspaces + Harness workspace runner)"],
+  "node-pnpm":     ["pnpm",       "pnpm install",                  "Monorepo (pnpm workspaces + Harness workspace runner)"],
   "python":        ["pip",        "pip install -r requirements.txt","Monorepo (Python)"],
   "go":            ["Go modules", "go mod download",               "Monorepo (Go modules)"],
   "rust":          ["Cargo",      "cargo build",                   "Monorepo (Cargo workspace)"],
@@ -118,7 +118,7 @@ const ECOSYSTEM_TOOLCHAIN: Record<string, [string, string, string]> = {
   "csharp-dotnet": ["dotnet",     "dotnet restore",                "Monorepo (.NET)"],
   "swift":         ["Swift PM",   "swift package resolve",         "Monorepo (Swift PM)"],
   "flutter":       ["pub",        "flutter pub get",               "Monorepo (Flutter)"],
-  "custom":        ["Bun",        "bun install",                   "Monorepo (Bun workspaces)"],
+  "custom":        ["Custom",     "See project toolchain",         "Monorepo"],
 }
 
 export type SetupLogger = {
@@ -431,7 +431,11 @@ export function createContext(args: Record<string, string>, skillRoot?: string):
     : undefined
   const designReference = normalizeOptional(args.designReference, "Not provided")
   const hasAgentProject = projectTypes.includes("agent")
-  const ecosystem = args.ecosystem ?? d.ecosystem ?? "bun"
+  const ecosystem = parseEnumValue<SupportedEcosystem>(
+    args.ecosystem ?? d.ecosystem,
+    Object.keys(ECOSYSTEM_TOOLCHAIN) as SupportedEcosystem[],
+    "bun",
+  )
   const [packageManagerLabel, installCommand, workspaceModel] =
     ECOSYSTEM_TOOLCHAIN[ecosystem] ?? ECOSYSTEM_TOOLCHAIN["bun"]
   const dependencySummary = summarizeList(
@@ -533,8 +537,18 @@ export function buildVisualDesignContent(context: Context): string {
 
 export function buildDirectoryStructure(context: Context): string {
   const workspaceSection = context.workspaceApps
-    .map(app => `│   ├── ${app}/`)
+    .map(app => `│   ├── ${app}/\n│   │   ├── package.json\n│   │   ├── src/\n│   │   └── tests/`)
     .join("\n")
+  const workspaceRunnerSection =
+    ["node-npm", "node-pnpm"].includes(context.ecosystem)
+      ? "│       ├── workspace-runner.mjs\n"
+      : ""
+  const workspaceInfraSection =
+    context.ecosystem === "bun"
+      ? "├── turbo.json\n├── bunfig.toml"
+      : ["node-npm", "node-pnpm"].includes(context.ecosystem)
+        ? "├── scripts/harness-local/workspace-runner.mjs"
+        : ""
   const agentSkillSection = context.hasAgentProject
     ? `├── SKILLS.md
 ├── skills/
@@ -577,20 +591,19 @@ ${workspaceSection}
 ├── scripts/
 │   └── harness-local/
 │       ├── restore.ts
-│       └── manifest.json
+${workspaceRunnerSection}│       └── manifest.json
 ├── .dependency-cruiser.cjs
-├── bunfig.toml
-├── src/
-│   ├── types/
-│   ├── config/
-│   ├── lib/
-│   ├── services/
-│   └── app/
-├── tests/
+${workspaceInfraSection}
 └── .github/workflows/`
 }
 
 export function renderPlaceholders(content: string, context: Context): string {
+  const workspaceTaskNote =
+    context.ecosystem === "bun"
+      ? "Repo-wide quality and build commands stay at the root as `bun run <task>`, and those entrypoints dispatch through Turborepo across `apps/*` and `packages/shared`."
+      : ["node-npm", "node-pnpm"].includes(context.ecosystem)
+        ? `Repo-wide quality and build commands stay at the root as \`${context.packageManagerLabel.toLowerCase()} run <task>\`, and those entrypoints dispatch through the local Harness workspace runner across \`packages/*\` and \`apps/*\`.`
+        : "Repo-wide quality and build commands should follow the active project toolchain."
   const replacements: Record<string, string> = {
     PROJECT_NAME: context.projectName,
     PROJECT_NAME_JSON: JSON.stringify(context.projectName),
@@ -634,6 +647,7 @@ export function renderPlaceholders(content: string, context: Context): string {
     PACKAGE_MANAGER: context.packageManagerLabel,
     WORKSPACE_MODEL: context.workspaceModel,
     INSTALL_COMMAND: context.installCommand,
+    WORKSPACE_TASK_NOTE: workspaceTaskNote,
     CURRENT_PHASE: "SCAFFOLD",
     CURRENT_MILESTONE: "Not yet created",
     CURRENT_WORKTREE: `../${context.projectName}-m1`,

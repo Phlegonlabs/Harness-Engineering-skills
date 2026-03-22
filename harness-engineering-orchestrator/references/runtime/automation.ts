@@ -5,6 +5,7 @@ import { createEmptyTaskChecklist } from "./task-checklist"
 import { writeManagedFile } from "./generated-files"
 import { isUiProject } from "./shared"
 import {
+  ADDABLE_SURFACES,
   type AddableSurface,
   hasAgentSurface,
   isAddableSurface,
@@ -13,6 +14,168 @@ import {
   surfaceLabel,
   workspaceForSurface,
 } from "./surfaces"
+
+function workspacePackageName(projectName: string, workspace: string): string {
+  return `@${projectName || "project"}/${workspace}`
+}
+
+function createWorkspaceScripts(): Record<string, string> {
+  return {
+    typecheck: "tsc --project ../../tsconfig.json --noEmit",
+    lint: "biome check src tests",
+    format: "biome format --write src tests",
+    "format:check": "biome format src tests",
+    test: "bun test",
+    build: "bun build ./src/app/index.ts --outdir ./dist",
+  }
+}
+
+function createWorkspaceSummarySource(
+  state: ProjectState,
+  workspace: string,
+  label: string,
+): string {
+  const displayName = state.projectInfo.displayName || state.projectInfo.name || "Project"
+  const projectName = state.projectInfo.name || "project"
+  const projectType = normalizeProjectTypes(state.projectInfo.types)
+    .map(surfaceLabel)
+    .join(" + ")
+
+  return `export interface ScaffoldSummary {
+  name: string;
+  projectType: string;
+  description: string;
+  workspace: string;
+}
+
+const scaffoldDescription = [
+  ${JSON.stringify(displayName)},
+  " prepared as a ${label} workspace in the Harness Engineering and Orchestrator workflow.",
+].join("");
+
+export const scaffoldSummary: ScaffoldSummary = {
+  name: ${JSON.stringify(projectName)},
+  projectType: ${JSON.stringify(projectType)},
+  description: scaffoldDescription,
+  workspace: ${JSON.stringify(workspace)},
+};
+
+export function getScaffoldSummary(): ScaffoldSummary {
+  return scaffoldSummary;
+}
+`
+}
+
+function createWorkspaceSummaryTest(workspace: string): string {
+  return `import { expect, test } from "bun:test";
+import { getScaffoldSummary } from "../../src/app/index";
+
+test("scaffold summary exposes project metadata", () => {
+  const summary = getScaffoldSummary();
+
+  expect(summary.projectType).toContain("Monorepo");
+  expect(summary.projectType.length).toBeGreaterThan(0);
+  expect(summary.description.length).toBeGreaterThan(0);
+  expect(summary.workspace).toBe(${JSON.stringify(workspace)});
+});
+`
+}
+
+function ensureWorkspacePackageJson(
+  state: ProjectState,
+  workspace: string,
+  packagePath: string,
+): void {
+  const nextPackage = {
+    name: workspacePackageName(state.projectInfo.name || "project", workspace),
+    version: "0.1.0",
+    private: true,
+    type: "module",
+    description: `${state.projectInfo.displayName || state.projectInfo.name || "Project"} ${workspace} workspace.`,
+    scripts: createWorkspaceScripts(),
+  }
+
+  if (!existsSync(packagePath)) {
+    writeFileSync(packagePath, `${JSON.stringify(nextPackage, null, 2)}\n`)
+    return
+  }
+
+  try {
+    const currentPackage = JSON.parse(readFileSync(packagePath, "utf-8")) as Record<string, unknown>
+    const currentScripts =
+      typeof currentPackage.scripts === "object" && currentPackage.scripts !== null
+        ? (currentPackage.scripts as Record<string, string>)
+        : {}
+
+    const mergedPackage = {
+      ...currentPackage,
+      name:
+        typeof currentPackage.name === "string" && currentPackage.name.trim().length > 0
+          ? currentPackage.name
+          : nextPackage.name,
+      version:
+        typeof currentPackage.version === "string" && currentPackage.version.trim().length > 0
+          ? currentPackage.version
+          : nextPackage.version,
+      private:
+        typeof currentPackage.private === "boolean" ? currentPackage.private : nextPackage.private,
+      type:
+        typeof currentPackage.type === "string" && currentPackage.type.trim().length > 0
+          ? currentPackage.type
+          : nextPackage.type,
+      description:
+        typeof currentPackage.description === "string" && currentPackage.description.trim().length > 0
+          ? currentPackage.description
+          : nextPackage.description,
+      scripts: {
+        ...createWorkspaceScripts(),
+        ...currentScripts,
+      },
+    }
+
+    writeFileSync(packagePath, `${JSON.stringify(mergedPackage, null, 2)}\n`)
+  } catch {
+    writeFileSync(packagePath, `${JSON.stringify(nextPackage, null, 2)}\n`)
+  }
+}
+
+function ensureWorkspaceScaffold(
+  state: ProjectState,
+  workspaceDir: string,
+  workspace: string,
+  label: string,
+): void {
+  for (const dir of [
+    join(workspaceDir, "src", "types"),
+    join(workspaceDir, "src", "config"),
+    join(workspaceDir, "src", "lib"),
+    join(workspaceDir, "src", "services"),
+    join(workspaceDir, "src", "app"),
+    join(workspaceDir, "tests", "unit"),
+  ]) {
+    mkdirSync(dir, { recursive: true })
+  }
+
+  ensureWorkspacePackageJson(state, workspace, join(workspaceDir, "package.json"))
+
+  const readmePath = join(workspaceDir, "README.md")
+  if (!existsSync(readmePath)) {
+    writeFileSync(
+      readmePath,
+      `# ${state.projectInfo.displayName || state.projectInfo.name || "Project"} — ${workspace}\n\nWorkspace for the ${label} surface inside this monorepo.\n`,
+    )
+  }
+
+  const summarySourcePath = join(workspaceDir, "src", "app", "index.ts")
+  if (!existsSync(summarySourcePath)) {
+    writeFileSync(summarySourcePath, createWorkspaceSummarySource(state, workspace, label))
+  }
+
+  const summaryTestPath = join(workspaceDir, "tests", "unit", "scaffold-smoke.test.ts")
+  if (!existsSync(summaryTestPath)) {
+    writeFileSync(summaryTestPath, createWorkspaceSummaryTest(workspace))
+  }
+}
 
 function readIfExists(path: string): string {
   return existsSync(path) ? readFileSync(path, "utf-8") : ""
@@ -54,37 +217,13 @@ function ensureWorkspaceFiles(
   workspace: string,
 ): void {
   const workspaceDir = join("apps", workspace)
-  mkdirSync(workspaceDir, { recursive: true })
-
-  const packagePath = join(workspaceDir, "package.json")
-  if (!existsSync(packagePath)) {
-    writeFileSync(
-      packagePath,
-      `${JSON.stringify(
-        {
-          name: `@${state.projectInfo.name || "project"}/${workspace}`,
-          version: "0.1.0",
-          private: true,
-          type: "module",
-          description: `${state.projectInfo.displayName || state.projectInfo.name || "Project"} ${workspace} workspace.`,
-        },
-        null,
-        2,
-      )}\n`,
-    )
-  }
-
-  const readmePath = join(workspaceDir, "README.md")
-  if (!existsSync(readmePath)) {
-    writeFileSync(
-      readmePath,
-      `# ${state.projectInfo.displayName || state.projectInfo.name || "Project"} — ${workspace}\n\nWorkspace for the ${surfaceLabel(surface)} surface inside this monorepo.\n`,
-    )
-  }
+  ensureWorkspaceScaffold(state, workspaceDir, workspace, surfaceLabel(surface))
 
   if (surface === "agent") {
     mkdirSync("skills/api-wrapper", { recursive: true })
     mkdirSync("packages/shared/api", { recursive: true })
+    mkdirSync("packages/shared", { recursive: true })
+    ensureWorkspaceScaffold(state, "packages/shared", "shared", "shared")
     const apiReadmePath = "packages/shared/api/README.md"
     if (!existsSync(apiReadmePath)) {
       writeFileSync(
@@ -94,7 +233,7 @@ function ensureWorkspaceFiles(
     }
   }
 
-  if (["web-app", "ios-app", "desktop"].includes(surface) && !existsSync("docs/design/DESIGN_SYSTEM.md")) {
+  if (isUiProject([surface]) && !existsSync("docs/design/DESIGN_SYSTEM.md")) {
     mkdirSync("docs/design", { recursive: true })
     writeFileSync(
       "docs/design/DESIGN_SYSTEM.md",
@@ -119,6 +258,7 @@ function ensurePrdSurfaceSection(
 - **User story**: As the product grows, I want to add the ${surfaceLabel(surface)} surface in the same monorepo so all surfaces share one execution contract.
 - **Acceptance criteria**:
   - [ ] \`apps/${workspace}/package.json\` exists
+  - [ ] \`apps/${workspace}/src/app/index.ts\` exists
   - [ ] Architecture documents the \`${workspace}\` workspace
   - [ ] Progress/backlog includes the surface onboarding milestone
   - [ ] Follow-up milestones can build on the same monorepo instead of creating a new repo
@@ -228,7 +368,7 @@ export function addSurfaceToState(
   preferredWorkspace?: string,
 ): { changed: boolean; state: ProjectState; surface: AddableSurface; workspace: string } {
   if (!isAddableSurface(surfaceInput)) {
-    throw new Error(`Unsupported surface "${surfaceInput}". Use one of: web-app, ios-app, cli, agent, desktop.`)
+    throw new Error(`Unsupported surface "${surfaceInput}". Use one of: ${ADDABLE_SURFACES.join(", ")}.`)
   }
 
   const surface = surfaceInput

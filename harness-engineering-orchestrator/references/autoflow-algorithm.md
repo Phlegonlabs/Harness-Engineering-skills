@@ -18,7 +18,7 @@ The loop caps at 12 iterations (`AUTOFLOW_MAX_STEPS = 12`).
 | Phase | Behavior |
 |-------|----------|
 | `DISCOVERY`, `MARKET_RESEARCH`, `TECH_STACK`, `PRD_ARCH` | If phase readiness is satisfied, run `bun harness:advance` and continue. Otherwise stop and surface the missing outputs / next agent. |
-| `SCAFFOLD` | If scaffold readiness is satisfied, run `bun install`, `bun harness:env`, `bun .harness/init.ts --from-prd`, and `bun harness:validate --phase EXECUTING`, then stop at the boundary. |
+| `SCAFFOLD` | If scaffold readiness is satisfied, run the configured install command from `state.toolchain.commands.install`, then `bun harness:env`, `bun .harness/init.ts --from-prd`, and `bun harness:validate --phase EXECUTING`, then stop at the boundary. |
 | `EXECUTING` | If a milestone is already in `REVIEW`, run `bun harness:merge-milestone M[N]` and continue. Otherwise stop at unfinished execution, deploy review, or deferred-stage boundaries. |
 | `VALIDATING` | Try `bun harness:advance`; stop and surface the boundary if it fails. |
 | `COMPLETE` | Run `bun harness:compact`, then `bun harness:compact:status`, then stop. |

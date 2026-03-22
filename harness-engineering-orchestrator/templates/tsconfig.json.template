@@ -13,6 +13,10 @@
   },
   "include": [
     ".harness/**/*.ts",
+    "apps/**/*.ts",
+    "apps/**/*.tsx",
+    "packages/**/*.ts",
+    "packages/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
     "tests/**/*.ts",

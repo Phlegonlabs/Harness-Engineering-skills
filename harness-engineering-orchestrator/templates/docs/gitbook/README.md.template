@@ -23,7 +23,7 @@ If the next delivery version is being activated after deploy / real-world review
 ## Quick Start
 
 ```bash
-bun install
+[INSTALL_COMMAND]
 bun harness:approve --plan
 bun harness:approve --phase V1
 bun harness:advance
@@ -33,3 +33,4 @@ bun harness:resume
 ```
 
 > `bun harness:validate` runs the full final validation; it is typically run after phase / task / milestone validation is complete.
+> [WORKSPACE_TASK_NOTE]

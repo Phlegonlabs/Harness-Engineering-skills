@@ -195,8 +195,11 @@ function Test-ScaffoldContract {
   $requiredPaths = @(
     "apps",
     "packages",
+    "turbo.json",
     "packages/shared/package.json",
     "packages/shared/README.md",
+    "packages/shared/src/app/index.ts",
+    "packages/shared/tests/unit/scaffold-smoke.test.ts",
     ".env.local",
     "bunfig.toml",
     ".github/workflows/ci.yml",
@@ -251,6 +254,8 @@ function Test-ScaffoldContract {
   foreach ($workspace in $workspaceApps) {
     $requiredPaths += "apps/$workspace/package.json"
     $requiredPaths += "apps/$workspace/README.md"
+    $requiredPaths += "apps/$workspace/src/app/index.ts"
+    $requiredPaths += "apps/$workspace/tests/unit/scaffold-smoke.test.ts"
   }
   if ($Types -contains "agent") {
     $requiredPaths += "SKILLS.md"
@@ -745,7 +750,7 @@ foreach ($case in $Cases) {
       @{ Step = "deps"; Expect = "pass"; Exe = "bun"; Args = @("run", "check:deps") },
       @{ Step = "typecheck"; Expect = "pass"; Exe = "bun"; Args = @("run", "typecheck") },
       @{ Step = "lint"; Expect = "pass"; Exe = "bun"; Args = @("run", "lint") },
-      @{ Step = "test"; Expect = "pass"; Exe = "bun"; Args = @("test") },
+      @{ Step = "test"; Expect = "pass"; Exe = "bun"; Args = @("run", "test") },
       @{ Step = "build"; Expect = "pass"; Exe = "bun"; Args = @("run", "build") },
       @{ Step = "guardian"; Expect = "pass"; Exe = "bun"; Args = @("harness:validate", "--guardian") },
       @{ Step = "validate-executing"; Expect = "expected-fail"; Exe = "bun"; Args = @("harness:validate", "--phase", "EXECUTING"); ExpectFailure = $true },

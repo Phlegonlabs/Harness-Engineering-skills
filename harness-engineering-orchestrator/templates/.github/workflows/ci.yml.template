@@ -32,12 +32,16 @@ jobs:
       - name: Audit line counts
         shell: bash
         run: |
-          if [ -d src ]; then
-            find src \( -name "*.ts" -o -name "*.tsx" \) -print0 | while IFS= read -r -d '' file; do
+          roots=(apps packages src)
+          for root in "${roots[@]}"; do
+            if [ ! -d "$root" ]; then
+              continue
+            fi
+            find "$root" \( -name "*.ts" -o -name "*.tsx" \) -print0 | while IFS= read -r -d '' file; do
               lines=$(wc -l < "$file")
               if [ "$lines" -gt 400 ]; then
                 echo "❌ $file has $lines lines (max 400)"
                 exit 1
               fi
             done
-          fi
+          done

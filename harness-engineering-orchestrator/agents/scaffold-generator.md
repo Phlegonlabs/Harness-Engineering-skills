@@ -85,7 +85,7 @@ The full list below matches the files copied by `copyHarnessRuntime` in `scripts
 
 ### Group 5: Verification
 
-- [ ] `bun install` succeeds
+- [ ] the configured install command from `state.toolchain.commands` succeeds
 - [ ] the configured typecheck command from `state.toolchain.commands` passes
 - [ ] the configured build command from `state.toolchain.commands` passes
 - [ ] `bun harness:validate --phase EXECUTING` passes

@@ -120,6 +120,10 @@ function formatValidationCommand(
   }
 }
 
+function installCommand(state: ProjectState): string {
+  return state.toolchain?.commands.install.command?.trim() || "bun install"
+}
+
 function agentOwnsCurrentPhase(agentId: AgentId, phase: ProjectState["phase"]): boolean {
   switch (phase) {
     case "DISCOVERY":
@@ -204,7 +208,7 @@ function buildAfterCompletion(
 
   if (agentId === "scaffold-generator") {
     return [
-      "Install deps: bun install",
+      `Install deps: ${installCommand(state)}`,
       "Advance: bun harness:advance",
       `Validation: ${validationCmd}`,
       "Next: Re-run orchestrator to dispatch the next runtime agent.",

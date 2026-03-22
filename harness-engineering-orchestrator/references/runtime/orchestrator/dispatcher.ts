@@ -433,6 +433,7 @@ function getPrdArchAction(state: ProjectState, platform: AgentPlatform): Dispatc
 }
 
 function getScaffoldAction(state: ProjectState, platform: AgentPlatform): DispatchResult {
+  const installCommand = state.toolchain?.commands.install.command?.trim() || "bun install"
   const readiness = getPhaseReadiness(state)
   const planningChecks = getPhaseStructuralChecks("SCAFFOLD", state)
   const planningBlocked = planningChecks.some(item => !item.ok)
@@ -440,7 +441,7 @@ function getScaffoldAction(state: ProjectState, platform: AgentPlatform): Dispat
     return phaseAdvanceGuidance([
       "Scaffold outputs are ready.",
       "Run:",
-      "  bun install",
+      `  ${installCommand}`,
       "  bun harness:advance",
       "  bun .harness/orchestrator.ts",
     ])
@@ -466,7 +467,7 @@ function getScaffoldAction(state: ProjectState, platform: AgentPlatform): Dispat
     platform,
     [
       "After completing Scaffold:",
-      "1. bun install",
+      `1. ${installCommand}`,
       "2. bun harness:advance",
       "3. bun .harness/orchestrator.ts",
     ].join("\n"),

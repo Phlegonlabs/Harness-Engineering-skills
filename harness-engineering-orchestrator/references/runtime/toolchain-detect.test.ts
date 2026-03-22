@@ -42,10 +42,10 @@ test("initState uses detected ecosystem instead of forcing bun defaults", () => 
   expect(state.toolchain.commands.test.command).toBe("pytest")
 })
 
-test("buildToolchainConfig provides yarn preset for yarn.lock projects", () => {
-  const toolchain = buildToolchainConfig("node-yarn", workspaceDir)
-  expect(toolchain.commands.install.command).toBe("yarn install")
-  expect(toolchain.commands.test.command).toBe("yarn test")
+test("buildToolchainConfig provides pnpm preset for pnpm-lock projects", () => {
+  const toolchain = buildToolchainConfig("node-pnpm", workspaceDir)
+  expect(toolchain.commands.install.command).toBe("pnpm install")
+  expect(toolchain.commands.test.command).toBe("pnpm test")
 })
 
 test("createUnconfiguredToolchainConfig keeps commands blocking until configured", () => {

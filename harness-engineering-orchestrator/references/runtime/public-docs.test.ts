@@ -4,6 +4,7 @@ import { tmpdir } from "os"
 import { join } from "path"
 import { syncPublicManagedDocs } from "./public-docs"
 import { initState } from "./state-core"
+import { buildToolchainConfig } from "./toolchain-detect"
 
 let originalCwd = ""
 let workspaceDir = ""
@@ -134,4 +135,29 @@ test("public docs sync renders delivery-phase approval guidance and records sync
 
   expect(readFileSync("README.md", "utf-8")).toContain("Project delivery is complete and the final public-facing artifacts are locked.")
   expect(secondSync.state.history.events.filter(event => event.kind === "public_docs_synced").length).toBeGreaterThanOrEqual(2)
+})
+
+test("public docs reflect the configured ecosystem instead of hardcoding bun", () => {
+  const state = initState({})
+  state.projectInfo.name = "ecosystem-doc-fixture"
+  state.projectInfo.displayName = "Ecosystem Doc Fixture"
+  state.projectInfo.types = ["cli"]
+  state.projectInfo.aiProvider = "none"
+  state.projectInfo.teamSize = "solo"
+  state.toolchain = buildToolchainConfig("node-npm", workspaceDir)
+  state.toolchain.sourceRoot = "."
+
+  syncPublicManagedDocs(state, {
+    summary: "Public docs synced for node-npm fixture",
+  })
+
+  const readme = readFileSync("README.md", "utf-8")
+  const techStack = readFileSync("docs/public/tech-stack.md", "utf-8")
+
+  expect(readme).toContain("npm install")
+  expect(readme).toContain("npm run <task>")
+  expect(readme).toContain("local Harness workspace runner")
+  expect(techStack).toContain("| Package manager | npm |")
+  expect(techStack).toContain("| Workspace model | Monorepo (npm workspaces + Harness workspace runner) |")
+  expect(techStack).not.toContain("| Package manager | Bun |")
 })

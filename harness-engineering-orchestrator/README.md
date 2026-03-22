@@ -196,7 +196,7 @@ flowchart TD
     D -->|gate: validate PRD_ARCH| E[PRD_ARCH]
     E -->|real PRD + Architecture<br/>no placeholders<br/>dependency direction defined| F[SCAFFOLD]
     E -. planning incomplete .-> STOP[Stop and surface missing outputs<br/>Re-dispatch current phase agent]
-    F -->|runtime + scaffold ready<br/>bun install<br/>deriveExecutionFromPrd| G[EXECUTING]
+    F -->|runtime + scaffold ready<br/>toolchain install command<br/>deriveExecutionFromPrd| G[EXECUTING]
     F -. planning incomplete .-> E
     F -. scaffold outputs missing .-> STOP
 
@@ -314,7 +314,8 @@ Use this as the practical runbook from project start to project finish.
 
 4. Finish scaffold and enter execution.
    - Make sure runtime files, CI, env skeleton, and local Harness files are present
-   - Run `bun install`
+   - Run the install command from the configured toolchain (`bun install`, `npm install`, or `pnpm install`)
+   - JS/TS greenfield repos now scaffold product code into `apps/<surface>` and `packages/shared`; Bun-managed repos dispatch root tasks through Turborepo, while npm/pnpm-managed repos use the local Harness workspace runner
    - After the plan and `Phase 1` are approved, run `bun harness:approve --plan`, `bun harness:approve --phase V1`, then `bun harness:validate --phase EXECUTING` and `bun harness:advance`
 
 5. Use the orchestrator as the control tower.

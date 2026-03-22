@@ -1,0 +1,49 @@
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+
+const scriptName = process.argv[2];
+
+if (!scriptName) {
+  console.error("Usage: bun scripts/harness-local/workspace-runner.mjs <script-name>");
+  process.exit(1);
+}
+
+function workspaceDirectories() {
+  const results = [];
+
+  for (const root of ["packages", "apps"]) {
+    if (!existsSync(root)) continue;
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      results.push(join(root, entry.name));
+    }
+  }
+
+  return results;
+}
+
+for (const workspaceDir of workspaceDirectories()) {
+  const packagePath = join(workspaceDir, "package.json");
+  if (!existsSync(packagePath)) continue;
+
+  const pkg = JSON.parse(readFileSync(packagePath, "utf-8"));
+  const command = pkg?.scripts?.[scriptName];
+  if (typeof command !== "string" || command.trim().length === 0) continue;
+
+  console.log(`[workspace-runner] ${workspaceDir} -> ${scriptName}`);
+  const result = spawnSync(
+    process.platform === "win32" ? "cmd.exe" : "sh",
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", command]
+      : ["-lc", command],
+    {
+      cwd: workspaceDir,
+      stdio: "inherit",
+    },
+  );
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}

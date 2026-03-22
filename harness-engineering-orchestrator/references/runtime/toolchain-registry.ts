@@ -8,6 +8,56 @@ import type { ToolchainConfig, SupportedEcosystem } from "../types.js"
 
 type ToolchainPreset = Omit<ToolchainConfig, "ecosystem">
 
+const PACKAGE_MANAGER_LABELS: Partial<Record<SupportedEcosystem, string>> = {
+  bun: "Bun",
+  "node-npm": "npm",
+  "node-pnpm": "pnpm",
+  python: "pip",
+  go: "Go modules",
+  rust: "Cargo",
+  "kotlin-gradle": "Gradle",
+  "java-gradle": "Gradle",
+  "java-maven": "Maven",
+  ruby: "Bundler",
+  "csharp-dotnet": "dotnet",
+  swift: "Swift PM",
+  flutter: "pub",
+  custom: "Custom",
+}
+
+const ROOT_SCRIPT_PREFIXES: Partial<Record<SupportedEcosystem, string>> = {
+  bun: "bun run",
+  "node-npm": "npm run",
+  "node-pnpm": "pnpm run",
+}
+
+const WORKSPACE_MODEL_LABELS: Partial<Record<SupportedEcosystem, string>> = {
+  bun: "Monorepo (Bun workspaces + Turborepo)",
+  "node-npm": "Monorepo (npm workspaces + Harness workspace runner)",
+  "node-pnpm": "Monorepo (pnpm workspaces + Harness workspace runner)",
+  python: "Monorepo (Python)",
+  go: "Monorepo (Go modules)",
+  rust: "Monorepo (Cargo workspace)",
+  "kotlin-gradle": "Monorepo (Gradle)",
+  "java-gradle": "Monorepo (Gradle)",
+  "java-maven": "Monorepo (Maven)",
+  ruby: "Monorepo (Bundler)",
+  "csharp-dotnet": "Monorepo (.NET)",
+  swift: "Monorepo (Swift PM)",
+  flutter: "Monorepo (Flutter)",
+  custom: "Monorepo",
+}
+
+const TURBO_WORKSPACE_ECOSYSTEMS = new Set<SupportedEcosystem>([
+  "bun",
+])
+
+const WORKSPACE_FIRST_ECOSYSTEMS = new Set<SupportedEcosystem>([
+  "bun",
+  "node-npm",
+  "node-pnpm",
+])
+
 export const TOOLCHAIN_PRESETS: Partial<Record<SupportedEcosystem, ToolchainPreset>> = {
   bun: {
     language: "typescript",
@@ -66,24 +116,6 @@ export const TOOLCHAIN_PRESETS: Partial<Record<SupportedEcosystem, ToolchainPres
     sourceRoot: "src",
     manifestFile: "package.json",
     lockFile: "pnpm-lock.yaml",
-    forbiddenPatterns: [],
-    ignorePatterns: ["node_modules/", "dist/", ".harness/"],
-  },
-  "node-yarn": {
-    language: "typescript",
-    packageManager: "yarn",
-    commands: {
-      install: { command: "yarn install" },
-      typecheck: { command: "yarn run typecheck" },
-      lint: { command: "yarn run lint" },
-      format: { command: "yarn run format:check" },
-      test: { command: "yarn test" },
-      build: { command: "yarn run build" },
-    },
-    sourceExtensions: [".ts", ".tsx", ".js", ".jsx"],
-    sourceRoot: "src",
-    manifestFile: "package.json",
-    lockFile: "yarn.lock",
     forbiddenPatterns: [],
     ignorePatterns: ["node_modules/", "dist/", ".harness/"],
   },
@@ -200,4 +232,28 @@ export const TOOLCHAIN_PRESETS: Partial<Record<SupportedEcosystem, ToolchainPres
     forbiddenPatterns: [],
     ignorePatterns: ["target/", ".harness/"],
   },
+}
+
+export function isTurboWorkspaceEcosystem(ecosystem?: SupportedEcosystem): boolean {
+  return Boolean(ecosystem && TURBO_WORKSPACE_ECOSYSTEMS.has(ecosystem))
+}
+
+export function isWorkspaceFirstEcosystem(ecosystem?: SupportedEcosystem): boolean {
+  return Boolean(ecosystem && WORKSPACE_FIRST_ECOSYSTEMS.has(ecosystem))
+}
+
+export function usesHarnessWorkspaceRunner(ecosystem?: SupportedEcosystem): boolean {
+  return isWorkspaceFirstEcosystem(ecosystem) && !isTurboWorkspaceEcosystem(ecosystem)
+}
+
+export function packageManagerLabelForEcosystem(ecosystem?: SupportedEcosystem): string {
+  return PACKAGE_MANAGER_LABELS[ecosystem ?? "custom"] ?? "Custom"
+}
+
+export function rootScriptPrefixForEcosystem(ecosystem?: SupportedEcosystem): string | undefined {
+  return ROOT_SCRIPT_PREFIXES[ecosystem ?? "custom"]
+}
+
+export function workspaceModelForEcosystem(ecosystem?: SupportedEcosystem): string {
+  return WORKSPACE_MODEL_LABELS[ecosystem ?? "custom"] ?? "Monorepo"
 }

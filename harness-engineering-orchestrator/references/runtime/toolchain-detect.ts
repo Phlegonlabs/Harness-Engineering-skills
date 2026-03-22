@@ -19,7 +19,6 @@ const DETECTION_SIGNALS: DetectionSignal[] = [
   { file: "bun.lockb", ecosystem: "bun", priority: 10 },
   { file: "package-lock.json", ecosystem: "node-npm", priority: 8 },
   { file: "pnpm-lock.yaml", ecosystem: "node-pnpm", priority: 8 },
-  { file: "yarn.lock", ecosystem: "node-yarn", priority: 8 },
   { file: "pyproject.toml", ecosystem: "python", priority: 9 },
   { file: "setup.py", ecosystem: "python", priority: 7 },
   { file: "go.mod", ecosystem: "go", priority: 9 },
@@ -80,7 +79,6 @@ function detectPackageManagerEcosystem(projectRoot: string): SupportedEcosystem 
     const packageManager = pkg.packageManager?.toLowerCase() ?? ""
     if (packageManager.startsWith("bun@")) return "bun"
     if (packageManager.startsWith("pnpm@")) return "node-pnpm"
-    if (packageManager.startsWith("yarn@")) return "node-yarn"
     if (packageManager.startsWith("npm@")) return "node-npm"
     return "node-npm"
   } catch {

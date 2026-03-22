@@ -102,10 +102,13 @@ function materializeScaffoldArtifacts(state: ProjectState): void {
   write(".env.example", "EXAMPLE=1\n")
   write(".env.local", "LOCAL=1\n")
   write("biome.json", "{}\n")
+  write("turbo.json", "{\n  \"tasks\": {}\n}\n")
   write(".github/workflows/ci.yml", "name: ci\n")
   write("docs/PROGRESS.md", "# Progress\n")
   write("packages/shared/package.json", "{\n  \"name\": \"shared\"\n}\n")
+  write("packages/shared/src/app/index.ts", "export const shared = true\n")
   write("apps/web/package.json", "{\n  \"name\": \"web\"\n}\n")
+  write("apps/web/src/app/index.ts", "export const web = true\n")
   write("scripts/harness-local/restore.ts", "export {}\n")
   write("scripts/harness-local/manifest.json", "{}\n")
 

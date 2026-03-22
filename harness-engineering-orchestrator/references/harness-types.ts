@@ -25,7 +25,7 @@ export interface HarnessLevelConfig {
 // ── Toolchain Abstraction ─────────────────────────────────────────────────────
 
 export type SupportedEcosystem =
-  | "bun" | "node-npm" | "node-pnpm" | "node-yarn"
+  | "bun" | "node-npm" | "node-pnpm"
   | "python" | "go" | "rust"
   | "kotlin-gradle" | "java-gradle" | "java-maven"
   | "ruby" | "csharp-dotnet" | "swift" | "flutter"

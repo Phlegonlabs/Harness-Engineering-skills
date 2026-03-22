@@ -16,9 +16,9 @@ Templates live in the skill's reference directory and are instantiated into the 
 | `{{DISPLAY_NAME}}` | `state.projectInfo.displayName` | `My App` |
 | `{{ECOSYSTEM}}` | `state.toolchain.ecosystem` | `bun` |
 | `{{LANGUAGE}}` | `state.toolchain.language` | `typescript` |
-| `{{SOURCE_ROOT}}` | `state.toolchain.sourceRoot` | `src` |
+| `{{SOURCE_ROOT}}` | `state.toolchain.sourceRoot` | `.` |
 | `{{INSTALL_CMD}}` | `state.toolchain.commands.install.command` | `bun install` |
-| `{{TEST_CMD}}` | `state.toolchain.commands.test.command` | `bun test` |
+| `{{TEST_CMD}}` | `state.toolchain.commands.test.command` | `bun run test` |
 | `{{BUILD_CMD}}` | `state.toolchain.commands.build.command` | `bun run build` |
 
 ### File Skip Logic
@@ -52,24 +52,25 @@ The scaffold generator infers metadata from the filesystem when not explicitly p
 
 ### Ecosystem Detection
 
-Uses `detectEcosystem()` from `runtime/toolchain-detect.ts`:
+Uses `detectEcosystem()` from `runtime/toolchain-detect.ts` when setup is not given an explicit `--ecosystem`. The precedence is: existing configured toolchain → explicit `--ecosystem` → filesystem detection → greenfield fallback.
 
 1. Check for `bun.lockb` → `bun`
 2. Check for `package-lock.json` → `node-npm`
 3. Check for `pnpm-lock.yaml` → `node-pnpm`
-4. Check for `yarn.lock` → `node-yarn`
-5. Check for `Cargo.toml` → `rust`
-6. Check for `go.mod` → `go`
-7. Check for `requirements.txt` / `pyproject.toml` → `python`
-8. Check for `build.gradle.kts` → `kotlin-gradle`
-9. Check for `pom.xml` → `java-maven`
-10. Default → `bun` (for greenfield TypeScript projects)
+4. Check for `Cargo.toml` → `rust`
+5. Check for `go.mod` → `go`
+6. Check for `requirements.txt` / `pyproject.toml` → `python`
+7. Check for `build.gradle.kts` → `kotlin-gradle`
+8. Check for `pom.xml` → `java-maven`
+9. Default → `bun` (for greenfield TypeScript projects)
+
+For Bun / npm / pnpm workspace-first repos, greenfield setup also normalizes `sourceRoot = "."` so guardrails and validation scan the monorepo instead of a legacy root `src/`.
 
 ### Project Type Inference
 
 If `projectInfo.types` is empty, infer from filesystem:
 
-- `src/**/*.tsx` or `app/**/*.tsx` → `web-app`
+- `apps/**/src/**/*.tsx` or `src/**/*.tsx` → `web-app`
 - `Package.swift` → `ios-app`
 - `src/main.ts` with CLI-like imports → `cli`
 - `Dockerfile` + API routes → `api`
@@ -101,6 +102,17 @@ project-root/
 ├── .github/
 │   ├── workflows/ci.yml
 │   └── PULL_REQUEST_TEMPLATE.md
+├── apps/                  # Product surfaces
+│   └── <surface>/
+│       ├── package.json
+│       ├── src/
+│       └── tests/
+├── packages/
+│   └── shared/
+│       ├── package.json
+│       ├── src/
+│       └── tests/
+├── turbo.json
 └── scripts/
     └── harness-local/
         ├── restore.ts

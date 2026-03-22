@@ -34,7 +34,7 @@ If `--workspace` is omitted, the default workspace name from the surface map is 
 
 ### 2. Workspace Scaffold
 
-`ensureWorkspaceFiles()` creates `apps/{workspace}/package.json` and `apps/{workspace}/README.md`. The `agent` surface also creates `skills/api-wrapper/` and `packages/shared/api/`. UI surfaces (`web-app`, `ios-app`, `desktop`) ensure `docs/design/DESIGN_SYSTEM.md` exists.
+`ensureWorkspaceFiles()` now creates a workspace-first scaffold under `apps/{workspace}/`, including `package.json`, `README.md`, `src/app/index.ts`, `tests/unit/scaffold-smoke.test.ts`, and the standard `src/{types,config,lib,services}` directories. The `agent` surface also ensures the shared workspace baseline under `packages/shared/`, plus `skills/api-wrapper/` and `packages/shared/api/`. UI surfaces (`web-app`, `ios-app`, `android-app`, `mobile-cross-platform`, `desktop`) ensure `docs/design/DESIGN_SYSTEM.md` exists.
 
 ### 3. Document Updates
 
@@ -61,11 +61,11 @@ Each agent targets specific surfaces or the whole project:
 
 | Agent | Surface Scope |
 |-------|---------------|
-| `frontend-designer` | UI surfaces (`web-app`, `ios-app`, `desktop`) |
+| `frontend-designer` | UI surfaces (`web-app`, `ios-app`, `android-app`, `mobile-cross-platform`, `desktop`) |
 | `execution-engine` | All surfaces (task-level routing via `affectedFiles`) |
 | `design-reviewer` | UI surfaces only (gated by `isUiProject()` in `runtime/shared.ts`) |
 | `scaffold-generator` | All surfaces (workspace creation) |
 
 ## Monorepo Structure
 
-After adding surfaces, key directories are: `apps/{workspace}/` for each surface, `packages/shared/` for cross-surface code, `packages/shared/api/` for agent API wrappers, `skills/` for agent skill definitions, and `docs/design/` for UI design specs.
+After adding surfaces, key directories are: `apps/{workspace}/` for each surface, `packages/shared/` for cross-surface code, `packages/shared/api/` for agent API wrappers, `skills/` for agent skill definitions, and `docs/design/` for UI design specs. Repo-wide root task entrypoints remain at the top level; Bun / Node workspace-first ecosystems dispatch them across these workspaces through Turborepo.

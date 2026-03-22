@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import type { Phase, ProjectState } from "../types"
 import { getAllAgentEntries } from "./orchestrator/agent-registry"
 import { architectureDefinesDependencyDirection, getPlanningDocumentIssues } from "./planning-docs"
+import { isTurboWorkspaceEcosystem, isWorkspaceFirstEcosystem, usesHarnessWorkspaceRunner } from "./toolchain-registry.js"
 import {
   ARCHITECTURE_DIR,
   ARCHITECTURE_PATH,
@@ -88,6 +89,9 @@ function scaffoldPlanningChecks(state: ProjectState): StructuralCheck[] {
 function executingStructuralChecks(state: ProjectState): StructuralCheck[] {
   const currentDeliveryPhase = getCurrentDeliveryPhase(state)
   const inactiveMilestones = state.execution.milestones.filter(milestone => !milestoneBelongsToActivePhase(state, milestone))
+  const usesWorkspaceFirst = isWorkspaceFirstEcosystem(state.toolchain?.ecosystem)
+  const usesTurboWorkspace = isTurboWorkspaceEcosystem(state.toolchain?.ecosystem)
+  const usesWorkspaceRunner = usesHarnessWorkspaceRunner(state.toolchain?.ecosystem)
   const checks: StructuralCheck[] = [
     ...scaffoldPlanningChecks(state),
     check(isPlanApproved(state), "overall project plan has been approved"),
@@ -178,13 +182,32 @@ function executingStructuralChecks(state: ProjectState): StructuralCheck[] {
     check(packageJsonHasScript("harness:compact"), "package.json includes harness:compact"),
     check(packageJsonHasScript("harness:compact:milestone"), "package.json includes harness:compact:milestone"),
     check(packageJsonHasScript("harness:compact:status"), "package.json includes harness:compact:status"),
-    check(packageJsonHasWorkspace("apps/*"), "package.json includes apps/* workspace", undefined, "standard"),
-    check(packageJsonHasWorkspace("packages/*"), "package.json includes packages/* workspace", undefined, "standard"),
-    check(existsSync("packages/shared/package.json"), "packages/shared/package.json is present", undefined, "standard"),
   ]
 
-  for (const workspace of surfaceWorkspaceList(state.projectInfo.types)) {
-    checks.push(check(existsSync(`apps/${workspace}/package.json`), `apps/${workspace}/package.json is present`))
+  if (usesWorkspaceFirst) {
+    checks.push(
+      check(packageJsonHasWorkspace("apps/*"), "package.json includes apps/* workspace", undefined, "standard"),
+      check(packageJsonHasWorkspace("packages/*"), "package.json includes packages/* workspace", undefined, "standard"),
+      check(existsSync("packages/shared/package.json"), "packages/shared/package.json is present", undefined, "standard"),
+      check(existsSync("packages/shared/src/app/index.ts"), "packages/shared/src/app/index.ts is present", undefined, "standard"),
+    )
+
+    if (usesTurboWorkspace) {
+      checks.push(check(existsSync("turbo.json"), "turbo.json is present", undefined, "standard"))
+    }
+
+    if (usesWorkspaceRunner) {
+      checks.push(check(existsSync("scripts/harness-local/workspace-runner.mjs"), "scripts/harness-local/workspace-runner.mjs is present", undefined, "standard"))
+    }
+
+    if (state.toolchain?.ecosystem === "node-pnpm") {
+      checks.push(check(existsSync("pnpm-workspace.yaml"), "pnpm-workspace.yaml is present", undefined, "standard"))
+    }
+
+    for (const workspace of surfaceWorkspaceList(state.projectInfo.types)) {
+      checks.push(check(existsSync(`apps/${workspace}/package.json`), `apps/${workspace}/package.json is present`))
+      checks.push(check(existsSync(`apps/${workspace}/src/app/index.ts`), `apps/${workspace}/src/app/index.ts is present`, undefined, "standard"))
+    }
   }
 
   if (hasAgentSurface(state.projectInfo.types)) {

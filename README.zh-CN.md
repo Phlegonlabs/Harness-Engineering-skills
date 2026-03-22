@@ -38,6 +38,8 @@ bun harness:orchestrate
 - `.harness/state.json`
 - 一个可以继续推进的 orchestrator 入口
 
+现在生成出来的 JS / TS 仓库默认采用 workspace-first 结构：真实产品代码放在 `apps/<surface>` 和 `packages/shared` 下。Bun 管理的仓库会通过 Turborepo 分发根任务，npm/pnpm 管理的仓库则通过本地 Harness workspace runner 分发。
+
 如果是已有仓库，把第 3 步改成：
 
 ```bash
@@ -47,7 +49,7 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 ## 从这里开始
 
 - 安装：`npx skills add https://github.com/Phlegonlabs/Harness-Engineering-skills --skill harness-engineering-orchestrator`
-- 当前发布目标：`v1.8.2`
+- 当前发布目标：`v1.8.5`
 - 最适合：希望 AI 编码 Agent 在受控 PRD-to-code 交付系统里工作，而不是依赖自由提示链的团队
 - 主力 skill：`harness-engineering-orchestrator`，覆盖 discovery、技术栈确认、PRD、架构、里程碑/任务执行和验证
 - 下一步阅读：[harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)

@@ -1,20 +1,23 @@
 const layerOrder = ["types", "config", "lib", "services", "app"];
+const sourceRoots = ["src", "apps/[^/]+/src", "packages/shared/src"];
 
-const forbidden = layerOrder.flatMap((fromLayer, fromIndex) =>
-  layerOrder.slice(fromIndex + 1).map(toLayer => ({
-    name: `${fromLayer}-cannot-import-${toLayer}`,
-    severity: "error",
-    comment: `Keep dependency direction ${layerOrder.join(" -> ")}`,
-    from: { path: `^src/${fromLayer}` },
-    to: { path: `^src/${toLayer}` },
-  })),
+const forbidden = sourceRoots.flatMap(sourceRoot =>
+  layerOrder.flatMap((fromLayer, fromIndex) =>
+    layerOrder.slice(fromIndex + 1).map(toLayer => ({
+      name: `${sourceRoot.replace(/[^a-z0-9]+/gi, "-")}-${fromLayer}-cannot-import-${toLayer}`,
+      severity: "error",
+      comment: `Keep dependency direction ${layerOrder.join(" -> ")}`,
+      from: { path: `^${sourceRoot}/${fromLayer}` },
+      to: { path: `^${sourceRoot}/${toLayer}` },
+    })),
+  ),
 );
 
 module.exports = {
   forbidden,
   options: {
     doNotFollow: { path: "node_modules" },
-    exclude: { path: "(^dist)|(^tests)" },
+    exclude: { path: "(^dist)|(^tests)|(/dist/)|(/tests/)|(^\\.harness)" },
     tsConfig: {
       fileName: "tsconfig.json",
     },

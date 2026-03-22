@@ -1,7 +1,7 @@
 ## Quick Start
 
 ```bash
-bun install
+[INSTALL_COMMAND]
 bun .harness/state.ts --show
 bun harness:advance
 bun harness:env
@@ -9,5 +9,6 @@ bun harness:validate --phase EXECUTING
 ```
 
 After these steps, continue the workflow from `docs/PROGRESS.md`, `docs/progress/`, and `.harness/state.json`.
+[WORKSPACE_TASK_NOTE]
 
 [AGENT_SKILLS_QUICKSTART]

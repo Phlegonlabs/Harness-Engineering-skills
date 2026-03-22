@@ -12,9 +12,14 @@ import {
   detectEcosystem,
   isConfiguredToolchainCommand,
 } from "../../references/runtime/toolchain-detect"
+import {
+  isTurboWorkspaceEcosystem,
+  isWorkspaceFirstEcosystem,
+  usesHarnessWorkspaceRunner,
+} from "../../references/runtime/toolchain-registry"
 import { buildClaudeSettings, stringifyClaudeSettings } from "../../references/runtime/hooks/claude-config"
 import { CODEX_CONFIG_TOML, CODEX_GUARDIAN_RULES } from "../../references/runtime/hooks/codex-config"
-import type { GitHubState, ToolchainConfig } from "../../references/harness-types"
+import type { GitHubState, ProjectState, SupportedEcosystem, ToolchainConfig } from "../../references/harness-types"
 import {
   countPrdMilestones,
   createContext,
@@ -46,7 +51,7 @@ function toolchainIsConfigured(toolchain?: ToolchainConfig): boolean {
   )
 }
 
-function resolveInitialToolchain(
+export function resolveInitialToolchain(
   context: Context,
   currentToolchain?: ToolchainConfig,
 ): ToolchainConfig {
@@ -54,12 +59,21 @@ function resolveInitialToolchain(
     return currentToolchain
   }
 
-  const detected = detectEcosystem(process.cwd())
-  if (detected) {
-    return buildToolchainConfig(detected, process.cwd())
+  const ecosystem =
+    normalizeContextEcosystem(context)
+    ?? detectEcosystem(process.cwd())
+    ?? (context.isGreenfield ? "bun" : "custom")
+  const toolchain = buildToolchainConfig(
+    ecosystem,
+    process.cwd(),
+  )
+  if (context.isGreenfield && isWorkspaceFirstEcosystem(toolchain.ecosystem)) {
+    toolchain.sourceRoot = "."
   }
-
-  return buildToolchainConfig(context.isGreenfield ? "bun" : "custom", process.cwd())
+  if (context.isGreenfield && toolchain.ecosystem === "bun") {
+    toolchain.commands.test = { command: "bun run test" }
+  }
+  return toolchain
 }
 
 function syncClaudeMirrorFromAgents(logger: SetupLogger): void {
@@ -71,6 +85,146 @@ function syncClaudeMirrorFromAgents(logger: SetupLogger): void {
 
 function workspacePackageName(projectName: string, workspace: string): string {
   return `@${projectName}/${workspace}`
+}
+
+function createWorkspaceScripts(): Record<string, string> {
+  return {
+    typecheck: "tsc --project ../../tsconfig.json --noEmit",
+    lint: "biome check src tests",
+    format: "biome format --write src tests",
+    "format:check": "biome format src tests",
+    test: "bun test",
+    build: "bun build ./src/app/index.ts --outdir ./dist",
+  }
+}
+
+function createWorkspaceSummarySource(context: Context, workspace: string, label: string): string {
+  return `export interface ScaffoldSummary {
+  name: string;
+  projectType: string;
+  description: string;
+  workspace: string;
+}
+
+const scaffoldDescription = [
+  ${JSON.stringify(context.projectDisplayName)},
+  " prepared as a ${label} workspace in the Harness Engineering and Orchestrator workflow.",
+].join("");
+
+export const scaffoldSummary: ScaffoldSummary = {
+  name: ${JSON.stringify(context.projectName)},
+  projectType: ${JSON.stringify(context.projectTypeLabel)},
+  description: scaffoldDescription,
+  workspace: ${JSON.stringify(workspace)},
+};
+
+export function getScaffoldSummary(): ScaffoldSummary {
+  return scaffoldSummary;
+}
+`
+}
+
+function createWorkspaceSummaryTest(context: Context, workspace: string): string {
+  return `import { expect, test } from "bun:test";
+import { getScaffoldSummary } from "../../src/app/index";
+
+test("scaffold summary exposes project metadata", () => {
+  const summary = getScaffoldSummary();
+
+  expect(summary.name).toBe(${JSON.stringify(context.projectName)});
+  expect(summary.projectType).toContain("Monorepo");
+  expect(summary.projectType.length).toBeGreaterThan(0);
+  expect(summary.description.length).toBeGreaterThan(0);
+  expect(summary.workspace).toBe(${JSON.stringify(workspace)});
+});
+`
+}
+
+function writeWorkspaceScaffold(
+  context: Context,
+  logger: SetupLogger,
+  packageDir: string,
+  workspace: string,
+  label: string,
+): void {
+  mkdirSync(join(packageDir, "src", "types"), { recursive: true })
+  mkdirSync(join(packageDir, "src", "config"), { recursive: true })
+  mkdirSync(join(packageDir, "src", "lib"), { recursive: true })
+  mkdirSync(join(packageDir, "src", "services"), { recursive: true })
+  mkdirSync(join(packageDir, "src", "app"), { recursive: true })
+  mkdirSync(join(packageDir, "tests", "unit"), { recursive: true })
+
+  const packagePath = join(packageDir, "package.json").replace(/\\/g, "/")
+  const nextPackage = {
+    name: workspacePackageName(context.projectName, workspace),
+    version: "0.1.0",
+    private: true,
+    type: "module",
+    description: `${context.projectDisplayName} ${label} workspace.`,
+    scripts: createWorkspaceScripts(),
+  }
+
+  if (!existsSync(packagePath)) {
+    writeFileIfMissing(
+      packagePath,
+      `${JSON.stringify(nextPackage, null, 2)}\n`,
+      logger,
+    )
+  } else {
+    try {
+      const currentPackage = JSON.parse(readFileSync(packagePath, "utf-8")) as Record<string, unknown>
+      const currentScripts =
+        typeof currentPackage.scripts === "object" && currentPackage.scripts !== null
+          ? (currentPackage.scripts as Record<string, string>)
+          : {}
+
+      const mergedPackage = {
+        ...currentPackage,
+        name:
+          typeof currentPackage.name === "string" && currentPackage.name.trim().length > 0
+            ? currentPackage.name
+            : nextPackage.name,
+        version:
+          typeof currentPackage.version === "string" && currentPackage.version.trim().length > 0
+            ? currentPackage.version
+            : nextPackage.version,
+        private:
+          typeof currentPackage.private === "boolean" ? currentPackage.private : nextPackage.private,
+        type:
+          typeof currentPackage.type === "string" && currentPackage.type.trim().length > 0
+            ? currentPackage.type
+            : nextPackage.type,
+        description:
+          typeof currentPackage.description === "string" && currentPackage.description.trim().length > 0
+            ? currentPackage.description
+            : nextPackage.description,
+        scripts: {
+          ...nextPackage.scripts,
+          ...currentScripts,
+        },
+      }
+
+      writeFileAlways(packagePath, `${JSON.stringify(mergedPackage, null, 2)}\n`, logger)
+    } catch {
+      writeFileAlways(packagePath, `${JSON.stringify(nextPackage, null, 2)}\n`, logger)
+    }
+  }
+
+  writeFileIfMissing(
+    join(packageDir, "README.md").replace(/\\/g, "/"),
+    `# ${context.projectDisplayName} — ${label}\n\nWorkspace placeholder. Add real implementation here when the milestone reaches this surface.\n`,
+    logger,
+  )
+  writeFileIfMissing(
+    join(packageDir, "src", "app", "index.ts").replace(/\\/g, "/"),
+    createWorkspaceSummarySource(context, workspace, label),
+    logger,
+  )
+  writeFileIfMissing(
+    join(packageDir, "tests", "unit", "scaffold-smoke.test.ts").replace(/\\/g, "/"),
+    createWorkspaceSummaryTest(context, workspace),
+    logger,
+  )
 }
 
 function copyDirectory(sourceDir: string, targetDir: string): void {
@@ -88,10 +242,8 @@ function copyDirectory(sourceDir: string, targetDir: string): void {
   }
 }
 
-async function checkEnv(logger: SetupLogger): Promise<void> {
-  logger.step("Environment validation")
-
-  for (const [cmd, label, install] of [
+function requiredEnvironmentCommands(ecosystem: SupportedEcosystem): Array<[string, string, string]> {
+  const commands: Array<[string, string, string]> = [
     [
       "bun",
       "Bun",
@@ -106,7 +258,24 @@ async function checkEnv(logger: SetupLogger): Promise<void> {
         ? "https://git-scm.com/download/win"
         : "brew install git (macOS) / sudo apt install git (Linux)",
     ],
-  ] as const) {
+  ]
+
+  switch (ecosystem) {
+    case "node-npm":
+      commands.push(["npm", "npm", "Install Node.js/npm from https://nodejs.org/"])
+      break
+    case "node-pnpm":
+      commands.push(["pnpm", "pnpm", "Install pnpm: https://pnpm.io/installation"])
+      break
+  }
+
+  return commands
+}
+
+async function checkEnv(logger: SetupLogger, ecosystem: SupportedEcosystem): Promise<void> {
+  logger.step("Environment validation")
+
+  for (const [cmd, label, install] of requiredEnvironmentCommands(ecosystem)) {
     const result = inspectCommandVersion(cmd)
     if (!result.ok) {
       logger.error(`${label} is not installed. Please install: ${install}`)
@@ -130,6 +299,142 @@ export function inspectCommandVersion(cmd: string): { ok: boolean; version: stri
   } catch {
     return { ok: false, version: "" }
   }
+}
+
+function normalizeContextEcosystem(context: Context): SupportedEcosystem {
+  return context.ecosystem as SupportedEcosystem
+}
+
+function packageManagerBinary(ecosystem: SupportedEcosystem): string | undefined {
+  switch (ecosystem) {
+    case "bun":
+      return "bun"
+    case "node-npm":
+      return "npm"
+    case "node-pnpm":
+      return "pnpm"
+    default:
+      return undefined
+  }
+}
+
+function packageManagerFallback(ecosystem: SupportedEcosystem): string | undefined {
+  switch (ecosystem) {
+    case "bun":
+      return "bun@1.0.0"
+    case "node-npm":
+      return "npm@latest"
+    case "node-pnpm":
+      return "pnpm@latest"
+    default:
+      return undefined
+  }
+}
+
+function packageManagerField(ecosystem: SupportedEcosystem): string | undefined {
+  const binary = packageManagerBinary(ecosystem)
+  if (!binary) return undefined
+
+  const detected = inspectCommandVersion(binary).version.trim()
+  if (!detected) return packageManagerFallback(ecosystem)
+
+  const version = detected.split(/\s+/).find(part => /^\d+(\.\d+){0,2}/.test(part))
+  return `${binary}@${version ?? detected}`
+}
+
+function workspaceRunnerCommand(scriptName: string): string {
+  return `bun scripts/harness-local/workspace-runner.mjs ${scriptName}`
+}
+
+function workspaceFirstRootScripts(ecosystem: SupportedEcosystem): Record<string, string> {
+  if (isTurboWorkspaceEcosystem(ecosystem)) {
+    return {
+      "check:deps": "dependency-cruiser --config .dependency-cruiser.cjs . --output-type err-long",
+      "typecheck": "turbo run typecheck",
+      "lint": "turbo run lint",
+      "format": "turbo run format",
+      "format:check": "turbo run format:check",
+      "test": "turbo run test",
+      "build": "turbo run build",
+    }
+  }
+
+  if (usesHarnessWorkspaceRunner(ecosystem)) {
+    return {
+      "check:deps": "dependency-cruiser --config .dependency-cruiser.cjs . --output-type err-long",
+      "typecheck": workspaceRunnerCommand("typecheck"),
+      "lint": workspaceRunnerCommand("lint"),
+      "format": workspaceRunnerCommand("format"),
+      "format:check": workspaceRunnerCommand("format:check"),
+      "test": workspaceRunnerCommand("test"),
+      "build": workspaceRunnerCommand("build"),
+    }
+  }
+
+  return {
+    "check:deps": "dependency-cruiser --config .dependency-cruiser.cjs . --output-type err-long",
+  }
+}
+
+function workspaceFirstDevDependencies(ecosystem: SupportedEcosystem): Record<string, string> {
+  const shared = {
+    "@biomejs/biome": "latest",
+    "@types/node": "latest",
+    "dependency-cruiser": "latest",
+    "typescript": "latest",
+  }
+
+  if (isTurboWorkspaceEcosystem(ecosystem)) {
+    return {
+      ...shared,
+      "bun-types": "latest",
+      "turbo": "latest",
+    }
+  }
+
+  if (usesHarnessWorkspaceRunner(ecosystem)) {
+    return shared
+  }
+
+  return {}
+}
+
+const MANAGED_ROOT_SCRIPT_KEYS = [
+  "check:deps",
+  "typecheck",
+  "lint",
+  "format",
+  "format:check",
+  "test",
+  "build",
+] as const
+
+const MANAGED_DEV_DEP_KEYS = [
+  "@biomejs/biome",
+  "@types/node",
+  "bun-types",
+  "dependency-cruiser",
+  "turbo",
+  "typescript",
+] as const
+
+function createContextForState(state: ProjectState, skillRoot: string): Context {
+  return createContext(
+    {
+      aiProvider: state.projectInfo.aiProvider,
+      designReference: state.projectInfo.designReference ?? "",
+      designStyle: state.projectInfo.designStyle ?? "",
+      displayName: state.projectInfo.displayName,
+      ecosystem: state.toolchain.ecosystem,
+      goal: state.projectInfo.goal,
+      isGreenfield: String(state.projectInfo.isGreenfield),
+      name: state.projectInfo.name,
+      problem: state.projectInfo.problem,
+      teamSize: state.projectInfo.teamSize,
+      type: state.projectInfo.types.join(","),
+    },
+    skillRoot,
+  )
 }
 
 function copyHarnessRuntime(skillRoot: string, logger: SetupLogger): void {
@@ -170,8 +475,7 @@ function copyHarnessRuntime(skillRoot: string, logger: SetupLogger): void {
   logger.log("Synced .harness/runtime/")
 }
 
-function syncRuntimeManagedFiles(skillRoot: string, logger: SetupLogger): void {
-  const context = createContext({}, skillRoot)
+function syncRuntimeManagedFiles(context: Context, skillRoot: string, logger: SetupLogger): void {
   writeFileAlways("AGENTS.md", readTemplate(skillRoot, context, "AGENTS.md.template"), logger)
   syncClaudeMirrorFromAgents(logger)
   writeFileAlways(
@@ -210,14 +514,6 @@ function ensureProjectStructure(logger: SetupLogger): void {
     ".github",
     ".github/workflows",
     ".github/ISSUE_TEMPLATE",
-    "src/types",
-    "src/config",
-    "src/lib",
-    "src/services",
-    "src/app",
-    "tests/unit",
-    "tests/integration",
-    "tests/e2e",
     "apps",
     "packages",
     "packages/shared",
@@ -231,61 +527,23 @@ function ensureMonorepoBaseline({ context, logger }: SetupParams): void {
   logger.step("Create monorepo workspace baseline")
 
   for (const workspace of context.workspaceApps) {
-    mkdirSync(join("apps", workspace), { recursive: true })
-    writeFileIfMissing(
-      join("apps", workspace, "package.json").replace(/\\/g, "/"),
-      `${JSON.stringify(
-        {
-          name: workspacePackageName(context.projectName, workspace),
-          version: "0.1.0",
-          private: true,
-          type: "module",
-          description: `${context.projectDisplayName} ${workspace} workspace.`,
-        },
-        null,
-        2,
-      )}\n`,
-      logger,
-    )
-    writeFileIfMissing(
-      join("apps", workspace, "README.md").replace(/\\/g, "/"),
-      `# ${context.projectDisplayName} — ${workspace}\n\nMonorepo workspace placeholder. Add implementation for this surface when the milestone reaches it.\n`,
-      logger,
-    )
+    writeWorkspaceScaffold(context, logger, join("apps", workspace), workspace, workspace)
   }
 
-  mkdirSync("packages/shared", { recursive: true })
   mkdirSync("packages/shared/api", { recursive: true })
-  writeFileIfMissing(
-    "packages/shared/package.json",
-    `${JSON.stringify(
-      {
-        name: workspacePackageName(context.projectName, "shared"),
-        version: "0.1.0",
-        private: true,
-        type: "module",
-        description: `${context.projectDisplayName} shared workspace package.`,
-      },
-      null,
-      2,
-    )}\n`,
-    logger,
-  )
-  writeFileIfMissing(
-    "packages/shared/README.md",
-    `# ${context.projectDisplayName} — shared\n\nCommon contracts, shared utilities, and reusable modules live here as the monorepo grows.\n`,
-    logger,
-  )
+  writeWorkspaceScaffold(context, logger, "packages/shared", "shared", "shared")
   writeFileIfMissing(
     "packages/shared/api/README.md",
     `# ${context.projectDisplayName} — shared API wrappers\n\nPlace agent-facing API wrappers in subdirectories under this folder. Each service should expose one stable contract for agent workflows.\n`,
     logger,
   )
-  writeFileIfMissing(
-    "bunfig.toml",
-    "[install]\nlinker = \"isolated\"\n",
-    logger,
-  )
+  if (normalizeContextEcosystem(context) === "bun") {
+    writeFileIfMissing(
+      "bunfig.toml",
+      "[install]\nlinker = \"isolated\"\n",
+      logger,
+    )
+  }
 }
 
 function writeAgentSkillScaffold({ context, skillRoot, logger }: SetupParams): void {
@@ -330,14 +588,18 @@ function writeCoreFiles({ context, skillRoot, logger }: SetupParams): void {
     context.isUiProject || relativePath !== "design/DESIGN_SYSTEM.md.template",
   )
   writeTemplateTree(skillRoot, context, "scripts", "scripts", logger)
-  writeTemplateTree(skillRoot, context, "src", "src", logger)
-  writeTemplateTree(skillRoot, context, "tests", "tests", logger)
 
   writeFileIfMissing(
     ".dependency-cruiser.cjs",
     readTemplate(skillRoot, context, ".dependency-cruiser.cjs.template"),
     logger,
   )
+  if (isTurboWorkspaceEcosystem(normalizeContextEcosystem(context))) {
+    writeFileIfMissing("turbo.json", readTemplate(skillRoot, context, "turbo.json.template"), logger)
+  }
+  if (normalizeContextEcosystem(context) === "node-pnpm") {
+    writeFileIfMissing("pnpm-workspace.yaml", readTemplate(skillRoot, context, "pnpm-workspace.yaml.template"), logger)
+  }
   writeFileIfMissing("gitbook.yaml", readTemplate(skillRoot, context, "gitbook.yaml.template"), logger)
   writeFileIfMissing("biome.json", readTemplate(skillRoot, context, "biome.json.template"), logger)
   writeFileIfMissing("tsconfig.json", readTemplate(skillRoot, context, "tsconfig.json.template"), logger)
@@ -394,7 +656,7 @@ function installHooks(skillRoot: string, logger: SetupLogger): void {
   writeFileIfMissing(join(".codex", "rules", "guardian.rules"), CODEX_GUARDIAN_RULES, logger)
 }
 
-function updatePackageJson(logger: SetupLogger): void {
+function updatePackageJson(logger: SetupLogger, ecosystem: SupportedEcosystem): void {
   logger.step("Update package.json scripts")
 
   if (!existsSync("package.json")) {
@@ -403,19 +665,27 @@ function updatePackageJson(logger: SetupLogger): void {
   }
 
   const pkg = JSON.parse(readFileSync("package.json", "utf-8")) as {
+    devDependencies?: Record<string, string>
     packageManager?: string
     scripts?: Record<string, string>
+    workspaces?: string[]
   }
 
-  pkg.scripts = {
-    ...(pkg.scripts ?? {}),
-    "check:deps":
-      "dependency-cruiser --config .dependency-cruiser.cjs src --output-type err-long",
+  const workspaceDefaults = workspaceFirstRootScripts(ecosystem)
+
+  const currentScripts = pkg.scripts ?? {}
+  const preservedScripts = Object.fromEntries(
+    Object.entries(currentScripts).filter(([key]) =>
+      !MANAGED_ROOT_SCRIPT_KEYS.includes(key as typeof MANAGED_ROOT_SCRIPT_KEYS[number]) &&
+      !key.startsWith("harness:"),
+    ),
+  )
+  const harnessScripts = {
     "harness:init": "bun .harness/init.ts",
     "harness:init:prd": "bun .harness/init.ts --from-prd",
     "harness:stage": "bun .harness/stage.ts",
     "harness:approve": "bun .harness/approve.ts",
-      "harness:sync-backlog": "bun .harness/init.ts --sync-from-prd",
+    "harness:sync-backlog": "bun .harness/init.ts --sync-from-prd",
     "harness:advance": "bun .harness/advance.ts",
     "harness:add-surface": "bun .harness/add-surface.ts",
     "harness:autoflow": "bun .harness/orchestrator.ts --auto",
@@ -444,10 +714,48 @@ function updatePackageJson(logger: SetupLogger): void {
     "harness:compact:status": "bun .harness/compact.ts --status",
     "harness:hooks:install": "bun scripts/harness-local/restore.ts",
   }
-  pkg.packageManager = pkg.packageManager ?? "bun@latest"
+
+  pkg.scripts = {
+    ...workspaceDefaults,
+    ...preservedScripts,
+    ...harnessScripts,
+  }
+
+  if (isWorkspaceFirstEcosystem(ecosystem)) {
+    const currentWorkspaces = Array.isArray(pkg.workspaces)
+      ? pkg.workspaces.filter((entry): entry is string => typeof entry === "string")
+      : []
+    pkg.workspaces = Array.from(new Set([...currentWorkspaces, "apps/*", "packages/*"]))
+    const preservedDevDependencies = Object.fromEntries(
+      Object.entries(pkg.devDependencies ?? {}).filter(([key]) =>
+        !MANAGED_DEV_DEP_KEYS.includes(key as typeof MANAGED_DEV_DEP_KEYS[number]),
+      ),
+    )
+    pkg.devDependencies = {
+      ...workspaceFirstDevDependencies(ecosystem),
+      ...preservedDevDependencies,
+    }
+  }
+  const nextPackageManager = packageManagerField(ecosystem)
+  if (nextPackageManager) {
+    const binary = packageManagerBinary(ecosystem) ?? ""
+    if (!pkg.packageManager || (binary && pkg.packageManager.startsWith(`${binary}@`))) {
+      pkg.packageManager = nextPackageManager
+    }
+  }
 
   writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`)
   logger.log("harness:* scripts added to package.json")
+}
+
+function backfillWorkspaceFirstBaseline(params: SetupParams): void {
+  if (!isWorkspaceFirstEcosystem(normalizeContextEcosystem(params.context))) {
+    return
+  }
+
+  ensureProjectStructure(params.logger)
+  writeCoreFiles(params)
+  ensureMonorepoBaseline(params)
 }
 
 function setupGitignore(logger: SetupLogger): void {
@@ -878,15 +1186,21 @@ export async function runRuntimeUpgrade(params: RuntimeUpgradeParams): Promise<v
     logger.error(".harness/state.json does not exist. Run Harness setup before upgrading the runtime.")
   }
 
+  const currentState = readProjectStateFromDisk(STATE_PATH)
+  const context = createContextForState(currentState, skillRoot)
+
   console.log(`\n${"═".repeat(55)}`)
   console.log("  🔄 Harness Runtime Upgrade")
   console.log(`${"═".repeat(55)}`)
 
-  await checkEnv(logger)
+  await checkEnv(logger, currentState.toolchain.ecosystem)
   copyHarnessRuntime(skillRoot, logger)
   copyAgentSpecs(skillRoot, logger)
-  syncRuntimeManagedFiles(skillRoot, logger)
-  updatePackageJson(logger)
+  syncRuntimeManagedFiles(context, skillRoot, logger)
+  backfillWorkspaceFirstBaseline({ context, skillRoot, logger })
+  writeAgentSkillScaffold({ context, skillRoot, logger })
+  setupGitignore(logger)
+  updatePackageJson(logger, currentState.toolchain.ecosystem)
   installHooks(skillRoot, logger)
 
   const state = deriveStateFromFilesystem(readProjectStateFromDisk(STATE_PATH), {
@@ -917,7 +1231,7 @@ export async function runSetup(params: SetupParams): Promise<void> {
   console.log(`  🔨 Harness Setup — ${context.projectDisplayName} (${context.projectTypeLabel})`)
   console.log(`${"═".repeat(55)}`)
 
-  await checkEnv(logger)
+  await checkEnv(logger, normalizeContextEcosystem(context))
   copyHarnessRuntime(skillRoot, logger)
   copyAgentSpecs(skillRoot, logger)
   ensureProjectStructure(logger)
@@ -925,7 +1239,7 @@ export async function runSetup(params: SetupParams): Promise<void> {
   ensureMonorepoBaseline(params)
   writeAgentSkillScaffold(params)
   setupGitignore(logger)
-  updatePackageJson(logger)
+  updatePackageJson(logger, normalizeContextEcosystem(context))
   ensureGitRepository(logger)
   installHooks(skillRoot, logger)
   const githubResult = await setupGitHub(params)
@@ -936,11 +1250,12 @@ export async function runSetup(params: SetupParams): Promise<void> {
   console.log("  ✅ Harness initialization complete")
   console.log("")
   console.log("  Next steps:")
-  console.log("    1. bun install")
-  console.log("    2. Fill in actual content for docs/prd/ and docs/architecture/")
-  console.log("    3. bun harness:advance")
-  console.log("    4. bun harness:env")
-  console.log("    5. bun harness:validate --phase EXECUTING")
-  console.log("    6. git tag v0.1.0 && git push origin v0.1.0  (first release)")
+  console.log(`    1. ${context.installCommand}`)
+  console.log("    2. Review the generated apps/* and packages/shared workspace placeholders")
+  console.log("    3. Fill in actual content for docs/prd/ and docs/architecture/")
+  console.log("    4. bun harness:advance")
+  console.log("    5. bun harness:env")
+  console.log("    6. bun harness:validate --phase EXECUTING")
+  console.log("    7. git tag v0.1.0 && git push origin v0.1.0  (first release)")
   console.log(`${"═".repeat(55)}\n`)
 }

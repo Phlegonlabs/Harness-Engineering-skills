@@ -38,6 +38,8 @@ In about a minute you should have:
 - `.harness/state.json`
 - a runnable orchestrator entrypoint for the next step
 
+Generated JS/TS repos now default to a workspace-first layout: product code lives under `apps/<surface>` and `packages/shared`. Bun-managed repos dispatch root tasks through Turborepo; npm/pnpm-managed repos dispatch them through the local Harness workspace runner.
+
 For an existing repository, swap step 3 to:
 
 ```bash
@@ -47,7 +49,7 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 ## Start Here
 
 - Install: `npx skills add https://github.com/Phlegonlabs/Harness-Engineering-skills --skill harness-engineering-orchestrator`
-- Current release target: `v1.8.2`
+- Current release target: `v1.8.5`
 - Best for: teams that want AI coding agents to work inside a controlled PRD-to-code delivery system instead of free-form prompt chains
 - Main package: `harness-engineering-orchestrator` for discovery, stack selection, PRD, architecture, milestone/task execution, and validation
 - Read next: [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)

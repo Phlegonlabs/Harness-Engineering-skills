@@ -1,8 +1,15 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
-import type { AIProvider, Milestone, ProjectState, TeamSize } from "../types"
+import type { AIProvider, Milestone, ProjectState, TeamSize, ToolchainConfig } from "../types"
 import { getCurrentDeliveryPhase, getCurrentProductStage, getNextDeferredProductStage, isPlanApproved } from "./stages"
 import { hasAgentSurface, projectTypeSummary, surfaceWorkspaceList } from "./surfaces"
+import {
+  isTurboWorkspaceEcosystem,
+  usesHarnessWorkspaceRunner,
+  packageManagerLabelForEcosystem,
+  rootScriptPrefixForEcosystem,
+  workspaceModelForEcosystem,
+} from "./toolchain-registry.js"
 
 export type ManagedFileSpec = {
   content: string
@@ -23,10 +30,16 @@ type AutomationContext = {
   description: string
   displayName: string
   hasAgent: boolean
+  installCommand: string
+  packageManagerLabel: string
   publicStatus: PublicDeliveryStatus
   projectName: string
+  rootScriptPrefix?: string
   teamSizeLabel: string
   typeSummary: string
+  usesWorkspaceRunner: boolean
+  usesTurboWorkspace: boolean
+  workspaceModel: string
   workspaceList: string[]
 }
 
@@ -182,7 +195,29 @@ function renderPublicStatusSection(status: PublicDeliveryStatus): string {
 `
 }
 
+function installCommandFromToolchain(toolchain?: ToolchainConfig): string {
+  return toolchain?.commands.install.command?.trim() || "Install dependencies with the active project toolchain."
+}
+
+function renderWorkspaceCommandNote(ctx: AutomationContext): string {
+  if (ctx.rootScriptPrefix && ctx.usesTurboWorkspace) {
+    return `Root quality/build entrypoints stay at \`${ctx.rootScriptPrefix} <task>\` and dispatch through Turborepo across the workspaces in \`apps/*\` and \`packages/shared\`.`
+  }
+
+  if (ctx.rootScriptPrefix && ctx.usesWorkspaceRunner) {
+    return `Root quality/build entrypoints stay at \`${ctx.rootScriptPrefix} <task>\` and dispatch through the local Harness workspace runner across \`packages/*\` and \`apps/*\`.`
+  }
+
+  if (ctx.rootScriptPrefix) {
+    return `Repo-wide quality/build commands stay at the root as \`${ctx.rootScriptPrefix} <task>\`, following the scripts recorded for this repository.`
+  }
+
+  return "Repo-wide quality/build commands should follow the toolchain commands recorded in `.harness/state.json`."
+}
+
 function buildContext(state: ProjectState): AutomationContext {
+  const ecosystem = state.toolchain?.ecosystem
+
   return {
     aiProviderLabel: AI_PROVIDER_LABELS[state.projectInfo.aiProvider],
     apiServices: listApiServices(),
@@ -190,10 +225,16 @@ function buildContext(state: ProjectState): AutomationContext {
     description: readPackageDescription(),
     displayName: state.projectInfo.displayName || state.projectInfo.name || "Project",
     hasAgent: hasAgentSurface(state.projectInfo.types),
+    installCommand: installCommandFromToolchain(state.toolchain),
+    packageManagerLabel: packageManagerLabelForEcosystem(ecosystem),
     publicStatus: buildPublicStatus(state),
     projectName: state.projectInfo.name || "project",
+    rootScriptPrefix: rootScriptPrefixForEcosystem(ecosystem),
     teamSizeLabel: TEAM_SIZE_LABELS[state.projectInfo.teamSize],
     typeSummary: projectTypeSummary(state.projectInfo.types),
+    usesWorkspaceRunner: usesHarnessWorkspaceRunner(ecosystem),
+    usesTurboWorkspace: isTurboWorkspaceEcosystem(ecosystem),
+    workspaceModel: workspaceModelForEcosystem(ecosystem),
     workspaceList: surfaceWorkspaceList(state.projectInfo.types),
   }
 }
@@ -226,7 +267,7 @@ ${renderPublicStatusSection(ctx.publicStatus)}
 ## Workflow
 
 \`\`\`bash
-bun install
+${ctx.installCommand}
 bun harness:orchestrate
 bun harness:upgrade-runtime
 bun harness:approve --plan
@@ -241,6 +282,7 @@ bun harness:audit
 \`\`\`
 
 This workspace is monorepo-first. Keep adding new surfaces inside the same repository as later milestones.
+${renderWorkspaceCommandNote(ctx)}
 Use \`bun .harness/orchestrator.ts\` when you want a read-only preview of the next agent or task packet. Use \`bun harness:orchestrate --json\` when the parent runtime needs the machine-readable launch cycle from \`.harness/launches/latest.json\`.
 Use \`bun harness:upgrade-runtime --skill-root <path-to-installed-skill>\` the first time an existing managed repo pulls a newer runtime from the installed skill, then \`bun harness:upgrade-runtime\` for subsequent refreshes. \`bun harness:hooks:install\` only restores the repo's recorded local snapshot.
 Do not bootstrap product frameworks such as Next.js, Tauri, or provider SDK stacks during scaffold setup. Introduce them only inside milestone tasks.
@@ -265,7 +307,7 @@ function renderQuickStart(ctx: AutomationContext): string {
 ${renderPublicStatusSection(ctx.publicStatus)}
 
 \`\`\`bash
-bun install
+${ctx.installCommand}
 bun .harness/state.ts --show
 bun harness:orchestrate
 bun harness:upgrade-runtime
@@ -281,6 +323,7 @@ bun harness:audit
 \`\`\`
 
 After these steps, continue from \`docs/PROGRESS.md\`, \`docs/progress/\`, and \`.harness/state.json\`.
+${renderWorkspaceCommandNote(ctx)}
 Use \`bun .harness/orchestrator.ts\` for read-only routing preview; use \`bun harness:orchestrate --json\` when the parent runtime should consume a real launch cycle and lifecycle commands.
 Use \`bun harness:upgrade-runtime --skill-root <path-to-installed-skill>\` when an older managed repo needs the newest installed runtime. After the project records its skill source, \`bun harness:upgrade-runtime\` can be run without flags.
 \`bun harness:approve --plan\` records overall planning approval; \`bun harness:approve --phase V1\` records approval for the launch phase before execution begins.
@@ -314,10 +357,10 @@ ${renderPublicStatusSection(ctx.publicStatus)}
 
 | Area | Choice |
 |------|--------|
-| Package manager | Bun |
+| Package manager | ${ctx.packageManagerLabel} |
 | Workflow | Harness Engineering |
 | Project type | ${ctx.typeSummary} |
-| Workspace model | Monorepo (Bun workspaces default) |
+| Workspace model | ${ctx.workspaceModel} |
 | Delivery mode | ${ctx.deliveryMode} |
 | AI provider | ${ctx.aiProviderLabel} |
 | Team size | ${ctx.teamSizeLabel} |
@@ -341,11 +384,12 @@ After an interactive phase is complete, advance the lifecycle with \`bun harness
 Use \`bun harness:stage --status\` to inspect the current delivery roadmap. Before the first execution phase begins, record approvals with \`bun harness:approve --plan\` and \`bun harness:approve --phase V1\`. After deploy / real-world review, update PRD / Architecture, approve the next draft phase with \`bun harness:approve --phase V[N]\`, then run \`bun harness:stage --promote V[N]\` to activate it.
 If product scope changes inside the current delivery version, update the PRD first. \`bun harness:scope-change --apply\` already syncs backlog/progress for queued changes; use \`bun harness:sync-backlog\` only after direct PRD edits.
 During scaffold setup, do not pre-install project frameworks such as Next.js or Tauri; add them later inside milestone tasks.
+${renderWorkspaceCommandNote(ctx)}
 
 ## Quick Start
 
 \`\`\`bash
-bun install
+${ctx.installCommand}
 bun harness:orchestrate
 bun harness:approve --plan
 bun harness:approve --phase V1

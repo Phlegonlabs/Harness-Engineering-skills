@@ -52,7 +52,7 @@ const type = getArg("--type")
 const workspace = getArg("--workspace")
 
 if (!type) {
-  console.error("Usage: bun .harness/add-surface.ts --type <web-app|ios-app|cli|agent|desktop> [--workspace <name>]")
+  console.error("Usage: bun .harness/add-surface.ts --type <web-app|ios-app|android-app|api|mobile-cross-platform|cli|agent|desktop> [--workspace <name>]")
   process.exit(1)
 }
 

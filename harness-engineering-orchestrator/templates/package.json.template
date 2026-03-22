@@ -4,26 +4,26 @@
   "description": [PROJECT_DESCRIPTION_JSON],
   "private": true,
   "type": "module",
-  "packageManager": "bun@latest",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
     "_comment": "harness:* scripts are injected by setup/core.ts updatePackageJson() at runtime — do not add them here",
-    "check:deps": "dependency-cruiser --config .dependency-cruiser.cjs src --output-type err-long",
-    "typecheck": "tsc --project tsconfig.json --noEmit",
-    "lint": "biome check src tests",
-    "format": "biome format --write src tests",
-    "format:check": "biome format src tests",
-    "test": "bun test",
-    "build": "bun build ./src/app/index.ts --outdir ./dist"
+    "check:deps": "dependency-cruiser --config .dependency-cruiser.cjs . --output-type err-long",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "test": "turbo run test",
+    "build": "turbo run build"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
     "@types/node": "latest",
     "bun-types": "latest",
     "dependency-cruiser": "latest",
+    "turbo": "latest",
     "typescript": "latest"
   }
 }

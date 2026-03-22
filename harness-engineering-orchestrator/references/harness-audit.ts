@@ -6,6 +6,7 @@ import type { ValidationReporter } from "./runtime/validation/reporter"
 import { validateEnv, validateGuardians } from "./runtime/validation/env-and-guardians"
 import { validatePhaseGate } from "./runtime/validation/phase"
 import { getManagedDocSpecs, getManagedSkillSpecs, hasManagedDrift } from "./runtime/generated-files"
+import { isTurboWorkspaceEcosystem, isWorkspaceFirstEcosystem, usesHarnessWorkspaceRunner } from "./runtime/toolchain-registry.js"
 import { runBun } from "./runtime/validation/helpers"
 import { loadState, saveState, syncStateFromFilesystem } from "./runtime/validation/state"
 import { hasAgentSurface, surfaceWorkspaceList } from "./runtime/surfaces"
@@ -45,6 +46,11 @@ function auditWorkspaceContract(entries: AuditEntry[], state: ReturnType<typeof 
   const reporter = createAuditReporter(entries)
   reporter.section("Workspace Contract")
 
+  if (!isWorkspaceFirstEcosystem(state.toolchain?.ecosystem)) {
+    reporter.warn(`Workspace-first scaffold checks are skipped for ecosystem ${state.toolchain?.ecosystem ?? "custom"}`)
+    return
+  }
+
   const pkg = existsSync("package.json")
     ? (JSON.parse(readFileSync("package.json", "utf-8")) as { workspaces?: string[] })
     : { workspaces: [] }
@@ -56,11 +62,32 @@ function auditWorkspaceContract(entries: AuditEntry[], state: ReturnType<typeof 
   if (workspaces.includes("packages/*")) reporter.pass("package.json includes packages/* workspace")
   else reporter.failSoft("package.json is missing packages/* workspace")
 
+  if (isTurboWorkspaceEcosystem(state.toolchain?.ecosystem)) {
+    if (existsSync("turbo.json")) reporter.pass("turbo.json is present")
+    else reporter.failSoft("turbo.json is present")
+  }
+
+  if (usesHarnessWorkspaceRunner(state.toolchain?.ecosystem)) {
+    if (existsSync("scripts/harness-local/workspace-runner.mjs")) reporter.pass("scripts/harness-local/workspace-runner.mjs is present")
+    else reporter.failSoft("scripts/harness-local/workspace-runner.mjs is present")
+  }
+
+  if (state.toolchain?.ecosystem === "node-pnpm") {
+    if (existsSync("pnpm-workspace.yaml")) reporter.pass("pnpm-workspace.yaml is present")
+    else reporter.failSoft("pnpm-workspace.yaml is present")
+  }
+
   for (const workspace of surfaceWorkspaceList(state.projectInfo.types)) {
     if (existsSync(`apps/${workspace}/package.json`)) {
       reporter.pass(`apps/${workspace}/package.json is present`)
     } else {
       reporter.failSoft(`apps/${workspace}/package.json is present`)
+    }
+
+    if (existsSync(`apps/${workspace}/src/app/index.ts`)) {
+      reporter.pass(`apps/${workspace}/src/app/index.ts is present`)
+    } else {
+      reporter.failSoft(`apps/${workspace}/src/app/index.ts is present`)
     }
   }
 
@@ -68,6 +95,12 @@ function auditWorkspaceContract(entries: AuditEntry[], state: ReturnType<typeof 
     reporter.pass("packages/shared/package.json is present")
   } else {
     reporter.failSoft("packages/shared/package.json is present")
+  }
+
+  if (existsSync("packages/shared/src/app/index.ts")) {
+    reporter.pass("packages/shared/src/app/index.ts is present")
+  } else {
+    reporter.failSoft("packages/shared/src/app/index.ts is present")
   }
 }
 

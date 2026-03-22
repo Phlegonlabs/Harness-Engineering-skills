@@ -77,6 +77,11 @@ Its job is to turn an idea or an existing codebase into a controlled delivery lo
 
 ### Changes in v1.8.4
 
+- Switched Bun greenfield scaffolds to a workspace-first monorepo layout rooted in `apps/<surface>` and `packages/shared`
+- Made generated Bun repo entry scripts (`bun run lint/typecheck/test/build`) dispatch through Turborepo while keeping Harness lifecycle commands unchanged
+- Updated scaffold templates, public docs, and E2E expectations so Bun/TypeScript repos describe and validate the new Turborepo-backed workflow consistently
+- Kept the published Bun ecosystem contract stable in runtime state by routing the change through generated scripts and `sourceRoot = "."` for greenfield Bun monorepos
+
 - Fixed the end-to-end matrix so deep orchestrator checks match the current delivery-phase approval model and deferred-stage behavior
 - Hardened E2E assertions to use generated milestone IDs instead of stale hardcoded IDs after roadmap expansion and scope-change application
 - Made the E2E runner fail the process when any smoke, command, or deep coverage step fails, so CI and release tagging reflect the real result
