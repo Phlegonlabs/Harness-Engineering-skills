@@ -10,7 +10,7 @@ Define persistent constraints that remain effective throughout the entire proces
 
 #### G1 — PRD is the single source of requirements
 
-- **Rule**: Every feature, task, and milestone must trace back to `docs/prd/`. No implementation work begins without a PRD entry.
+- **Rule**: Every feature, task, and milestone must trace back to `docs/PRD.md`. No implementation work begins without a PRD entry.
 - **Detection**: Orchestrator verifies PRD mapping before dispatching any task. PR body must reference `PRD#F[ID]`.
 - **Violation handling**: Block task dispatch; require PRD update before proceeding.
 - **Owner**: Orchestrator

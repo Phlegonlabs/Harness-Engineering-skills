@@ -50,6 +50,11 @@ bun test harness-engineering-orchestrator/references/runtime/execution.parallel.
 bun test harness-engineering-orchestrator/references/runtime/orchestrator/parallel-dispatch.test.ts
 bun test harness-engineering-orchestrator/references/runtime/hooks/check-guardian.test.ts
 bun test harness-engineering-orchestrator/references/runtime/hooks/install-git-hooks.test.ts
+bun test harness-engineering-orchestrator/references/runtime/automation.test.ts
+bun test harness-engineering-orchestrator/references/runtime/prd-delta.test.ts
+bun test harness-engineering-orchestrator/references/runtime/orchestrator/launcher.test.ts
+bun test harness-engineering-orchestrator/references/runtime/orchestrator/runtime-adapter.test.ts
+bun test harness-engineering-orchestrator/references/runtime/validation/task.test.ts
 bun test harness-engineering-orchestrator/scripts/setup/core.test.ts
 ```
 

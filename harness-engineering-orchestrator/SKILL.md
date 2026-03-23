@@ -294,7 +294,6 @@ Use:
 
 - [agents/prd-architect.md](./agents/prd-architect.md)
 - [references/document-templates.md](./references/document-templates.md)
-- [references/document-templates.md](./references/document-templates.md)
 
 ## Phase 4: Scaffold
 
@@ -562,8 +561,7 @@ The skill tracks 5 metric categories: throughput, quality, human_attention, harn
 
 - Metrics are collected via `bun harness:metrics` and stored in `state.metrics`
 - Observability state tracks dev servers, log directories, and MCP browser availability
-- See [references/observability.md](./references/observability.md) for metric definitions
-- See [references/observability.md](./references/observability.md) for dev server management and log routing
+- See [references/observability.md](./references/observability.md) for metric definitions, dev server management, and log routing
 
 ## Safety Model
 
