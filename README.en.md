@@ -49,12 +49,12 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 ## Start Here
 
 - Install: `npx skills add https://github.com/Phlegonlabs/Harness-Engineering-skills --skill harness-engineering-orchestrator`
-- Current release target: `v1.8.5`
+- Current release target: `v1.8.6`
 - Best for: teams that want AI coding agents to work inside a controlled PRD-to-code delivery system instead of free-form prompt chains
 - Main package: `harness-engineering-orchestrator` for discovery, stack selection, PRD, architecture, milestone/task execution, and validation
 - Read next: [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)
 
-## Featured Skill
+## Published Skill
 
 | Skill | What it does | Best for |
 |---|---|---|
@@ -70,16 +70,13 @@ Harness Engineering is for teams that want AI coding agents to operate inside a 
 - staged delivery (`V1 -> deploy review -> V2`) instead of one drifting backlog
 - resumable collaboration across sessions, agents, and humans
 
-The repository is intentionally shaped to support multiple domain skill packages over time. `harness-engineering-orchestrator` is the first published package, and future packages can sit beside it under the same root.
+This repository is focused on the published `harness-engineering-orchestrator` skill and the supporting metadata needed to install, validate, and contribute to it.
 
 ## What this repository contains
 
 - `README.md`: this entry page and high-level usage guide.
 - `README.en.md`: English documentation.
 - `README.zh-CN.md`: Chinese documentation.
-- `AGENTS.md` + `CLAUDE.md`: contributor agent instructions loaded automatically by Claude Code and Codex when working in this repository.
-- `SKILLS.md`: catalog of all published skills with install commands.
-- `docs/`: contributor guides, including `new-skill-guide.md` for adding new skills.
 - `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`: repository-level open source metadata and contribution policy.
 - `harness-engineering-orchestrator/`: the published skill package.
   - `SKILL.md`: the runtime contract the skill executes.
@@ -88,6 +85,8 @@ The repository is intentionally shaped to support multiple domain skill packages
   - `scripts/`: setup and validation automation.
   - `templates/`: scaffold files and example structure.
   - `config.example.json`: team configuration template (copy to `config.json` to set org-wide defaults).
+
+The repository itself no longer carries root-level `AGENTS.md` or `CLAUDE.md`. Those runtime instruction files are generated inside target projects by `harness-engineering-orchestrator` when needed.
 
 ## Language
 
@@ -205,18 +204,15 @@ If these are present and readable, your repo is likely on the right track for th
 
 ## Contributing
 
-This repo is intentionally small and focused. Contributors can help by adding reference templates, strengthening gates, improving execution playbooks, or publishing new skills alongside the orchestrator.
+This repo is intentionally small and focused. Contributors can help by adding reference templates, strengthening gates, or improving the published orchestrator skill and its execution playbooks.
 
 - For general contributions: read [CONTRIBUTING.md](./CONTRIBUTING.md)
-- For adding a new skill: read [docs/new-skill-guide.md](./docs/new-skill-guide.md)
-- For AI agent contributors (Claude Code, Codex): `AGENTS.md` and `CLAUDE.md` at the repo root are loaded automatically and contain project conventions, key commands, and prohibited operations
+- For AI agent contributors (Claude Code, Codex): use the repository docs here plus the published skill docs in [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md) and [harness-engineering-orchestrator/SKILL.md](./harness-engineering-orchestrator/SKILL.md)
 
 ## References
 
 - [Chinese documentation](./README.zh-CN.md)
 - [English documentation](./README.en.md)
-- [Skill catalog](./SKILLS.md)
-- [New skill guide](./docs/new-skill-guide.md)
 - [Skill contract](./harness-engineering-orchestrator/SKILL.md)
 - [License](./LICENSE)
 - [Contributing](./CONTRIBUTING.md)
