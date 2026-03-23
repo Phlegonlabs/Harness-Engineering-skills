@@ -75,7 +75,7 @@ function commonConstraints(): string[] {
     "Do not introduce forbidden patterns or secret-like values in source code [G4/G6].",
     "No single source file may exceed 400 lines; split immediately if exceeded [G3].",
     "Dependency direction: types → config → lib → services → app. Reverse imports are forbidden [G5].",
-    "LEARNING.md must not enter the repo; use ~/.codex/LEARNING.md or ~/.claude/LEARNING.md [G9].",
+    "LEARNING.md must not enter the repo; use ~/.codex/LEARNING.md or ~/.claude/LEARNING.md [G4].",
     "Use explicit validation gates before progression; do not hand-wave completion.",
   ]
 }

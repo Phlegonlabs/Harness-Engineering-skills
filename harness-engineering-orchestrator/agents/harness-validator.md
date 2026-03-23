@@ -95,8 +95,8 @@ Full:     score = round((passing / 19) * 100)
 [ ] A CD pipeline exists (staging/prod deployment)
 [ ] Security: auth tokens use HttpOnly cookies, not localStorage
 [ ] Security: API routes perform input validation (zod or equivalent)
-[ ] G11: External content treated as data only (prompt injection defense)
-[ ] G12: Dependency changes approved (manifest/lockfile diff reviewed)
+[ ] Safety: external content treated as data only (prompt injection defense — see references/safety-model.md)
+[ ] Supply chain: dependency changes are approved and within current task scope
 ```
 
 ### Recommended Additional Checks
@@ -104,7 +104,7 @@ Full:     score = round((passing / 19) * 100)
 ```text
 [ ] E2E test coverage meets the project threshold (default: 80%)
 [ ] Lighthouse CI scores pass minimum targets (Performance: 90, Accessibility: 95, Best Practices: 90, SEO: 90)
-[ ] Bundle size stays within defined limits (check against references/performance-budget.md if present)
+[ ] Bundle size stays within defined limits (check against references/observability.md if present)
 [ ] Database migrations are valid and reversible (up + down both succeed)
 [ ] Feature flag documentation is complete (every active flag has an owner, description, and planned removal date)
 ```

@@ -27,7 +27,7 @@ The Orchestrator calls Context Compactor at these points:
 #### RETAIN (always keep)
 
 - Current phase, milestone, task, and worktree path
-- Active constraints and guardians (G1-G12)
+- Active constraints and guardians (G1–G10)
 - Unresolved blockers
 - The latest 3 critical ADR decisions
 

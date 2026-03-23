@@ -85,7 +85,7 @@ Full list: `docs/ai/03-guardrails.md`
 
 ## Automated Hooks
 
-Git hooks, Claude Code hooks, and Codex CLI hooks automatically enforce or surface Guardians G2-G12:
+Git hooks, Claude Code hooks, and Codex CLI hooks automatically enforce or surface Guardians G2-G10:
 
 - **Pre-commit**: blocks commits on main, files > 400 lines, forbidden patterns, secrets, LEARNING.md
 - **Commit-msg**: validates the current Task-ID and PRD mapping during EXECUTING on feature branches
@@ -93,7 +93,7 @@ Git hooks, Claude Code hooks, and Codex CLI hooks automatically enforce or surfa
 - **Post-commit**: auto-syncs AGENTS.md ↔ CLAUDE.md
 - **Claude Code**: PreToolUse blocks forbidden patterns in Write/Edit and dangerous commands in Bash
 - **Codex CLI**: execpolicy rules block `--no-verify`, `git add .`, `git add -A`; notification hooks run post-task validation
-- **Instruction-level only**: G1, G7, and G11 remain Orchestrator / AGENTS.md contracts rather than hook-managed runtime checks
+- **Instruction-level only**: G1 and G7 remain Orchestrator / AGENTS.md contracts rather than hook-managed runtime checks
 - **Emergency bypass**: `HARNESS_HOOKS_SKIP=1 git commit ...`
 
 Hook surfaces are guardrails. They do not replace orchestrator dispatch/lifecycle logic.

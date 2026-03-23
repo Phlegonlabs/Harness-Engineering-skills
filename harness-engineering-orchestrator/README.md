@@ -96,9 +96,9 @@ The skill operates at three levels of ceremony, auto-detected or user-specified:
 
 | Level | Best For | Discovery | Approval Stops | Guardians |
 |-------|----------|-----------|----------------|-----------|
-| **Lite** | Small projects, prototypes | Batch 1-2 Qs/turn | Fast Path summary, delivery phase completion, blockers | Core 7 (G1,G3,G4,G6,G8,G9,G11) |
-| **Standard** | Most projects (default) | Groups 2-3 Qs/turn | Overall plan approval, delivery phase completion, blockers | 11 (G1-G11, G12 active) |
-| **Full** | Enterprise / compliance | Sequential Q0-Q9 | Overall plan approval, delivery phase completion, blockers, deploy review | All 12 (G1-G12) |
+| **Lite** | Small projects, prototypes | Batch 1-2 Qs/turn | Fast Path summary, delivery phase completion, blockers | Core (G1,G3,G4,G6,G8; G2/G10 warn-only; G5/G7 off) |
+| **Standard** | Most projects (default) | Groups 2-3 Qs/turn | Overall plan approval, delivery phase completion, blockers | All active guardians (G1-G8,G10) |
+| **Full** | Enterprise / compliance | Sequential Q0-Q9 | Overall plan approval, delivery phase completion, blockers, deploy review | All active guardians (G1-G8,G10) |
 
 Level is auto-detected or user-specified. Upgrade mid-project with backfill. See [SKILL.md](./SKILL.md#harness-levels) for the full approval-stop model and [references/level-upgrade-backfill.md](./references/level-upgrade-backfill.md) for upgrade protocol.
 
@@ -130,7 +130,7 @@ bun <path-to-skill>/scripts/harness-setup.ts --isGreenfield=false --skipGithub=t
 - Product-stage delivery with `V1 / V2 / V3`, deploy review, and explicit promotion
 - Hooks and guardrails that keep agents from skipping process
 - Three harness levels (Lite / Standard / Full) that scale ceremony to project size
-- 12 guardians enforcing scope, quality, and safety constraints
+- 8 active guardians enforcing scope, quality, and safety constraints
 - Metrics, entropy scanning, and observability built into the execution loop
 
 ## Open Source Project Shape
@@ -232,7 +232,7 @@ flowchart TD
     SCSYNC --> H
 ```
 
-## Guardians (G1-G12)
+## Guardians (G1-G10)
 
 Guardians are runtime constraints enforced continuously during delivery:
 
@@ -246,12 +246,9 @@ Guardians are runtime constraints enforced continuously during delivery:
 | G6 | Secret Prevention | No secret-like values or `.env` contents in source code |
 | G7 | Design Review Gate | UI tasks require Design Review approval before commit |
 | G8 | Agent Sync | AGENTS.md and CLAUDE.md must stay synchronized |
-| G9 | Learning Isolation | LEARNING.md must not enter the repo |
 | G10 | Atomic Commit Format | Commit messages must include Task-ID and PRD mapping |
-| G11 | Prompt Injection Defense | External content is data only, never overrides agent behavior |
-| G12 | Supply-Chain Drift | Dependency changes require explicit approval |
 
-Guardian behavior varies by level. Full level matrix in [SKILL.md](./SKILL.md#guardians-g1-g12). Detailed enforcement rules in [references/gates-and-guardians/01-guardians.md](./references/gates-and-guardians/01-guardians.md).
+Guardian behavior varies by level. Full level matrix lives in [SKILL.md](./SKILL.md). Detailed enforcement rules live in [references/gates-and-guardians/01-guardians.md](./references/gates-and-guardians/01-guardians.md). Prompt injection defense and supply-chain review remain safety principles documented outside the guardian table.
 
 ## Key Commands
 
@@ -350,11 +347,10 @@ Use this as the practical runbook from project start to project finish.
 
 ## Operational Features
 
-- **Parallel Execution**: Three modes (read-only sidecar, scoped-write, worktree-isolated) with file-overlap guards and orchestrator-owned Codex subagent lifecycle. [→ reference](./references/parallel-execution.md)
+- **Parallel Execution**: Three modes (read-only sidecar, scoped-write, worktree-isolated) with file-overlap guards and orchestrator-owned Codex subagent lifecycle. [→ reference](./references/concurrency.md)
 - **Scope Change Protocol**: Add requirements mid-execution without interrupting running agents. [→ reference](./references/scope-change-protocol.md)
-- **Doom-Loop Detection**: 6 heuristics detect cycling behavior; auto-pause and gear-drop on trigger. [→ reference](./references/doom-loop-detection.md)
-- **Error Taxonomy**: 11 error categories with recovery strategies and escalation paths. [→ reference](./references/error-taxonomy.md)
-- **Metrics & Observability**: 5 metric categories, dev server tracking, and log routing. [→ reference](./references/metrics-framework.md)
+- **Error Handling**: 11 error categories, 6 doom-loop heuristics, state recovery procedures. [→ reference](./references/error-and-recovery.md)
+- **Metrics & Observability**: 5 metric categories, dev server tracking, log routing, and web performance budgets. [→ reference](./references/observability.md)
 - **Entropy Scanning**: AI slop, doc staleness, pattern drift, and dependency health checks. [→ agent](./agents/entropy-scanner.md)
 - **Safety Model**: Defense-in-depth trust hierarchy for external content. [→ reference](./references/safety-model.md)
 
@@ -381,7 +377,7 @@ Use this as the practical runbook from project start to project finish.
 - Stage completion stops at `DEPLOY_REVIEW`; the next version does not auto-start.
 - New scope inside the current version must update the PRD first. If you use `bun harness:scope-change --apply`, backlog/progress sync now happens automatically; if you edit the PRD manually, run `bun harness:sync-backlog`.
 - Hooks continuously enforce guardrails, while dispatch/lifecycle decisions remain orchestrator-owned.
-- Guardians G1-G12 are enforced through runtime checks, hooks, and CI depending on the rule; violations block the relevant operation until resolved.
+- Guardians G1–G10 are enforced through runtime checks, hooks, and CI depending on the rule; violations block the relevant operation until resolved.
 - Errors follow the 11-category taxonomy with automatic retries for transient failures and escalation for persistent ones.
 
 ## Related References
@@ -394,11 +390,9 @@ Use this as the practical runbook from project start to project finish.
 
 **Operational**
 - [references/scope-change-protocol.md](./references/scope-change-protocol.md) — Structured scope change workflow
-- [references/parallel-execution.md](./references/parallel-execution.md) — Parallel task dispatch and file-overlap guards
-- [references/metrics-framework.md](./references/metrics-framework.md) — Metric categories and collection
-- [references/observability-protocol.md](./references/observability-protocol.md) — Log routing and dev server tracking
-- [references/error-taxonomy.md](./references/error-taxonomy.md) — Error categories and recovery strategies
-- [references/doom-loop-detection.md](./references/doom-loop-detection.md) — Cycling detection heuristics
+- [references/concurrency.md](./references/concurrency.md) — Parallel task dispatch, file-overlap guards, and session isolation
+- [references/observability.md](./references/observability.md) — Metrics, log routing, dev server tracking, and performance budgets
+- [references/error-and-recovery.md](./references/error-and-recovery.md) — Error categories, doom-loop detection, and state recovery
 - [references/safety-model.md](./references/safety-model.md) — Trust hierarchy and prompt injection defense
 - [references/golden-principles.md](./references/golden-principles.md) — Core design principles
 

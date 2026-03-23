@@ -63,21 +63,16 @@ powershell -c "irm bun.sh/install.ps1 | iex"
 
 | File | Purpose |
 |------|---------|
-| `references/prd-template.md` | PRD structure |
-| `references/architecture-template.md` | Architecture structure |
+| `references/document-templates.md` | PRD and Architecture document templates |
 | `references/gates-and-guardians.md` | phase gates and guardian rules |
 | `references/worktree-workflow.md` | branch and worktree operations |
-| `references/gitbook-template.md` | documentation skeleton |
-| `references/readme-template.md` | public README structure |
-| `references/agents-md-template.md` | synchronized `AGENTS.md` and `CLAUDE.md` template |
-| `references/github-actions-template.md` | CI/CD scaffolding |
-| `references/database-migration.md` | database migration best practices |
-| `references/performance-budget.md` | performance budget targets |
-| `references/feature-flag-strategy.md` | feature flag lifecycle |
-| `references/cross-platform-notes.md` | cross-platform compatibility notes |
 | `references/stacks.md` and `references/stacks/` | stack-specific bootstrap guidance |
 | `references/html-prototype-guide.md` | HTML prototype generation rules and structure |
 | `references/hooks-guide.md` | Hook system architecture and guardian enforcement |
+| `references/error-and-recovery.md` | error taxonomy, doom-loop detection, state recovery |
+| `references/concurrency.md` | parallel execution, worktree sessions, OCC |
+| `references/observability.md` | metrics, dev server, logging, and performance budgets |
+| `references/advanced/` | advanced-only references (GitBook, ADR, database migration, feature flags, cross-platform, CI templates) |
 
 ## Repo Inventory Summary
 

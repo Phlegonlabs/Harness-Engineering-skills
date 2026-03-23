@@ -1,20 +1,18 @@
 # Contributing to Harness Skills
 
-Thanks for contributing. This repository is meant to grow into a multi-skill catalog, so contributions should improve either the shared repository shape or a specific skill package without making the workflow harder to reason about.
+Thanks for contributing. This repository is centered on the published `harness-engineering-orchestrator` skill, so contributions should improve that package or its supporting repo metadata without making the workflow harder to reason about.
 
 ## Repository Structure
 
-Each installable skill should live in its own top-level directory. Today the main published package is:
+The published skill package in this repository is:
 
 - `harness-engineering-orchestrator/`
-
-Over time, this repository may include additional domain-specific skills such as engineering, marketing, research, or other repo-backed workflows.
 
 ## What Good Contributions Look Like
 
 Good pull requests usually do one of these:
 
-- add or improve a skill package
+- improve the published skill package
 - improve installability or documentation at the repository level
 - strengthen runtime gates, hooks, or validation behavior
 - improve templates, references, or onboarding docs
@@ -62,10 +60,6 @@ bun test harness-engineering-orchestrator/scripts/setup/core.test.ts
 - State how the change was validated.
 - Avoid documenting behavior that the runtime does not actually implement.
 - Do not weaken guardrails without making the tradeoff explicit.
-
-## Adding a New Skill
-
-See [docs/new-skill-guide.md](./docs/new-skill-guide.md) for the complete process of adding a new skill package to this repository.
 
 ## Security
 

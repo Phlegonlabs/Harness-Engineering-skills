@@ -61,7 +61,7 @@ prefix_rule(
   not_match = ["git push origin main"],
 )
 
-# G9: LEARNING.md must not be staged
+# G4: LEARNING.md must not be staged
 prefix_rule(
   pattern = ["git", "add", "LEARNING.md"],
   decision = "forbidden",

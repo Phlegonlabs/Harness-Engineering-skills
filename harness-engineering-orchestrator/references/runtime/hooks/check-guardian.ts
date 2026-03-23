@@ -225,9 +225,9 @@ function hookPreCommit(): void {
   const files = staged.stdout.split(/\r?\n/).filter(Boolean)
 
   for (const file of files) {
-    // G9: LEARNING.md must not enter the repo
+    // G4 (forbidden file): LEARNING.md must not enter the repo
     if (basename(file) === "LEARNING.md") {
-      errors.push(`G9: LEARNING.md must not be committed. Move it to ~/.codex/LEARNING.md or ~/.claude/LEARNING.md`)
+      errors.push(`G4: LEARNING.md must not be committed. Move it to ~/.codex/LEARNING.md or ~/.claude/LEARNING.md`)
       continue
     }
 
@@ -423,9 +423,9 @@ function claudePreBash(): void {
     errors.push("--no-verify is forbidden. Fix the hook issue instead of bypassing it.")
   }
 
-  // G9: Block staging LEARNING.md
+  // G4 (forbidden file): Block staging LEARNING.md
   if (/\bgit\s+add\b.*LEARNING\.md/.test(cmd)) {
-    errors.push("G9: LEARNING.md must not be staged. It belongs in ~/.codex/LEARNING.md or ~/.claude/LEARNING.md")
+    errors.push("G4: LEARNING.md must not be staged. It belongs in ~/.codex/LEARNING.md or ~/.claude/LEARNING.md")
   }
 
   if (errors.length > 0) {

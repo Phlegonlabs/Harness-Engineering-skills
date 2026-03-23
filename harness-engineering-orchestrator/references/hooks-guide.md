@@ -41,10 +41,7 @@ Codex CLI hooks (.codex/config.toml + .codex/rules/guardian.rules)
 | G6 | git `pre-commit`, Claude pre-write/edit, Codex notify warning |
 | G7 | instruction-level only |
 | G8 | git `post-commit`, Claude post-write/edit, Codex best-effort sync through notify handler |
-| G9 | git `pre-commit`, Claude pre-bash, Codex `execpolicy` |
 | G10 | git `commit-msg`, Claude pre-bash, git remains the blocking source of truth |
-| G11 | instruction-level only |
-| G12 | validation + manifest/lockfile checks; Git/Claude can surface or block depending on level |
 
 ## Claude Hook Contract
 
@@ -116,9 +113,6 @@ Always-active or near-always-active guardrails include:
 - G4
 - G6
 - G8
-- G9
-- G11
-- G12
 
 Lite / Standard / Full still determine whether a given rule warns or blocks.
 

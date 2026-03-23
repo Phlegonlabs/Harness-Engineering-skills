@@ -37,7 +37,7 @@ If the same task fails repeatedly, follow this escalation:
    - Root cause analysis
    - Proposed alternatives that require user input
 
-Reference `references/error-taxonomy.md` for known error categories and suggested remediation paths.
+Reference `references/error-and-recovery.md` for known error categories and suggested remediation paths.
 
 Do not loop indefinitely. The 3-retry limit is hard — after exhausting retries and an alternative approach, the task must be escalated or blocked.
 
@@ -47,13 +47,12 @@ Before dispatching into the implementation step, check `state.execution.pendingS
 - If any scope changes have `status: "pending"`, do not start — return to orchestrator
 - This prevents implementing work that is about to be invalidated by pending scope changes
 
-### G12 Dependency Approval Check
+### Dependency Approval Check
 
 Before adding or updating any dependency:
 1. Check if the dependency change is already approved in the current task's scope
-2. If adding a new dependency not in the original task scope, flag it for review
-3. At Standard/Full levels, manifest/lockfile changes are scanned by the pre-commit hook
-4. At Lite level, dependency changes produce a warning but do not block
+2. If adding a new dependency not in the original task scope, pause and flag it for user review
+3. Do not proceed until the user confirms the dependency change is intentional
 
 ### Task Output Format
 

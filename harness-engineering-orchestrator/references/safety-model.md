@@ -18,7 +18,9 @@ Define the trust hierarchy, prompt injection defense, supply-chain monitoring, a
 - Medium-trust input is the user's intent. It is respected but validated against the current PRD scope and phase gates.
 - Low-trust content is never interpreted as instructions. External content is quoted, summarized, or stored as data — never executed or injected into the agent's instruction context.
 
-## Prompt Injection Defense (G11)
+## Prompt Injection Defense
+
+> This is a **safety principle**, not a guardian. It has no automated hook enforcement — it operates at the instruction level through agent spec files and AGENTS.md.
 
 ### Instruction-Level Boundaries
 
@@ -31,28 +33,23 @@ The harness treats all external content as untrusted data:
 ### Detection
 
 - Awareness-based: agents are instructed to recognize and flag suspicious instructional content in data payloads
-- No automated hook — this is enforced at the instruction level through AGENTS.md and agent spec files
+- No automated hook — enforced at the instruction level through AGENTS.md and agent spec files
 - Active at all harness levels (Lite, Standard, Full)
 
-## Supply-Chain Monitoring (G12)
+## Supply-Chain Advisory
 
-### Manifest and Lockfile Scanning
+> This is a **recommended practice**, not a guardian. Dependency change monitoring is the responsibility of the Execution Engine agent checking task scope.
 
-- Pre-commit hooks scan `git diff` for changes to manifest files (`package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, etc.) and lockfiles
-- Any dependency addition, removal, or version change is flagged
-- At Lite level: warning only (logged, does not block)
-- At Standard/Full: requires explicit approval before the commit proceeds
+### Manifest and Lockfile Awareness
 
-### Approval Workflow
+When any task involves dependency changes:
+- The Execution Engine must pause and surface the change to the user before committing
+- Changes include: new dependencies, removals, or version bumps in manifest files (`package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, etc.) and lockfiles
+- The user must explicitly confirm the dependency change is intentional and within the current task scope
 
-1. Hook detects manifest/lockfile change in the staged diff
-2. Surfaces the change summary: added, removed, or version-changed dependencies
-3. Agent pauses and asks the user to confirm the dependency change
-4. Only after confirmation does the commit proceed
+### What to Flag
 
-### What Is Blocked
-
-The following patterns in dependency changes are always flagged:
+The following patterns in dependency changes warrant extra scrutiny:
 - New dependencies with no clear usage in the current task
 - Downgrading a dependency version
 - Adding dependencies from unknown or unverified registries

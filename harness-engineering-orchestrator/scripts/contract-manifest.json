@@ -114,12 +114,8 @@
       "text": "The language-specific CI templates under `templates/.github/workflows/` are reference material until setup is updated to select them automatically."
     },
     {
-      "file": "references/github-setup.md",
-      "text": "The default workspace-first CI template runs these steps in order:"
-    },
-    {
-      "file": "references/testing-strategy.md",
-      "text": "node scripts/validate-repo.mjs"
+      "file": "references/setup-internals.md",
+      "text": "Template Instantiation"
     },
     {
       "file": "../CONTRIBUTING.md",
@@ -164,14 +160,6 @@
     {
       "file": "agents/project-discovery.md",
       "text": "\"reason\":\"...\""
-    },
-    {
-      "file": "references/github-setup.md",
-      "text": "The standard CI pipeline runs four stages in order:"
-    },
-    {
-      "file": "references/testing-strategy.md",
-      "text": "**Location:** `e2e/run-matrix.ps1`"
     },
     {
       "file": "agents/scaffold-generator.md",
