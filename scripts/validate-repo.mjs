@@ -18,5 +18,3 @@ runStep("Check whitespace and conflict markers", "git", ["diff", "--check"])
 runStep("Run orchestrator tracked tests", process.execPath, ["harness-engineering-orchestrator/scripts/run-tracked-tests.mjs"])
 runStep("Run orchestrator skill contract check", process.execPath, ["harness-engineering-orchestrator/scripts/check-skill-contract.mjs"])
 
-runStep("Run structure tracked tests", process.execPath, ["harness-engineering-structure/scripts/run-tracked-tests.mjs"])
-runStep("Run structure skill contract check", process.execPath, ["harness-engineering-structure/scripts/check-skill-contract.mjs"])

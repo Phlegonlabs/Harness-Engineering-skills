@@ -90,7 +90,7 @@ This repository contains published Harness Engineering skills and the supporting
   - `SKILL.md`: skill contract with validation rules, layer model, and planning commands.
   - `agents/`: structure-focused agent roles (doctor, validator, scaffolder, planner, evaluator).
   - `references/`: runtime code, machine-readable rules (JSON), and internal docs.
-  - `scripts/`: setup, contract validation, and test automation.
+  - `scripts/`: setup automation (greenfield + hydration).
   - `templates/`: .template files for scaffolding target projects.
   - `config.example.json`: team configuration template.
 
