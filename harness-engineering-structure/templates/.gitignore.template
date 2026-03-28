@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.ruff_cache/
+target/
+
+# Build outputs
+dist/
+build/
+out/
+*.o
+*.a
+*.so
+*.dylib
+
+# Coverage & test artifacts
+coverage/
+.coverage
+*.lcov
+.nyc_output/
+htmlcov/
+
+# Cache & temp
+.cache/
+.turbo/
+.next/
+*.log
+*.tmp
+tmp/
+temp/
+
+# Environment files (keep examples)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Editor
+.DS_Store
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Harness generated state
+.repo-state/
+.worktrees/
+.harness/launches/
+.harness/logs/
+.harness/cache/
+
+# OS
+Thumbs.db

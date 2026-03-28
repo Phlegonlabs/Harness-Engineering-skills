@@ -1,0 +1,14 @@
+# CODEOWNERS — Assign automatic reviewers for pull requests.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: all files require review from the engineering team
+# Replace @your-org/engineering with your actual team/username
+* @your-org/engineering
+
+# Harness rules require extra scrutiny — changes affect all agent runs
+harness/rules/ @your-org/engineering
+docs/internal/agent-entry.md @your-org/engineering
+
+# Architecture decisions
+docs/decisions/ @your-org/engineering
+docs/architecture.md @your-org/engineering

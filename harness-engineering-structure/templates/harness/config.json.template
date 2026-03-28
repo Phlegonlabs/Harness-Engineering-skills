@@ -1,0 +1,38 @@
+{
+	"version": "1.0.0",
+	"level": 2,
+	"project_name": "{{projectName}}",
+	"workspace_roots": ["apps", "packages"],
+	"default_workspaces": ["apps/web", "apps/api", "packages/shared"],
+	"layers": ["types", "config", "repo", "service", "runtime", "ui"],
+	"validation": {
+		"structural_tests": true,
+		"linters": true,
+		"entropy_scans": true,
+		"doc_freshness_days": 30
+	},
+	"commit_format": "conventional",
+	"required_files": [
+		"AGENTS.md",
+		"CLAUDE.md",
+		"README.md",
+		"package.json",
+		"turbo.json",
+		"tsconfig.json",
+		"tsconfig.base.json",
+		"apps/README.md",
+		"apps/web/package.json",
+		"apps/api/package.json",
+		"packages/README.md",
+		"packages/shared/package.json",
+		"docs/product.md",
+		"docs/architecture.md",
+		"docs/progress.md",
+		"docs/internal/agent-entry.md",
+		"docs/internal/orchestrator-workflow.md",
+		".harness/state.json",
+		"harness/config.json",
+		"harness/rules/dependency-layers.json",
+		"harness/skills/registry.json"
+	]
+}

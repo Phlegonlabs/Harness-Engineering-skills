@@ -1,0 +1,33 @@
+{
+	"version": "1.0.0",
+	"strategy": "repo-registry-plus-runtime-inference",
+	"phases": {
+		"DISCOVERY": ["skills/research/SKILL.md"],
+		"PRD_ARCH": ["skills/research/SKILL.md"],
+		"PLANNING": ["skills/research/SKILL.md", "skills/implementation/SKILL.md"],
+		"EXECUTING": ["skills/implementation/SKILL.md"],
+		"VALIDATING": ["skills/testing/SKILL.md", "skills/code-review/SKILL.md"],
+		"RELEASE": ["skills/deployment/SKILL.md"]
+	},
+	"taskKinds": {
+		"research": ["skills/research/SKILL.md"],
+		"implementation": ["skills/implementation/SKILL.md"],
+		"testing": ["skills/testing/SKILL.md"],
+		"review": ["skills/code-review/SKILL.md"],
+		"deployment": ["skills/deployment/SKILL.md"]
+	},
+	"conditions": [
+		{
+			"when": "task.touchesUnknownArea == true",
+			"load": ["skills/research/SKILL.md"]
+		},
+		{
+			"when": "task.requiresValidation == true",
+			"load": ["skills/testing/SKILL.md"]
+		},
+		{
+			"when": "task.isReadyForHandoff == true",
+			"load": ["skills/code-review/SKILL.md", "skills/deployment/SKILL.md"]
+		}
+	]
+}

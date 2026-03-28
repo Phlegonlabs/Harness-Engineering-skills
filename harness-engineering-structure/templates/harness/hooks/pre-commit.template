@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "harness: running pre-commit checks..."
+echo ""
+
+if bunx biome check --error-on-warnings .; then
+  echo ""
+  echo "harness: biome check passed."
+else
+  echo ""
+  echo "harness: biome check FAILED. Run 'bun run check' to see issues."
+  echo "Do NOT use --no-verify. Fix the root cause."
+  exit 1
+fi
+
+if bun run harness:lint; then
+  echo ""
+  echo "harness: pre-commit checks passed."
+else
+  echo ""
+  echo "harness: pre-commit checks FAILED."
+  echo "Do NOT use --no-verify. Fix the root cause."
+  exit 1
+fi

@@ -3,7 +3,7 @@
 [![CI](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/ci.yml)
 [![Release](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/release.yml/badge.svg)](https://github.com/Phlegonlabs/Harness-Engineering-skills/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-![Published Skills](https://img.shields.io/badge/Published%20skills-1-1f6feb)
+![Published Skills](https://img.shields.io/badge/Published%20skills-2-1f6feb)
 ![Agents](https://img.shields.io/badge/Agents-Claude%20%2B%20Codex-0a7ea4)
 ![Workflow](https://img.shields.io/badge/Workflow-PRD--to--Code-111827)
 
@@ -54,11 +54,12 @@ bun <path-to-installed-skill>/scripts/harness-setup.ts --isGreenfield=false --sk
 - Main package: `harness-engineering-orchestrator` for discovery, stack selection, PRD, architecture, milestone/task execution, and validation
 - Read next: [harness-engineering-orchestrator/README.md](./harness-engineering-orchestrator/README.md)
 
-## Published Skill
+## Published Skills
 
 | Skill | What it does | Best for |
 |---|---|---|
 | `harness-engineering-orchestrator` | Turns an idea or existing repo into a repo-backed delivery workflow with docs, runtime state, backlog, execution, and validation | Greenfield bootstraps, existing repo hydration, phase-first agent delivery |
+| `harness-engineering-structure` | Production-ready monorepo scaffold with machine-readable validation rules, 6-layer dependency model, planning commands, and agent-readable docs | Teams that need a well-structured Bun + Turbo monorepo with built-in validation and CI |
 
 ## Why Teams Install It
 
@@ -70,7 +71,7 @@ Harness Engineering is for teams that want AI coding agents to operate inside a 
 - staged delivery (`V1 -> deploy review -> V2`) instead of one drifting backlog
 - resumable collaboration across sessions, agents, and humans
 
-This repository is focused on the published `harness-engineering-orchestrator` skill and the supporting metadata needed to install, validate, and contribute to it.
+This repository contains published Harness Engineering skills and the supporting metadata needed to install, validate, and contribute to them.
 
 ## What this repository contains
 
@@ -78,15 +79,22 @@ This repository is focused on the published `harness-engineering-orchestrator` s
 - `README.en.md`: English documentation.
 - `README.zh-CN.md`: Chinese documentation.
 - `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`: repository-level open source metadata and contribution policy.
-- `harness-engineering-orchestrator/`: the published skill package.
+- `harness-engineering-orchestrator/`: PRD-to-code delivery orchestration skill.
   - `SKILL.md`: the runtime contract the skill executes.
   - `agents/`: role prompts and operating guides.
   - `references/`: templates, helper docs, and type definitions.
   - `scripts/`: setup and validation automation.
   - `templates/`: scaffold files and example structure.
   - `config.example.json`: team configuration template (copy to `config.json` to set org-wide defaults).
+- `harness-engineering-structure/`: production-ready monorepo structure skill.
+  - `SKILL.md`: skill contract with validation rules, layer model, and planning commands.
+  - `agents/`: structure-focused agent roles (doctor, validator, scaffolder, planner, evaluator).
+  - `references/`: runtime code, machine-readable rules (JSON), and internal docs.
+  - `scripts/`: setup, contract validation, and test automation.
+  - `templates/`: .template files for scaffolding target projects.
+  - `config.example.json`: team configuration template.
 
-The repository itself no longer carries root-level `AGENTS.md` or `CLAUDE.md`. Those runtime instruction files are generated inside target projects by `harness-engineering-orchestrator` when needed.
+The repository itself no longer carries root-level `AGENTS.md` or `CLAUDE.md`. Those runtime instruction files are generated inside target projects by the skills when needed.
 
 ## Language
 
@@ -213,7 +221,8 @@ This repo is intentionally small and focused. Contributors can help by adding re
 
 - [Chinese documentation](./README.zh-CN.md)
 - [English documentation](./README.en.md)
-- [Skill contract](./harness-engineering-orchestrator/SKILL.md)
+- [Orchestrator skill contract](./harness-engineering-orchestrator/SKILL.md)
+- [Structure skill contract](./harness-engineering-structure/SKILL.md)
 - [License](./LICENSE)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](./SECURITY.md)

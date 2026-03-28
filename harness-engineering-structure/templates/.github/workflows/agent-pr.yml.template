@@ -1,0 +1,87 @@
+name: Agent PR Validation
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  agent-pr-checks:
+    name: Agent PR Checks
+    if: ${{ github.event.label.name == 'agent-submitted' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Full validation
+        run: bun run harness:validate
+
+      - name: Check AGENTS.md references agent-entry.md
+        shell: bash
+        run: |
+          if ! grep -q "agent-entry.md" AGENTS.md; then
+            echo "FAIL: AGENTS.md does not reference docs/internal/agent-entry.md"
+            echo "Agent entry files must point to the canonical source of truth."
+            exit 1
+          fi
+          if ! grep -q "orchestrator-workflow.md" AGENTS.md; then
+            echo "FAIL: AGENTS.md does not reference docs/internal/orchestrator-workflow.md"
+            exit 1
+          fi
+          echo "PASS: AGENTS.md references agent-entry.md"
+
+      - name: Check CLAUDE.md references agent-entry.md
+        shell: bash
+        run: |
+          if [ -f CLAUDE.md ]; then
+            if ! grep -q "agent-entry.md" CLAUDE.md; then
+              echo "FAIL: CLAUDE.md does not reference docs/internal/agent-entry.md"
+              exit 1
+            fi
+            if ! grep -q "orchestrator-workflow.md" CLAUDE.md; then
+              echo "FAIL: CLAUDE.md does not reference docs/internal/orchestrator-workflow.md"
+              exit 1
+            fi
+            echo "PASS: CLAUDE.md references agent-entry.md"
+          fi
+
+      - name: Check docs were updated if architecture changed
+        shell: bash
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          ARCH_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'apps/**' 'packages/**' 2>/dev/null || true)
+          if [ -n "$ARCH_FILES" ]; then
+            DOC_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'docs/**' 2>/dev/null || true)
+            if [ -z "$DOC_CHANGES" ]; then
+              echo "WARN: Source files changed but no documentation was updated."
+              echo "If architectural decisions were made, update docs/architecture.md or create an ADR."
+            else
+              echo "PASS: Documentation was updated alongside source changes."
+            fi
+          fi
+
+      - name: Add summary comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅ All agent PR checks passed.' : '❌ Agent PR checks failed. See logs above.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `**Harness Agent PR Check**\n\n${status}`
+            });

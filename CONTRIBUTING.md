@@ -1,12 +1,13 @@
 # Contributing to Harness Skills
 
-Thanks for contributing. This repository is centered on the published `harness-engineering-orchestrator` skill, so contributions should improve that package or its supporting repo metadata without making the workflow harder to reason about.
+Thanks for contributing. This repository contains published Harness Engineering skills. Contributions should improve the skill packages or their supporting repo metadata without making the workflows harder to reason about.
 
 ## Repository Structure
 
-The published skill package in this repository is:
+The published skill packages in this repository are:
 
-- `harness-engineering-orchestrator/`
+- `harness-engineering-orchestrator/` — PRD-to-code delivery orchestration
+- `harness-engineering-structure/` — production-ready monorepo structure with validation rules
 
 ## What Good Contributions Look Like
 

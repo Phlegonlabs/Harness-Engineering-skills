@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# commit-msg — Validate commit message format (Conventional Commits).
+# Installed to .git/hooks/commit-msg by bun run harness:install-hooks
+
+set -euo pipefail
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Skip merge commits, fixup, and squash commits
+if echo "$COMMIT_MSG" | grep -qE "^(Merge|Revert|fixup!|squash!)"; then
+  exit 0
+fi
+
+# Conventional commit pattern:
+# type(scope): description
+# Types: feat, fix, docs, refactor, test, chore, harness
+PATTERN='^(feat|fix|docs|refactor|test|chore|harness)(\([a-z0-9\-]+\))?: .{1,100}$'
+
+FIRST_LINE=$(echo "$COMMIT_MSG" | head -1)
+
+if ! echo "$FIRST_LINE" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "harness: commit message format error"
+  echo ""
+  echo "Expected format: type(scope): description"
+  echo ""
+  echo "Valid types: feat, fix, docs, refactor, test, chore, harness"
+  echo ""
+  echo "Examples:"
+  echo "  feat(auth): add JWT validation"
+  echo "  fix(api): handle null response from upstream"
+  echo "  docs(architecture): update layer diagram"
+  echo "  harness(linters): tighten file-size limit"
+  echo "  chore(deps): upgrade dependencies"
+  echo ""
+  echo "Your commit message was:"
+  echo "  $FIRST_LINE"
+  echo ""
+  exit 1
+fi
+
+exit 0

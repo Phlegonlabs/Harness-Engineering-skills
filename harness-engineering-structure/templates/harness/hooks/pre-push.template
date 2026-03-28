@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "harness: running pre-push structural tests..."
+echo ""
+
+if bun run harness:structural; then
+  echo ""
+  echo "harness: pre-push checks passed."
+else
+  echo ""
+  echo "harness: pre-push checks FAILED."
+  exit 1
+fi

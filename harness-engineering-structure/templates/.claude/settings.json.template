@@ -1,0 +1,46 @@
+{
+	"$schema": "https://code.claude.com/settings.schema.json",
+	"permissions": {
+		"allow": [
+			"Read(**)",
+			"Write(src/**)",
+			"Write(tests/**)",
+			"Write(docs/**)",
+			"Write(skills/**)",
+			"Bash(git *)",
+			"Bash(grep *)",
+			"Bash(find *)",
+			"Bash(cat *)",
+			"Bash(chmod +x *)",
+			"Bash(bun run harness:*)",
+			"Bash(./evals/*)"
+		],
+		"deny": [
+			"Bash(rm -rf /)",
+			"Bash(rm -rf ~)",
+			"Bash(git push --force *)",
+			"Bash(git reset --hard *)",
+			"Bash(curl * | bash)",
+			"Bash(wget * | bash)",
+			"Bash(chmod -R 777 *)"
+		]
+	},
+	"hooks": {
+		"preStop": [
+			{
+				"command": "bash hooks/pre-stop.sh",
+				"timeout": 120
+			}
+		],
+		"postStop": [
+			{
+				"command": "bash hooks/post-stop-notify.sh",
+				"timeout": 30
+			}
+		]
+	},
+	"model": {
+		"default": "opus",
+		"subAgents": "sonnet"
+	}
+}

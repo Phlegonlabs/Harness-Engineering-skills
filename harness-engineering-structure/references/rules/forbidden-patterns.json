@@ -1,0 +1,64 @@
+{
+	"_comment": "Patterns that must never appear in committed code. Each rule has a teaching message.",
+	"rules": [
+		{
+			"id": "no-console-log",
+			"pattern": "console\\.log\\(",
+			"description": "console.log in production code",
+			"apply_to": ["apps/**/src/**", "packages/**/src/**"],
+			"exclude": ["**/*.test.*", "**/*.spec.*"],
+			"message": "console.log is not allowed in production code. Use your project's structured logger instead. console.log produces unstructured output that breaks log aggregation. Replace with: logger.info({...}, 'message') or equivalent."
+		},
+		{
+			"id": "no-debug-console",
+			"pattern": "console\\.(debug|warn|error)\\(",
+			"description": "console.debug/warn/error in production code",
+			"apply_to": ["apps/**/src/**", "packages/**/src/**"],
+			"exclude": ["**/*.test.*", "**/*.spec.*"],
+			"message": "console.debug/warn/error is not allowed in production code. Use your project's structured logger with the appropriate level."
+		},
+		{
+			"id": "no-commented-code",
+			"pattern": "^\\s*//.*(?:function|class|const|let|var|def |import ).*$",
+			"description": "Commented-out code blocks",
+			"apply_to": ["apps/**/src/**", "packages/**/src/**"],
+			"message": "Commented-out code detected. Delete it — git history preserves previous versions. Commented code is noise that confuses agents reading the codebase."
+		},
+		{
+			"id": "no-todo-without-issue",
+			"pattern": "TODO(?!.*\\b(#|issue|ticket|ISSUE|TICKET)\\b)",
+			"description": "TODO without issue reference",
+			"apply_to": ["apps/**/src/**", "packages/**/src/**", "harness/**"],
+			"exclude": ["harness/rules/**"],
+			"message": "TODO without issue reference. Either fix it inline or add a reference: TODO(#123): description. Untracked TODOs disappear from view and confuse future agents."
+		},
+		{
+			"id": "no-fixme-without-issue",
+			"pattern": "FIXME(?!.*\\b(#|issue|ticket)\\b)",
+			"description": "FIXME without issue reference",
+			"apply_to": ["apps/**/src/**", "packages/**/src/**"],
+			"message": "FIXME without issue reference. Link to a tracking issue: FIXME(#123): description."
+		},
+		{
+			"id": "no-hardcoded-secrets",
+			"pattern": "(?i)(api[_-]?key|secret[_-]?key|password|passwd|token|auth[_-]?token)\\s*[=:]\\s*['\"][^'\"]{8,}['\"]",
+			"description": "Potential hardcoded secret or credential",
+			"apply_to": ["**"],
+			"exclude": ["**/*.example", "**/*.test.*", "**/*.spec.*", "docs/**"],
+			"message": "Potential hardcoded secret detected. Secrets must never be committed. Use environment variables via .env (gitignored). See .env.example for the pattern."
+		},
+		{
+			"id": "no-any-type",
+			"pattern": ":\\s*any\\b",
+			"description": "TypeScript any type",
+			"apply_to": [
+				"apps/**/src/**/*.ts",
+				"apps/**/src/**/*.tsx",
+				"packages/**/src/**/*.ts",
+				"packages/**/src/**/*.tsx"
+			],
+			"exclude": ["**/*.test.*", "**/*.d.ts"],
+			"message": "TypeScript 'any' type defeats type safety. Use a specific type, unknown, or a generic. If you genuinely need escape-hatch typing, use a type assertion with a comment explaining why."
+		}
+	]
+}

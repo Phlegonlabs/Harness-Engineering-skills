@@ -1,0 +1,58 @@
+{
+	"_comment": "Naming conventions per directory. Agents must follow these when creating files.",
+	"rules": [
+		{
+			"path_pattern": "apps/**",
+			"file_case": "kebab-case",
+			"description": "Application workspace files use kebab-case",
+			"violation_message": "File {file} should use kebab-case. Rename to {suggested}."
+		},
+		{
+			"path_pattern": "packages/**",
+			"file_case": "kebab-case",
+			"description": "Package workspace files use kebab-case",
+			"violation_message": "File {file} should use kebab-case. Rename to {suggested}."
+		},
+		{
+			"path_pattern": "docs/**",
+			"file_case": "kebab-case",
+			"description": "Documentation files use kebab-case (e.g., operator-guide.md, api-reference.md)",
+			"violation_message": "Documentation file {file} should use kebab-case. Rename to {suggested}."
+		},
+		{
+			"path_pattern": "harness/**",
+			"file_case": "kebab-case",
+			"description": "Harness files use kebab-case",
+			"violation_message": "Harness file {file} should use kebab-case. Rename to {suggested}."
+		},
+		{
+			"path_pattern": "tests/**",
+			"file_case": "kebab-case",
+			"description": "Test files use kebab-case",
+			"violation_message": "Test file {file} should use kebab-case. Rename to {suggested}."
+		}
+	],
+	"excluded_patterns": [
+		"AGENTS.md",
+		"CLAUDE.md",
+		"README.md",
+		"CONTRIBUTING.md",
+		"CHANGELOG.md",
+		"LICENSE",
+		"SECURITY.md",
+		"apps/README.md",
+		"packages/README.md",
+		"tests/README.md",
+		"docs/execution-plans/TEMPLATE.md",
+		"docs/quality/GRADES.md",
+		".github/**",
+		"Makefile",
+		"Dockerfile"
+	],
+	"case_patterns": {
+		"kebab-case": "^[a-z0-9]+(-[a-z0-9]+)*$",
+		"snake_case": "^[a-z0-9]+(_[a-z0-9]+)*$",
+		"camelCase": "^[a-z][a-zA-Z0-9]*$",
+		"PascalCase": "^[A-Z][a-zA-Z0-9]*$"
+	}
+}

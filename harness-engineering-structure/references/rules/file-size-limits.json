@@ -1,0 +1,46 @@
+{
+	"_comment": "Maximum line counts per file type. Agent: split files approaching these limits.",
+	"_doc": "docs/internal/agent-entry.md#2-keep-files-under-500-lines",
+	"default_limit": 500,
+	"rules": [
+		{
+			"pattern": "**/*.test.*",
+			"limit": 300,
+			"reason": "Test files over 300 lines usually test too many things. Split by concern."
+		},
+		{
+			"pattern": "**/*.spec.*",
+			"limit": 300,
+			"reason": "Spec files over 300 lines usually test too many things. Split by concern."
+		},
+		{
+			"pattern": "docs/**/*.md",
+			"limit": 1000,
+			"reason": "Documentation files are allowed to be longer for completeness."
+		},
+		{
+			"pattern": "harness/**/*.sh",
+			"limit": 200,
+			"reason": "Harness scripts should be focused and composable."
+		},
+		{
+			"pattern": "harness/runtime/*.ts",
+			"limit": 450,
+			"reason": "Harness TypeScript runtime files may be larger but should stay modular."
+		},
+		{
+			"pattern": "**/*.json",
+			"limit": 200,
+			"reason": "Large JSON config files should be split into smaller focused files."
+		}
+	],
+	"excluded_patterns": [
+		"**/*.lock",
+		"**/*.min.*",
+		"**/*.generated.*",
+		".harness/state.json",
+		"vendor/**",
+		"node_modules/**"
+	],
+	"violation_message": "File {file} has {lines} lines (limit: {limit}). Split it into focused modules. Reason: {reason}"
+}

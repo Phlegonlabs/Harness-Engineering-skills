@@ -1,0 +1,16 @@
+{
+	"name": "@{{projectName}}/web",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "bunx tsc -p tsconfig.json",
+		"dev": "bun --watch src/index.ts",
+		"lint": "biome check .",
+		"typecheck": "bunx tsc -p tsconfig.json --noEmit",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@{{projectName}}/shared": "workspace:*"
+	}
+}

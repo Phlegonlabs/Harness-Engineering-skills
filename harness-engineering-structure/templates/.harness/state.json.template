@@ -1,0 +1,65 @@
+{
+	"version": "1.0.0",
+	"projectInfo": {
+		"projectName": "{{projectName}}",
+		"harnessLevel": "standard",
+		"runtime": "bun",
+		"primaryDocs": {
+			"product": "docs/product.md",
+			"architecture": "docs/architecture.md",
+			"progress": "docs/progress.md"
+		},
+		"commandSurface": [
+			"bun run harness:init -- <name>",
+			"bun run harness:doctor",
+			"bun run harness:discover --reset",
+			"bun run harness:validate",
+			"bun run build",
+			"bun run lint",
+			"bun run typecheck",
+			"bun run test",
+			"bun run harness:plan",
+			"bun run harness:orchestrate",
+			"bun run harness:evaluate",
+			"bun run harness:parallel-dispatch",
+			"bun run harness:merge-milestone -- <id>"
+		]
+	},
+	"planning": {
+		"phase": "READY",
+		"docsReady": {
+			"product": false,
+			"architecture": false,
+			"backlog": false
+		},
+		"approvals": {
+			"planApproved": false,
+			"currentPhaseApproved": false
+		}
+	},
+	"discovery": {
+		"stage": "PRD",
+		"status": "idle",
+		"currentQuestionIds": [],
+		"answered": {},
+		"history": [],
+		"readiness": {
+			"productReady": false,
+			"architectureReady": false,
+			"planReady": false
+		},
+		"lastUpdatedAt": null
+	},
+	"milestones": [],
+	"tasks": [],
+	"execution": {
+		"activeMilestones": [],
+		"activeWorktrees": [],
+		"maxParallelMilestones": 2
+	},
+	"skills": {
+		"registry": "harness/skills/registry.json",
+		"progressiveDisclosure": true,
+		"loaded": []
+	}
+}

@@ -1,0 +1,76 @@
+{
+	"_comment": "Dependency layer model. Each layer may only import from layers with lower index.",
+	"_doc": "docs/internal/dependency-layers.md",
+	"workspace_roots": ["apps", "packages"],
+	"source_roots": ["apps/*/src", "packages/*/src"],
+	"internal_import_roots": ["src", "pkg", "cmd"],
+	"internal_import_aliases": {
+		"@": "src",
+		"~": "src"
+	},
+	"unlayered_allowed_patterns": [
+		"apps/*/src/index.ts",
+		"packages/*/src/index.ts"
+	],
+	"cross_workspace": {
+		"forbid_relative": true,
+		"allow_package_root": true,
+		"allow_exported_subpaths": true
+	},
+	"layers": [
+		{
+			"name": "types",
+			"index": 0,
+			"description": "Type definitions, interfaces, schemas, constants",
+			"directories": ["src/types", "src/models", "pkg/domain"],
+			"file_patterns": ["*.types.*", "*.schema.*", "*.interface.*", "*.enum.*"],
+			"allowed_imports": []
+		},
+		{
+			"name": "config",
+			"index": 1,
+			"description": "Configuration, environment variables, feature flags",
+			"directories": ["src/config", "pkg/config"],
+			"file_patterns": ["*.config.*", "*.env.*", "*.settings.*"],
+			"allowed_imports": ["types"]
+		},
+		{
+			"name": "repo",
+			"index": 2,
+			"description": "Data access, storage adapters, external API clients",
+			"directories": ["src/repo", "src/repositories", "pkg/store"],
+			"file_patterns": ["*.repo.*", "*.repository.*", "*.store.*", "*.dao.*"],
+			"allowed_imports": ["types", "config"]
+		},
+		{
+			"name": "service",
+			"index": 3,
+			"description": "Business logic, use cases, workflows",
+			"directories": ["src/service", "src/services", "pkg/service"],
+			"file_patterns": ["*.service.*", "*.usecase.*", "*.workflow.*"],
+			"allowed_imports": ["types", "config", "repo"]
+		},
+		{
+			"name": "runtime",
+			"index": 4,
+			"description": "Servers, workers, entrypoints, CLI",
+			"directories": ["src/runtime", "src/app", "cmd"],
+			"file_patterns": ["*.server.*", "*.worker.*", "*.handler.*", "main.*"],
+			"allowed_imports": ["types", "config", "repo", "service"]
+		},
+		{
+			"name": "ui",
+			"index": 5,
+			"description": "Views, components, pages, client-side code",
+			"directories": ["src/ui", "src/views", "src/components", "pkg/handler"],
+			"file_patterns": [
+				"*.component.*",
+				"*.view.*",
+				"*.page.*",
+				"*.template.*"
+			],
+			"allowed_imports": ["types", "config", "repo", "service", "runtime"]
+		}
+	],
+	"violation_message": "Layer boundary violation: {file} (layer: {file_layer}) imports from {import_path} (layer: {import_layer}). The {file_layer} layer may only import from: {allowed}. Move the shared code to a lower layer or invert the dependency."
+}

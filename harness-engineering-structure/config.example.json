@@ -1,0 +1,20 @@
+{
+  "defaults": {
+    "projectName": "",
+    "ecosystem": "bun",
+    "visibility": "private",
+    "skipGithub": false
+  },
+
+  "validation": {
+    "structuralTests": true,
+    "linters": true,
+    "entropyScans": true,
+    "docFreshnessDays": 30
+  },
+
+  "org": {
+    "name": "your-org",
+    "defaultUser": "Operator"
+  }
+}
