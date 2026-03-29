@@ -1,0 +1,38 @@
+# apps/web AGENTS.md
+
+Read the root [AGENTS.md](../../AGENTS.md) first. This file adds workspace-specific guidance for `apps/web`.
+
+---
+
+## Purpose
+
+`apps/web` is the application workspace for user-facing UI code. Keep UI-specific decisions here and consume shared code through `@{{projectName}}/shared`.
+
+---
+
+## Layer Guidance
+
+The harness linter allows all six layers in this workspace:
+
+`Types → Config → Repo → Service → Runtime → UI`
+
+Current template usage is intentionally light:
+- `src/index.ts` is the unlayered workspace entrypoint.
+- `src/ui/` is the primary implementation area today.
+- Additional layers are allowed when the product requires them, but they must still follow the dependency order above.
+
+---
+
+## Conventions
+
+- Put presentational components, pages, and view helpers in `src/ui/`.
+- Keep route and entry wiring in `src/index.ts` or future `src/runtime/` entrypoints.
+- Prefer naming features by user-facing domain, not by framework primitive.
+- Import shared behavior through package exports only. Do not deep-import from another workspace's `src/`.
+
+---
+
+## Validation
+
+- Run `bun run lint`, `bun run test`, and `bun run typecheck` from this workspace when changing web code.
+- Run `bun run harness:validate` from the repo root before handoff.

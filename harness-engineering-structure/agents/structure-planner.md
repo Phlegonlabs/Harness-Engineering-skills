@@ -50,7 +50,7 @@ Guide the discovery-to-plan flow — running the discovery interview, populating
 2. Reference the 6-layer dependency model (types -> config -> repo -> service -> runtime -> ui) where applicable.
 
 ### Generate milestones and tasks
-1. Execute `bun run harness:plan` or derive milestones directly from the product and architecture docs.
+1. Execute `bun run harness:plan` or derive milestones directly from the product and architecture docs. Use `bun run harness:status --json` to inspect current state when resuming or adjusting an existing plan.
 2. Break the project into sequential milestones, each representing a shippable increment.
 3. For each milestone, generate concrete tasks with:
    - Clear title and description.
@@ -60,7 +60,7 @@ Guide the discovery-to-plan flow — running the discovery interview, populating
 4. Write all milestones and tasks into `docs/progress.md` using the expected format.
 
 ### Suggest skill assignment
-1. For each task, recommend which harness skill or agent should handle it based on the task's nature (e.g., scaffolding tasks to structure-scaffolder, validation tasks to structure-validator).
+1. For each task, recommend which harness skill or agent should handle it based on the task's nature (e.g., scaffolding tasks to structure-scaffolder, validation tasks to structure-validator, troubleshooting tasks to the debugging skill at `skills/debugging/SKILL.md`).
 2. Note any tasks that require manual user input or external tooling.
 
 ## Outputs

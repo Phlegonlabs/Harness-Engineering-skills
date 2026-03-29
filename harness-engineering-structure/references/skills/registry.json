@@ -6,7 +6,7 @@
 		"PRD_ARCH": ["skills/research/SKILL.md"],
 		"PLANNING": ["skills/research/SKILL.md", "skills/implementation/SKILL.md"],
 		"EXECUTING": ["skills/implementation/SKILL.md"],
-		"VALIDATING": ["skills/testing/SKILL.md", "skills/code-review/SKILL.md"],
+		"VALIDATING": ["skills/testing/SKILL.md", "skills/code-review/SKILL.md", "skills/debugging/SKILL.md"],
 		"RELEASE": ["skills/deployment/SKILL.md"]
 	},
 	"taskKinds": {
@@ -14,7 +14,8 @@
 		"implementation": ["skills/implementation/SKILL.md"],
 		"testing": ["skills/testing/SKILL.md"],
 		"review": ["skills/code-review/SKILL.md"],
-		"deployment": ["skills/deployment/SKILL.md"]
+		"deployment": ["skills/deployment/SKILL.md"],
+		"debugging": ["skills/debugging/SKILL.md"]
 	},
 	"conditions": [
 		{
@@ -28,6 +29,10 @@
 		{
 			"when": "task.isReadyForHandoff == true",
 			"load": ["skills/code-review/SKILL.md", "skills/deployment/SKILL.md"]
+		},
+		{
+			"when": "task.requiresDebugging == true",
+			"load": ["skills/debugging/SKILL.md"]
 		}
 	]
 }

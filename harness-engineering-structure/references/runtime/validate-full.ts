@@ -2,30 +2,22 @@ import { runDoctor } from "./doctor";
 import { runEntropyScans } from "./entropy-all";
 import { runLintSuite } from "./lint-all";
 import { repoRoot, writeSection } from "./shared";
-import {
-	runArchitectureTest,
-	runDocLinksTest,
-	runRequiredFilesTest,
-	runTemplateIdentityTest,
-	validationContext,
-} from "./validation";
+import { runStructuralTests } from "./test-all";
+import { validationContext } from "./validation";
 
 const root = repoRoot();
 const context = validationContext(root);
 let hardErrors = 0;
 
-console.log("harness validate");
+console.log("harness validate:full");
 console.log("════════════════════════════════════════════");
-console.log(`Fast local validation suite — ${new Date().toISOString()}`);
+console.log(`Full validation suite — ${new Date().toISOString()}`);
 
 for (const [label, step, hard] of [
 	["1. Health Check", () => runDoctor(root), true],
 	["2. Linters", () => runLintSuite(context), true],
-	["3. Required Files", () => runRequiredFilesTest(context), true],
-	["4. Architecture Compliance", () => runArchitectureTest(context), true],
-	["5. Template Identity", () => runTemplateIdentityTest(context), true],
-	["6. Document Links", () => runDocLinksTest(context), true],
-	["7. Entropy Scans", () => runEntropyScans(context), false],
+	["3. Structural Tests", () => runStructuralTests(root, context), true],
+	["4. Entropy Scans", () => runEntropyScans(context), false],
 ] as const) {
 	writeSection(label);
 	const result = step();

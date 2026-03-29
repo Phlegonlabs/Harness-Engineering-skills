@@ -115,6 +115,11 @@ Runs in order:
 | `harness:parallel-dispatch` | Allocate isolated worktrees |
 | `harness:merge-milestone` | Merge completed worktree |
 | `harness:install-hooks` | Install git pre-commit hooks |
+| `harness:validate:full` | Full CI-equivalent validation suite (in-process) |
+| `harness:self-review` | Pre-handoff self-review checklist |
+| `harness:status` / `harness:status --json` | Machine-readable project state summary |
+| `harness:unblock --task <id>` | Unblock a stuck/blocked task |
+| `harness:state-recover --list` / `harness:state-recover --latest` | State snapshot recovery |
 
 ## Installation
 
@@ -156,3 +161,22 @@ All rules live in `references/rules/` as JSON files:
 - **naming-conventions.json** — File and module naming standards per directory
 
 Each rule includes a **teaching message** that explains why the constraint exists, so agents learn from violations rather than just being blocked.
+
+## Additional Capabilities
+
+- **Command surface infrastructure** (`harness/command-surface*.json`) — machine-readable command registry that tools and agents can query programmatically
+- **Initialization profiles** (`harness/profiles/`) — layer presets for api, cli, fullstack, and library project types
+- **Workspace-level AGENTS.md** — per-workspace agent guidance files (`apps/api`, `apps/web`, `packages/shared`) with workspace-specific conventions
+- **CODEX.md** — Codex-specific adapter documentation for OpenAI Codex integration
+- **Template identity validation** — detects template placeholder leaks in scaffolded projects (e.g. unreplaced `{{projectName}}` tokens)
+- **Debugging skill** — automatically loaded during the validation phase for bug-fix tasks
+
+## Internal Documentation
+
+Internal reference docs are scaffolded alongside the codebase:
+
+| Document | Description |
+|----------|-------------|
+| `docs/decisions/000-template.md` | ADR template — projects create their own decisions here |
+| `docs/internal/observability.md` | Structured logging contract — log levels, formats, and correlation requirements |
+| `docs/internal/command-surface.md` | Auto-generated command registry documentation |

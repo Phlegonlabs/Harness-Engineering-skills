@@ -1,0 +1,7 @@
+{
+	"version": "1.0.0",
+	"includes": [
+		"harness/command-surface-root.json",
+		"harness/command-surface-workspace.json"
+	]
+}

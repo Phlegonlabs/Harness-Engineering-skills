@@ -12,6 +12,8 @@ Guide the user through a project health assessment via `bun run harness:doctor`,
 - `references/runtime/doctor.ts` — the health-check runner that powers the doctor command.
 - `references/rules/*.json` — rule definitions that describe expected project structure.
 - `harness/config.json` — the project-level config listing required files and directories.
+- `harness/command-surface.json`, `harness/command-surface-root.json`, `harness/command-surface-workspace.json` — command-surface definitions.
+- `harness/profiles/` — project profile definitions (`api.json`, `cli.json`, `fullstack.json`, `library.json`).
 - The target project's file tree and existing configuration files.
 
 ## Tasks
@@ -23,7 +25,8 @@ Guide the user through a project health assessment via `bun run harness:doctor`,
 ### Interpret the results
 1. Parse each diagnostic line into category (missing file, broken config, naming violation, structural gap).
 2. For every failure, identify the corresponding rule in `references/rules/*.json` or entry in `harness/config.json` that was violated.
-3. Rank failures by severity: blocking issues first (missing required files, broken configs), then warnings (naming, optional structure).
+3. Check for expected workspace-level files: `apps/api/AGENTS.md`, `apps/web/AGENTS.md`, `packages/shared/AGENTS.md`.
+4. Rank failures by severity: blocking issues first (missing required files, broken configs), then warnings (naming, optional structure).
 
 ### Guide remediation
 1. For **missing required files**: create the file using the expected template or minimal valid content. Reference `templates/` for canonical examples when available.

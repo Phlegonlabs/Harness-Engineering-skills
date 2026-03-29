@@ -2,6 +2,7 @@ export interface HarnessConfig {
 	version: string;
 	level: number;
 	project_name: string;
+	project_owner?: string;
 	workspace_roots: string[];
 	default_workspaces: string[];
 	layers: string[];
@@ -13,6 +14,37 @@ export interface HarnessConfig {
 	};
 	commit_format: string;
 	required_files: string[];
+}
+
+export type CommandScope = "root" | "workspace";
+export type WorkspaceKind = "app" | "package";
+export type CommandMode = "one_shot" | "persistent";
+export type MissingPrereqBehavior = "n/a" | "expected_block";
+export type CommandSuccessMode = "exit_zero" | "persistent_boot";
+
+export interface CommandDefinition {
+	id: string;
+	display: string;
+	requires: string[];
+	summary: string;
+}
+
+export interface NormalizedCommandDefinition extends CommandDefinition {
+	scope: CommandScope;
+	workspaceKind?: WorkspaceKind;
+	mode: CommandMode;
+	mutatesRepo: boolean;
+	missingPrereqBehavior: MissingPrereqBehavior;
+	successMode: CommandSuccessMode;
+}
+
+export interface CommandSurfaceRegistry {
+	version: string;
+	includes: string[];
+}
+
+export interface CommandSurfaceFragment {
+	commands: CommandDefinition[];
 }
 
 export interface LayerRule {
@@ -80,8 +112,6 @@ export interface MilestoneRecord {
 
 export type TaskStatus =
 	| "pending"
-	| "contract_pending"
-	| "contract_approved"
 	| "in_progress"
 	| "evaluation_pending"
 	| "done"
@@ -119,6 +149,14 @@ export interface ActiveWorktreeRecord {
 	worktree: string;
 	branch: string;
 	status: string;
+}
+
+export interface StateSnapshotRecord {
+	fileName: string;
+	path: string;
+	createdAt: string;
+	trigger: string;
+	sizeBytes: number;
 }
 
 export interface HarnessState {
@@ -159,6 +197,46 @@ export interface HarnessState {
 		progressiveDisclosure: boolean;
 		loaded: string[];
 	};
+}
+
+export interface HarnessTaskSummary {
+	id: string;
+	title: string;
+	kind: string;
+	status: TaskStatus;
+	iteration: number;
+	maxIterations: number;
+	stallCount: number;
+	milestoneId: string;
+	contractPath: string | null;
+	latestEvaluationPath: string | null;
+	latestHandoffPath: string | null;
+	requiredSkills: string[];
+}
+
+export interface HarnessProgressSummary {
+	totalTasks: number;
+	pending: number;
+	inProgress: number;
+	evaluationPending: number;
+	blocked: number;
+	done: number;
+	totalMilestones: number;
+	activeMilestones: number;
+	completedMilestones: number;
+}
+
+export interface HarnessStatusSnapshot {
+	projectName: string;
+	phase: string;
+	activeTask: HarnessTaskSummary | null;
+	blockedTasks: HarnessTaskSummary[];
+	suggestedSkills: string[];
+	nextAction: string;
+	validationStatus: "unknown";
+	progress: HarnessProgressSummary;
+	activeWorktrees: ActiveWorktreeRecord[];
+	discovery: DiscoveryState["readiness"];
 }
 
 export interface TaskContractArtifact {
@@ -216,6 +294,10 @@ export interface SkillRegistry {
 	strategy: string;
 	phases: Record<string, string[]>;
 	taskKinds: Record<string, string[]>;
+	conditions?: Array<{
+		when: string;
+		load: string[];
+	}>;
 }
 
 export type DiscoveryStage = "PRD" | "ARCHITECTURE" | "COMPLETE";

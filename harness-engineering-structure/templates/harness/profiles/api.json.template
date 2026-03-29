@@ -1,0 +1,5 @@
+{
+	"name": "api",
+	"description": "Service-oriented profile for API projects without a local UI layer.",
+	"layers": ["types", "config", "repo", "service", "runtime"]
+}

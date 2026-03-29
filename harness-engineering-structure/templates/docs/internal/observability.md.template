@@ -1,0 +1,49 @@
+# Observability
+
+This project uses structured JSON logging as the default debugging surface for agents and humans.
+
+---
+
+## Logging Contract
+
+- Use the shared logger from `@{{projectName}}/shared`.
+- Emit machine-readable JSON lines with `ts`, `level`, `message`, and optional `context`.
+- Prefer stable context keys such as `workspace`, `component`, `requestId`, and `statusCode`.
+- Treat `console.*` and direct stream writes as violations outside the shared logger implementation.
+
+---
+
+## Local Access
+
+- Run the relevant workspace command and inspect stdout/stderr directly.
+- Pipe logs through filters that preserve one-JSON-object-per-line semantics.
+- Reproduce the failure before adding new instrumentation.
+
+Example:
+
+```bash
+cd apps/api
+bun run dev
+```
+
+---
+
+## Agent Workflow
+
+1. Reproduce the bug with the smallest reliable command or test.
+2. Find the last trustworthy structured log entry before the failure.
+3. Add the narrowest missing log signal needed to disambiguate state.
+4. Fix the bug.
+5. Re-run the failing path and confirm the new log sequence matches the intended control flow.
+
+If the debugging path reveals a reusable operational lesson, record it in `docs/` before handoff.
+
+---
+
+## Metrics And Traces
+
+The template does not ship a metrics or tracing backend by default.
+
+- Add metrics only when a product requirement justifies the extra surface area.
+- Document any future trace or metrics integration in an ADR before rollout.
+- Keep log semantics stable even if metrics or tracing are added later.

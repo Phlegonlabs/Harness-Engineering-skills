@@ -1,0 +1,5 @@
+{
+	"name": "cli",
+	"description": "Lean profile for CLI tools that do not need repo or UI layers by default.",
+	"layers": ["types", "config", "service", "runtime"]
+}

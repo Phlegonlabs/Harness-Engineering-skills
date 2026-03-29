@@ -45,6 +45,11 @@ Guide the orchestrate/evaluate loop — picking the next task, presenting its co
    - `blocked` if the task cannot proceed due to unresolved dependencies.
 2. Record evaluation timestamps and result summaries.
 
+### Pre-handoff self-review
+1. Before writing handoff artifacts, run `bun run harness:self-review` to perform a final self-review pass on the task's changes.
+2. Use `bun run harness:status --json` for machine-readable inspection of the current task and milestone state.
+3. If any self-review issues are found, resolve them before proceeding to handoff.
+
 ### Write handoff artifacts
 1. For each completed task, produce a handoff artifact documenting:
    - What was implemented (files created or modified).
@@ -58,6 +63,7 @@ Guide the orchestrate/evaluate loop — picking the next task, presenting its co
    - Resolve the blocker first.
    - Re-order tasks if the dependency is soft.
    - Skip the task with explicit acknowledgment of the gap.
+   - Use `bun run harness:unblock --task <id>` to programmatically unblock a stuck task when the blocking condition has been resolved.
 3. For `stalled` tasks, prompt the user to either continue, re-scope, or reassign.
 
 ### Advance the loop

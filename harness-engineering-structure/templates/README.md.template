@@ -264,11 +264,7 @@ Decisions and their rationale are documented in `docs/decisions/`:
 
 | ADR | Summary |
 |-----|---------|
-| [000-template.md](docs/decisions/000-template.md) | ADR template format for this repository |
-| [001-harness-engineering.md](docs/decisions/001-harness-engineering.md) | Adopt Harness Engineering — encode constraints as machine-readable rules in the repo |
-| [002-monorepo-template.md](docs/decisions/002-monorepo-template.md) | Adopt Bun monorepo with Turbo orchestration as the default project structure |
-| [003-strict-monorepo-enforcement.md](docs/decisions/003-strict-monorepo-enforcement.md) | Enforce strict monorepo rules — layer violations caught at lint time, deep imports forbidden |
-| [004-task-contract-evaluator-loop.md](docs/decisions/004-task-contract-evaluator-loop.md) | Add task contracts, evaluator artifacts, and handoff checkpoints to the execution loop |
+| [000-template.md](docs/decisions/000-template.md) | ADR template format — copy this to record your own decisions |
 
 ---
 

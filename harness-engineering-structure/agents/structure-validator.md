@@ -19,8 +19,9 @@ Interpret validation results from `bun run harness:validate` and guide the user 
 ## Tasks
 
 ### Run full validation
-1. Execute `bun run harness:validate` in the project root.
+1. Execute `bun run harness:validate` in the project root. For comprehensive validation including all checks, use `bun run harness:validate:full`.
 2. Capture the complete output, separating lint errors, test failures, and scan results.
+3. Validate template identity — confirm scaffolded files have not drifted from their canonical templates.
 
 ### Interpret linter errors
 1. **Layer violations**: The project enforces a 6-layer dependency model: `types -> config -> repo -> service -> runtime -> ui`. A violation means a lower layer imports from a higher one. Identify the offending import and the correct direction.
@@ -43,6 +44,10 @@ Interpret validation results from `bun run harness:validate` and guide the user 
 ### Guide fixes with teaching messages
 1. For every failure, include a brief explanation of the rule's purpose — not just what to fix, but why the rule exists.
 2. Apply fixes incrementally and re-run `bun run harness:validate` after each batch to confirm progress.
+
+### Pre-handoff self-review
+1. Before handing off to the evaluator or completing a validation cycle, run `bun run harness:self-review` to perform a self-review pass.
+2. This catches any residual issues that individual checks may not cover and confirms the project is ready for evaluation.
 
 ## Outputs
 - Fixed source files, tests, and configurations that resolve every validation failure.

@@ -1,0 +1,5 @@
+{
+	"name": "fullstack",
+	"description": "Default six-layer profile for web or app projects with runtime and UI surfaces.",
+	"layers": ["types", "config", "repo", "service", "runtime", "ui"]
+}

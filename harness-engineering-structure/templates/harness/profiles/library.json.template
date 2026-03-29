@@ -1,0 +1,5 @@
+{
+	"name": "library",
+	"description": "Shared-library profile focused on types, config, and service logic.",
+	"layers": ["types", "config", "service"]
+}

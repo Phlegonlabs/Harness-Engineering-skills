@@ -2,6 +2,7 @@
 	"version": "1.0.0",
 	"level": 2,
 	"project_name": "{{projectName}}",
+	"project_owner": "",
 	"workspace_roots": ["apps", "packages"],
 	"default_workspaces": ["apps/web", "apps/api", "packages/shared"],
 	"layers": ["types", "config", "repo", "service", "runtime", "ui"],
@@ -15,6 +16,7 @@
 	"required_files": [
 		"AGENTS.md",
 		"CLAUDE.md",
+		"CODEX.md",
 		"README.md",
 		"package.json",
 		"turbo.json",
@@ -29,8 +31,12 @@
 		"docs/architecture.md",
 		"docs/progress.md",
 		"docs/internal/agent-entry.md",
+		"docs/internal/command-surface.md",
 		"docs/internal/orchestrator-workflow.md",
 		".harness/state.json",
+		"harness/command-surface.json",
+		"harness/command-surface-root.json",
+		"harness/command-surface-workspace.json",
 		"harness/config.json",
 		"harness/rules/dependency-layers.json",
 		"harness/skills/registry.json"

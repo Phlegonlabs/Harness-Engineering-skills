@@ -1,0 +1,39 @@
+# packages/shared AGENTS.md
+
+Read the root [AGENTS.md](../../AGENTS.md) first. This file adds workspace-specific guidance for `packages/shared`.
+
+---
+
+## Purpose
+
+`packages/shared` is the reusable library workspace consumed by application workspaces. Treat its export surface as the stable contract for cross-workspace reuse.
+
+---
+
+## Layer Guidance
+
+The harness linter allows all six layers in this workspace:
+
+`Types → Config → Repo → Service → Runtime → UI`
+
+The current template intentionally uses a smaller subset:
+- `src/index.ts` is the package export barrel.
+- `src/types/` contains foundational types.
+- `src/service/` contains reusable business logic and shared runtime-adjacent helpers such as the logger wrapper.
+
+If you want to restrict this workspace further, change the machine-readable rules and the code together. Do not claim tighter limits here than the linter actually enforces.
+
+---
+
+## Public API
+
+- Cross-workspace imports must go through `@{{projectName}}/shared` or another declared exported subpath.
+- Do not deep-import from `packages/shared/src/...`.
+- Re-export new shared capabilities from `src/index.ts` unless there is a deliberate exported subpath in `package.json`.
+
+---
+
+## Validation
+
+- Run `bun run lint`, `bun run test`, and `bun run typecheck` from this workspace when changing shared code.
+- Run `bun run harness:validate` from the repo root before handoff.

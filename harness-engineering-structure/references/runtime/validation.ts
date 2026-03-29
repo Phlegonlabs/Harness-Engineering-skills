@@ -187,6 +187,7 @@ export function runDocsFreshnessLint(context: ValidationContext): number {
 		"docs/internal/agent-entry.md",
 		"AGENTS.md",
 		"CLAUDE.md",
+		"CODEX.md",
 	]) {
 		const committed = lastCommitUnix(context.repoRoot, relativePath);
 		if (!committed) continue;
@@ -214,6 +215,15 @@ export function runRequiredFilesTest(context: ValidationContext): number {
 			check("PASS", relativePath);
 		} else {
 			check("FAIL", `Missing required file: ${relativePath}`);
+			errors += 1;
+		}
+	}
+	for (const workspace of context.config.default_workspaces) {
+		const relativePath = `${workspace}/AGENTS.md`;
+		if (exists(path.join(context.repoRoot, relativePath))) {
+			check("PASS", relativePath);
+		} else {
+			check("FAIL", `Missing workspace AGENTS.md: ${relativePath}`);
 			errors += 1;
 		}
 	}
@@ -289,6 +299,61 @@ export function runDocLinksTest(context: ValidationContext): number {
 		errors > 0
 			? `FAIL: ${errors} broken internal link(s) found.`
 			: "PASS: All internal document links resolve correctly.",
+	);
+	return errors > 0 ? 1 : 0;
+}
+
+const TEMPLATE_IDENTITY_TARGETS = [
+	".env.example",
+	".github/CODEOWNERS",
+	"LICENSE",
+	"README.md",
+	"apps/api/AGENTS.md",
+	"apps/api/package.json",
+	"apps/web/AGENTS.md",
+	"apps/web/package.json",
+	"docs/architecture.md",
+	"docs/internal/observability.md",
+	"docs/product.md",
+	"docs/progress.md",
+	"harness/rules/forbidden-patterns.json",
+	"package.json",
+	"packages/shared/AGENTS.md",
+	"packages/shared/package.json",
+] as const;
+
+const TEMPLATE_IDENTITY_NEEDLES = [
+	"harness-template",
+	"@harness-template/",
+	"@your-org/engineering",
+] as const;
+
+export function runTemplateIdentityTest(context: ValidationContext): number {
+	if (context.config.project_name === "harness-template") {
+		console.log(
+			"PASS: Template identity scan skipped for the pre-init scaffold.",
+		);
+		return 0;
+	}
+
+	let errors = 0;
+	for (const relativePath of TEMPLATE_IDENTITY_TARGETS) {
+		const absolutePath = path.join(context.repoRoot, relativePath);
+		if (!exists(absolutePath)) continue;
+		const content = readFileSync(absolutePath, "utf8");
+		for (const needle of TEMPLATE_IDENTITY_NEEDLES) {
+			if (!content.includes(needle)) continue;
+			errors += 1;
+			console.log(`TEMPLATE IDENTITY LEAK: ${relativePath}`);
+			console.log(`  Residual token: ${needle}`);
+			console.log("");
+		}
+	}
+
+	console.log(
+		errors > 0
+			? `FAIL: ${errors} template identity leak(s) found after initialization.`
+			: "PASS: No template identity leaks found in project-facing surfaces.",
 	);
 	return errors > 0 ? 1 : 0;
 }

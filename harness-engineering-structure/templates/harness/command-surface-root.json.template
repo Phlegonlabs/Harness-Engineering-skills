@@ -1,0 +1,192 @@
+{
+	"commands": [
+		{
+			"id": "root.harness-init",
+			"display": "bun run harness:init -- <name>",
+			"requires": ["bun_install", "git_repository"],
+			"summary": "Initialize the template for a named project."
+		},
+		{
+			"id": "root.harness-install-hooks",
+			"display": "bun run harness:install-hooks",
+			"requires": ["git_repository"],
+			"summary": "Install repository git hooks into .git/hooks."
+		},
+		{
+			"id": "root.harness-doctor",
+			"display": "bun run harness:doctor",
+			"requires": [],
+			"summary": "Run repository health checks and report missing setup."
+		},
+		{
+			"id": "root.harness-lint",
+			"display": "bun run harness:lint",
+			"requires": [],
+			"summary": "Run the harness-specific lint suite."
+		},
+		{
+			"id": "root.harness-structural",
+			"display": "bun run harness:structural",
+			"requires": [],
+			"summary": "Run structural tests for required files, docs, and runtime behavior."
+		},
+		{
+			"id": "root.harness-entropy",
+			"display": "bun run harness:entropy",
+			"requires": [],
+			"summary": "Run drift, orphan, and consistency scans."
+		},
+		{
+			"id": "root.harness-validate",
+			"display": "bun run harness:validate",
+			"requires": [],
+			"summary": "Run the fast local validation suite."
+		},
+		{
+			"id": "root.harness-validate-full",
+			"display": "bun run harness:validate:full",
+			"requires": [],
+			"summary": "Run the full validation suite, including harness runtime regression tests."
+		},
+		{
+			"id": "root.harness-discover",
+			"display": "bun run harness:discover",
+			"requires": [],
+			"summary": "Report discovery status and current question packet."
+		},
+		{
+			"id": "root.harness-discover-reset",
+			"display": "bun run harness:discover --reset",
+			"requires": [],
+			"summary": "Reset discovery and rewrite the docs back to guided-question mode."
+		},
+		{
+			"id": "root.harness-plan",
+			"display": "bun run harness:plan",
+			"requires": [
+				"post_init_or_discovery_complete",
+				"docs_ready",
+				"milestones_present"
+			],
+			"summary": "Synchronize milestones and tasks after docs become executable."
+		},
+		{
+			"id": "root.harness-status",
+			"display": "bun run harness:status --json",
+			"requires": [],
+			"summary": "Render a derived machine-readable summary of the current harness state."
+		},
+		{
+			"id": "root.harness-orchestrate",
+			"display": "bun run harness:orchestrate",
+			"requires": ["planned_backlog", "pending_task"],
+			"summary": "Prepare the next task contract and handoff artifact."
+		},
+		{
+			"id": "root.harness-evaluate",
+			"display": "bun run harness:evaluate --task <id>",
+			"requires": ["active_task"],
+			"summary": "Evaluate the active task and write fresh evaluation and handoff artifacts."
+		},
+		{
+			"id": "root.harness-self-review",
+			"display": "bun run harness:self-review",
+			"requires": [],
+			"summary": "Summarize a local self-review pass over the current diff before handoff."
+		},
+		{
+			"id": "root.harness-state-recover",
+			"display": "bun run harness:state-recover --list",
+			"requires": [],
+			"summary": "List or recover state snapshots created before state mutations."
+		},
+		{
+			"id": "root.harness-unblock",
+			"display": "bun run harness:unblock --task <id>",
+			"requires": ["blocked_task"],
+			"summary": "Unblock a stuck task and reset its stall counter."
+		},
+		{
+			"id": "root.harness-parallel-dispatch",
+			"display": "bun run harness:parallel-dispatch -- --apply",
+			"requires": [
+				"planned_backlog",
+				"clean_main_worktree",
+				"eligible_milestone"
+			],
+			"summary": "Allocate milestone worktrees when the backlog and git state allow it."
+		},
+		{
+			"id": "root.harness-merge-milestone",
+			"display": "bun run harness:merge-milestone -- M1",
+			"requires": ["active_worktree", "clean_main_worktree", "milestone_done"],
+			"summary": "Merge a completed milestone branch back into the main worktree."
+		},
+		{
+			"id": "root.build",
+			"display": "bun run build",
+			"requires": ["bun_install"],
+			"summary": "Build all workspaces through Turbo."
+		},
+		{
+			"id": "root.dev",
+			"display": "bun run dev",
+			"requires": ["bun_install"],
+			"summary": "Start all workspace dev processes in parallel."
+		},
+		{
+			"id": "root.lint",
+			"display": "bun run lint",
+			"requires": ["bun_install"],
+			"summary": "Run the root Biome checks and workspace lint scripts."
+		},
+		{
+			"id": "root.lint-root",
+			"display": "bun run lint:root",
+			"requires": ["bun_install"],
+			"summary": "Run repository-wide Biome checks from the root."
+		},
+		{
+			"id": "root.lint-biome",
+			"display": "bun run lint:biome",
+			"requires": ["bun_install"],
+			"summary": "Run repository-wide Biome lint rules only."
+		},
+		{
+			"id": "root.typecheck",
+			"display": "bun run typecheck",
+			"requires": ["bun_install"],
+			"summary": "Run root and workspace type checks."
+		},
+		{
+			"id": "root.typecheck-root",
+			"display": "bun run typecheck:root",
+			"requires": ["bun_install"],
+			"summary": "Run the root TypeScript type check."
+		},
+		{
+			"id": "root.test",
+			"display": "bun run test",
+			"requires": ["bun_install"],
+			"summary": "Run all workspace tests through Turbo."
+		},
+		{
+			"id": "root.check",
+			"display": "bun run check",
+			"requires": ["bun_install"],
+			"summary": "Run the full Biome check against the repository."
+		},
+		{
+			"id": "root.format",
+			"display": "bun run format",
+			"requires": ["bun_install"],
+			"summary": "Rewrite files into the repository's canonical format."
+		},
+		{
+			"id": "root.format-check",
+			"display": "bun run format:check",
+			"requires": ["bun_install"],
+			"summary": "Verify that repository files already match the canonical format."
+		}
+	]
+}

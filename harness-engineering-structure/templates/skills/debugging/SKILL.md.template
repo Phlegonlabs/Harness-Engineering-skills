@@ -1,0 +1,41 @@
+# Skill: Debugging
+
+Use this skill when reproducing bugs, tracing failures, or validating a fix through logs and observability signals.
+
+## Debugging Loop
+
+1. Reproduce the issue with the smallest reliable command or test.
+2. Inspect structured logs before changing code.
+3. Add or refine logging only where the missing signal blocks diagnosis.
+4. Implement the smallest fix that resolves the observed failure mode.
+5. Re-run the reproduction path and confirm the logs now show the expected state.
+
+## Logging Rules
+
+- Prefer the shared structured logger from `@{{projectName}}/shared`.
+- Log stable fields such as `requestId`, `workspace`, `component`, `taskId`, or `statusCode`.
+- Put volatile payloads inside a nested context object instead of flattening everything at the top level.
+- Do not leave temporary debug noise behind after the fix is verified.
+
+## What to Check
+
+- Reproduction command or failing test
+- Before/after log output
+- Error-path coverage
+- Docs or runbooks if the debugging path taught the next agent something durable
+
+## Useful Commands
+
+```bash
+bun run harness:validate
+bun run harness:validate:full
+bun run harness:self-review
+```
+
+## Example Flow
+
+1. Run the failing path.
+2. Look for the last correct structured log entry.
+3. Add one focused log line at the branch that becomes ambiguous.
+4. Fix the branch condition or missing data flow.
+5. Re-run the failing path and remove any temporary instrumentation that is no longer needed.

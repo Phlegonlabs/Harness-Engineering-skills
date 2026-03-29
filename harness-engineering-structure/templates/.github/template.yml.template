@@ -1,0 +1,7 @@
+name: {{projectName}}
+description: Agent-first Bun + Turbo monorepo for {{projectName}} with repo-owned validation, planning, and execution contracts.
+labels:
+  - bun
+  - monorepo
+  - template
+  - agent-first

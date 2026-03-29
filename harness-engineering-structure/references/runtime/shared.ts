@@ -4,6 +4,8 @@ import {
 	mkdirSync,
 	readdirSync,
 	readFileSync,
+	renameSync,
+	rmSync,
 	writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -28,6 +30,9 @@ const textExtensions = new Set([
 	".conf",
 	".env",
 ]);
+
+const trackedFilesCache = new Map<string, string[]>();
+const globToRegexCache = new Map<string, RegExp>();
 
 export function repoRoot(): string {
 	try {
@@ -72,9 +77,69 @@ export function readJson<T>(target: string): T {
 	return JSON.parse(readFileSync(target, "utf8")) as T;
 }
 
-export function writeJson(target: string, value: unknown): void {
+function owningRepoRoot(target: string): string | null {
+	let current = path.resolve(path.dirname(target));
+	while (true) {
+		if (existsSync(path.join(current, ".git"))) {
+			return current;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) {
+			return null;
+		}
+		current = parent;
+	}
+}
+
+export function clearTrackedFilesCache(root?: string): void {
+	if (root) {
+		trackedFilesCache.delete(path.resolve(root));
+		return;
+	}
+	trackedFilesCache.clear();
+}
+
+export function clearGlobToRegexCache(): void {
+	globToRegexCache.clear();
+}
+
+function tryFormatFile(target: string): void {
+	try {
+		execFileSync("bunx", ["@biomejs/biome", "format", "--write", target], {
+			cwd: repoRoot(),
+			stdio: "ignore",
+		});
+	} catch {
+		// Best-effort formatting: callers still keep the written file if Biome is unavailable.
+	}
+}
+
+export function writeTextFile(target: string, content: string): void {
 	mkdirSync(path.dirname(target), { recursive: true });
-	writeFileSync(target, `${JSON.stringify(value, null, "\t")}\n`);
+	const tempTarget = path.join(
+		path.dirname(target),
+		`.${path.basename(target)}.${process.pid}.${Date.now()}.tmp`,
+	);
+	writeFileSync(tempTarget, content);
+	try {
+		renameSync(tempTarget, target);
+	} catch {
+		rmSync(target, { force: true });
+		renameSync(tempTarget, target);
+	}
+	if (isTextFile(target)) {
+		tryFormatFile(target);
+	}
+	const root = owningRepoRoot(target);
+	if (root) {
+		clearTrackedFilesCache(root);
+		return;
+	}
+	clearTrackedFilesCache();
+}
+
+export function writeJson(target: string, value: unknown): void {
+	writeTextFile(target, `${JSON.stringify(value, null, "\t")}\n`);
 }
 
 export function writeSection(label: string): void {
@@ -106,6 +171,12 @@ function walkFiles(root: string): string[] {
 }
 
 export function trackedFiles(root: string): string[] {
+	const normalizedRoot = path.resolve(root);
+	const cached = trackedFilesCache.get(normalizedRoot);
+	if (cached) {
+		return [...cached];
+	}
+	let files: string[];
 	try {
 		const tracked = execFileSync("git", ["-C", root, "ls-files"], {
 			encoding: "utf8",
@@ -119,16 +190,22 @@ export function trackedFiles(root: string): string[] {
 				stdio: ["ignore", "pipe", "pipe"],
 			},
 		);
-		return [...new Set(`${tracked}\n${untracked}`.split(/\r?\n/))]
+		files = [...new Set(`${tracked}\n${untracked}`.split(/\r?\n/))]
 			.map((line) => line.trim())
 			.filter(Boolean)
 			.filter((relativePath) => existsSync(path.join(root, relativePath)));
 	} catch {
-		return walkFiles(root).map((file) => repoRelative(root, file));
+		files = walkFiles(root).map((file) => repoRelative(root, file));
 	}
+	trackedFilesCache.set(normalizedRoot, files);
+	return [...files];
 }
 
 export function globToRegex(pattern: string): RegExp {
+	const cached = globToRegexCache.get(pattern);
+	if (cached) {
+		return cached;
+	}
 	const escaped = pattern
 		.replace(/[.+^${}()|[\]\\]/g, "\\$&")
 		.replace(/\*\*\//g, "__DOUBLE_STAR_DIR__")
@@ -137,7 +214,9 @@ export function globToRegex(pattern: string): RegExp {
 		.replace(/\?/g, ".")
 		.replace(/__DOUBLE_STAR_DIR__/g, "(.+/)?")
 		.replace(/__DOUBLE_STAR__/g, ".*");
-	return new RegExp(`^${escaped}$`);
+	const regex = new RegExp(`^${escaped}$`);
+	globToRegexCache.set(pattern, regex);
+	return regex;
 }
 
 export function isTextFile(target: string): boolean {

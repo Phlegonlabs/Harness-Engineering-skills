@@ -1,169 +1,227 @@
 # AGENTS.md
 
-> This file is the universal agent entry point. It is a **routing document** — not a rules dump.
-> Read the sections below in order, then navigate to the deeper sources of truth.
+> Primary entry point for AI agents working in this repository.
+> This file is intentionally self-contained: read it first, then load deeper docs only when the current task needs them.
 >
-> **If this file diverges from `docs/internal/agent-entry.md`, the shared doc wins.**
+> If this file and the runtime disagree, the runtime and validation suite win.
 
 ---
 
-## Read First
+## Purpose
 
-For **small tasks** (single file, single concern):
-1. This file
-2. `docs/internal/agent-entry.md`
+This template assumes agents do the planning, coding, testing, and handoff work.
+Humans define the environment, review artifacts, and make the final decisions.
 
-For **medium tasks** (cross-file, one layer):
-1. This file
-2. `docs/internal/agent-entry.md`
+The goal of this file is to minimize session startup cost while keeping the non-negotiable rules explicit.
+
+---
+
+## Read Order
+
+### Small tasks
+1. `AGENTS.md`
+2. `CODEX.md` or `CLAUDE.md` for tool-specific behavior
+
+### Medium tasks
+1. `AGENTS.md`
+2. `CODEX.md` or `CLAUDE.md`
 3. `docs/architecture.md`
 4. `docs/progress.md`
 
-For **large tasks** (new feature, cross-layer):
-1. This file
-2. `docs/internal/agent-entry.md`
-3. `docs/product.md` + `docs/architecture.md`
-4. `docs/progress.md`
-5. `docs/internal/orchestrator-workflow.md`
-6. `docs/internal/dependency-layers.md`
-7. `docs/internal/boundaries.md`
+### Large tasks
+1. `AGENTS.md`
+2. `CODEX.md` or `CLAUDE.md`
+3. `docs/product.md`
+4. `docs/architecture.md`
+5. `docs/progress.md`
+6. `docs/internal/orchestrator-workflow.md` if you are changing the task loop itself
+7. `docs/internal/dependency-layers.md` if you are changing layer policy or lint behavior
+8. `docs/internal/boundaries.md` if you are changing approval boundaries
+
+Load only what the task requires. Do not bulk-read `docs/internal/` by default.
 
 ---
 
-## Project Context
+## Core Rules
 
-| Document | Purpose |
-|----------|---------|
-| `docs/product.md` | What we're building and why |
-| `docs/architecture.md` | How the system is structured |
-| `docs/progress.md` | Milestones, tasks, and worktree dispatch status |
-| `docs/glossary.md` | Shared terminology |
-| `docs/decisions/` | Architecture Decision Records (ADRs) |
-
----
-
-## Critical Rules (inline summary)
-
-Full rules live in `docs/internal/agent-entry.md`. These 6 are non-negotiable:
-
-1. **Follow the dependency layer order** — see `harness/rules/dependency-layers.json`
+1. Follow the dependency order inside each workspace:
    `Types → Config → Repo → Service → Runtime → UI`
-   Each layer may only import from layers below it inside a workspace.
 
-2. **Keep files under 500 lines** — see `harness/rules/file-size-limits.json`
-   Split files that approach this limit into focused modules.
+2. Keep files under the configured limits.
+   Source default: 500 lines
+   Tests: 300 lines
+   Docs: 1000 lines
 
-3. **Run validation before handing off** — `bun run harness:validate`
-   If it fails, fix it. Do not leave the harness in a broken state.
+3. Run `bun run harness:validate` before handoff.
+   If the repo is broken, fix it before stopping.
 
-4. **Use conventional commits** — `type(scope): description`
+4. For in-flight tasks, run `bun run harness:evaluate --task <id>` before considering the task done.
+
+5. Use conventional commits:
+   `type(scope): description`
    Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `harness`
 
-5. **No backwards-compat code** — no `_old` suffixes, no dead exports, no TODO stubs
-   If something is unused, delete it.
+6. No backwards-compat shims.
+   No `_old`, `_v2`, dead exports, commented-out code, or TODO placeholders.
 
-6. **Repository is the single source of truth** — decisions in Slack/chat are invisible to agents
-   Anything important must be written into `docs/`.
+7. The repository is the only durable memory.
+   If a decision matters to the next agent, write it into `docs/`.
 
 ---
 
-## Three-Tier Boundaries
+## Boundaries
 
-### ALWAYS DO
-- Run `bun run harness:validate` before any handoff
-- Run `bun run harness:evaluate --task <id>` before considering an active task done
-- Follow the dependency layer order in all new code
-- Update `docs/` when making architectural decisions
-- Use conventional commit format
+### Always do
+- Run `bun run harness:validate` before handoff.
+- Follow the dependency layer rules.
+- Update `docs/` when architecture or workflow decisions change.
+- Keep command/documentation surfaces in sync with runtime behavior.
+- Delete unused code instead of preserving compatibility scaffolding.
 
-### ASK FIRST
-- Adding a new external dependency (package/library)
+### Ask first
+- Adding a new external dependency
 - Creating a new top-level directory
-- Modifying files in `harness/rules/` (changing the golden rules)
-- Changing CI/CD workflow files
+- Modifying files in `harness/rules/`
+- Changing CI or workflow automation
+- Making breaking schema or API contract changes
+- Taking irreversible infrastructure actions
 
-### NEVER DO
-- Skip or bypass validation
-- Break the dependency layer order
-- Commit secrets, API keys, or credentials
+Dependency additions require human approval — favour stable, well-documented packages with low conceptual overhead.
+
+### Never do
+- Skip validation or bypass hooks
+- Break the dependency order intentionally
+- Commit secrets or credentials
 - Modify `.git/` directly
-- Write backwards-compat shims for removed code
+- Force-push shared history
+- Keep commented-out code or untracked TODOs
+
+---
+
+## Task Loop
+
+The harness runtime is a contract-driven loop:
+
+1. `bun run harness:init -- <name>` personalizes the template
+2. Update `docs/product.md` and `docs/architecture.md`
+3. `bun run harness:plan` synchronizes milestones/tasks into:
+   - `docs/progress.md`
+   - `.harness/state.json`
+4. `bun run harness:orchestrate` prepares the next task contract
+5. Implement inside the task scope
+6. `bun run harness:evaluate --task <id>` records pass/fail and handoff artifacts
+7. Use milestone worktrees only through `harness:parallel-dispatch` and `harness:merge-milestone`
+
+Canonical surfaces:
+- `docs/product.md`: PRD canon
+- `docs/architecture.md`: architecture canon
+- `docs/progress.md`: human-readable execution view
+- `.harness/state.json`: machine execution state
+- `.harness/contracts/`, `.harness/evaluations/`, `.harness/handoffs/`: task artifacts
+
+Use `bun run harness:status --json` for a structured snapshot of the current state.
+Use `bun run harness:state-recover --list` or `--latest` if state recovery is needed.
+
+---
+
+## Layer Model
+
+| Layer | Typical Role | Allowed Imports |
+|-------|--------------|-----------------|
+| `types` | schemas, types, constants | none |
+| `config` | env, flags, config loaders | `types` |
+| `repo` | persistence, external adapters | `types`, `config` |
+| `service` | business logic, workflows | `types`, `config`, `repo` |
+| `runtime` | handlers, servers, CLI entrypoints | `types`, `config`, `repo`, `service` |
+| `ui` | components, views, pages | all layers |
+
+Notes:
+- `apps/*/src/index.ts` and `packages/*/src/index.ts` are allowed unlayered entrypoints.
+- Cross-workspace imports must go through package exports, never another workspace's internal files.
+- The machine-readable enforcement lives in `harness/rules/dependency-layers.json`.
 
 ---
 
 ## Validation
 
+Full gate:
+
 ```bash
 bun run harness:validate
+bun run harness:validate:full
 ```
 
-This runs: health check → linters → structural tests → entropy scans.
-All must pass before a PR is ready.
+Use `bun run harness:validate` for the default local handoff gate.
+Use `bun run harness:validate:full` in CI or when changing harness runtime behavior.
 
-Quick individual checks:
+Useful slices:
+
 ```bash
 bun run harness:doctor
 bun run harness:lint
 bun run harness:structural
 bun run harness:entropy
+bun run harness:status --json
 ```
 
 ---
 
-## Skills (Load on Demand)
+## Skills
 
-Skills provide detailed guidance for specific task types. Load them when you need them — don't read all of them upfront. The runtime chooses candidates from `harness/skills/registry.json`, then loads only the minimal skill set needed for the current phase/task.
+Load skills on demand. Start with the minimum set.
 
-| Skill | Load When |
+| Skill | Use When |
 |-------|----------|
-| `skills/research/SKILL.md` | Before working in an unfamiliar area |
-| `skills/implementation/SKILL.md` | Implementing a feature |
-| `skills/testing/SKILL.md` | Writing or improving tests |
-| `skills/code-review/SKILL.md` | Reviewing a PR |
-| `skills/deployment/SKILL.md` | Before opening a PR |
+| `skills/research/SKILL.md` | unfamiliar area, unclear existing pattern |
+| `skills/implementation/SKILL.md` | feature work or significant refactors |
+| `skills/testing/SKILL.md` | test additions or coverage work |
+| `skills/code-review/SKILL.md` | review, validation, merge readiness |
+| `skills/debugging/SKILL.md` | bug reproduction, log-driven debugging, observability checks |
+| `skills/deployment/SKILL.md` | pre-PR or deployment prep |
+
+If a change spans multiple files or phases, create an execution plan in `docs/execution-plans/`.
+The current harness improvement plan lives in `docs/execution-plans/harness-agent-ergonomics.md`.
 
 ---
 
-## Execution Plans
-
-For complex multi-phase features, create an execution plan before coding:
-- Template: `docs/execution-plans/TEMPLATE.md`
-- Place plans in: `docs/execution-plans/<feature-name>.md`
-
-Milestones and tasks live in `docs/progress.md` and `.harness/state.json`.
-Different milestones may run in parallel in isolated worktrees.
-
----
-
-## Quality
-
-Track domain and layer quality in `docs/quality/GRADES.md`.
-Update after significant changes.
-
----
-
-## Tool Availability
+## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `bun run harness:init -- <name>` | Initialize the engineer template for a specific project |
-| `bun run harness:doctor` | Health check |
-| `bun run harness:discover --reset` | Re-enter guided PRD/architecture discovery mode |
-| `bun run harness:evaluate --task <id>` | Run the task-level evaluator and write evaluation / handoff artifacts |
-| `bun run build` | Run workspace builds through Turbo |
-| `bun run lint` | Run root + workspace lint checks |
-| `bun run typecheck` | Run root + workspace type checks |
-| `bun run test` | Run workspace test suites |
-| `bun run harness:validate` | Full validation suite |
-| `bun run harness:plan` | Sync milestones/tasks from PRD + architecture |
-| `bun run harness:orchestrate` | Show next task and suggested skills |
-| `bun run harness:parallel-dispatch -- --apply` | Preview or allocate milestone worktrees |
-| `bun run harness:merge-milestone -- M1` | Merge one completed milestone |
-| `bun run harness:install-hooks` | Install git hooks |
+| `bun run harness:init -- <name>` | personalize the template |
+| `bun run harness:discover --reset` | guided PRD/architecture discovery |
+| `bun run harness:plan` | sync backlog from docs |
+| `bun run harness:status --json` | structured current-state summary |
+| `bun run harness:orchestrate` | prepare the next task contract |
+| `bun run harness:evaluate --task <id>` | evaluate the active task |
+| `bun run harness:self-review` | summarize a local self-review pass before handoff |
+| `bun run harness:state-recover --list` | inspect state snapshots |
+| `bun run harness:state-recover --latest` | recover the latest snapshot |
+| `bun run harness:parallel-dispatch -- --apply` | allocate milestone worktrees |
+| `bun run harness:merge-milestone -- M1` | merge a completed milestone |
+| `bun run build` / `lint` / `typecheck` / `test` | workspace-wide checks |
+
+Full command availability is generated into `docs/internal/command-surface.md`.
 
 ---
 
-*Full canonical rules: `docs/internal/agent-entry.md`*
-*Boundaries detail: `docs/internal/boundaries.md`*
-*Layer model detail: `docs/internal/dependency-layers.md`*
-*Orchestration detail: `docs/internal/orchestrator-workflow.md`*
+## Deep References
+
+Only load these when the task touches the matching concern:
+
+- `docs/internal/agent-entry.md`
+- `docs/internal/orchestrator-workflow.md`
+- `docs/internal/dependency-layers.md`
+- `docs/internal/boundaries.md`
+- `docs/internal/observability.md`
+- `docs/internal/command-surface.md`
+- `apps/web/AGENTS.md`
+- `apps/api/AGENTS.md`
+- `packages/shared/AGENTS.md`
+- `docs/quality/GRADES.md`
+- `docs/execution-plans/harness-agent-ergonomics.md`
+- `docs/execution-plans/harness-gap-alignment.md`
+- `docs/execution-plans/harness-validate-performance.md`
+- `docs/decisions/`
+
+The runtime is the enforcement layer. These docs explain intent and rationale.

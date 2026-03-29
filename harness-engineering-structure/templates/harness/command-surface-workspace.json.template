@@ -1,0 +1,58 @@
+{
+	"commands": [
+		{
+			"id": "workspace.app.build",
+			"display": "cd apps/<name> && bun run build",
+			"requires": ["bun_install"],
+			"summary": "Build one app workspace."
+		},
+		{
+			"id": "workspace.app.dev",
+			"display": "cd apps/<name> && bun run dev",
+			"requires": ["bun_install"],
+			"summary": "Start one app workspace in watch mode."
+		},
+		{
+			"id": "workspace.app.lint",
+			"display": "cd apps/<name> && bun run lint",
+			"requires": ["bun_install"],
+			"summary": "Run Biome checks inside one app workspace."
+		},
+		{
+			"id": "workspace.app.typecheck",
+			"display": "cd apps/<name> && bun run typecheck",
+			"requires": ["bun_install"],
+			"summary": "Run TypeScript checks inside one app workspace."
+		},
+		{
+			"id": "workspace.app.test",
+			"display": "cd apps/<name> && bun run test",
+			"requires": ["bun_install"],
+			"summary": "Run tests inside one app workspace."
+		},
+		{
+			"id": "workspace.package.build",
+			"display": "cd packages/<name> && bun run build",
+			"requires": ["bun_install"],
+			"summary": "Build one package workspace."
+		},
+		{
+			"id": "workspace.package.lint",
+			"display": "cd packages/<name> && bun run lint",
+			"requires": ["bun_install"],
+			"summary": "Run Biome checks inside one package workspace."
+		},
+		{
+			"id": "workspace.package.typecheck",
+			"display": "cd packages/<name> && bun run typecheck",
+			"requires": ["bun_install"],
+			"summary": "Run TypeScript checks inside one package workspace."
+		},
+		{
+			"id": "workspace.package.test",
+			"display": "cd packages/<name> && bun run test",
+			"requires": ["bun_install"],
+			"summary": "Run tests inside one package workspace."
+		}
+	]
+}

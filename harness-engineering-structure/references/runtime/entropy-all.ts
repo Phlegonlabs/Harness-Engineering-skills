@@ -1,15 +1,30 @@
-import { repoRoot, runPassthrough } from "./shared";
+import { repoRoot } from "./shared";
+import type { ValidationContext } from "./types";
+import {
+	runConsistencyScan,
+	runDriftScan,
+	runOrphanScan,
+	validationContext,
+} from "./validation";
 
-const root = repoRoot();
-for (const [name, script] of [
-	["Drift Detection", "harness/runtime/scan-drift.ts"],
-	["Orphan Detection", "harness/runtime/scan-orphans.ts"],
-	["Consistency Check", "harness/runtime/scan-consistency.ts"],
-] as const) {
+function runStep(name: string, step: () => number): void {
 	console.log(`── ${name} ──────────────────────────────────`);
-	runPassthrough("bun", ["run", script], root);
+	step();
 	console.log("");
 }
 
-console.log("════════════════════════════════════════════");
-console.log("INFO: Entropy scans complete. Review warnings above.");
+export function runEntropyScans(
+	context: ValidationContext = validationContext(repoRoot()),
+): number {
+	runStep("Drift Detection", () => runDriftScan(context));
+	runStep("Orphan Detection", () => runOrphanScan(context));
+	runStep("Consistency Check", () => runConsistencyScan(context));
+
+	console.log("════════════════════════════════════════════");
+	console.log("INFO: Entropy scans complete. Review warnings above.");
+	return 0;
+}
+
+if (import.meta.main) {
+	process.exit(runEntropyScans(validationContext(repoRoot())));
+}

@@ -1,13 +1,20 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
 	createTaskRecord,
 	defaultCommandSurface,
 	normalizeTaskRecord,
 } from "./planning-state";
-import { hasPlaceholderContent, readJson, writeJson } from "./shared";
+import {
+	hasPlaceholderContent,
+	readJson,
+	writeJson,
+	writeTextFile,
+} from "./shared";
+import { createStateSnapshot } from "./state-recovery";
 import { baselineDiscoveryAnswers } from "./template-baseline";
 import type {
+	ActiveWorktreeRecord,
 	DiscoveryState,
 	HarnessConfig,
 	HarnessState,
@@ -33,16 +40,18 @@ export function milestonesFromProductDoc(
 	productPath: string,
 ): MilestoneRecord[] {
 	const content = readFileSync(productPath, "utf8");
-	const match = content.match(
-		/^## Proposed Milestones\s*([\s\S]+?)(?=^## |Z)/m,
+	const sections = content.split(/(?=^## )/m);
+	const milestoneSection = sections.find((s) =>
+		s.startsWith("## Proposed Milestones"),
 	);
-	if (!match) return [];
+	if (!milestoneSection) return [];
+	const body = milestoneSection.replace(/^## Proposed Milestones\s*/, "");
 
 	const milestones: MilestoneRecord[] = [];
 	let index = 1;
 	let current: MilestoneRecord | null = null;
 
-	for (const line of match[1].split(/\r?\n/)) {
+	for (const line of body.split(/\r?\n/)) {
 		// Top-level bullet: milestone (no leading whitespace before -)
 		const topMatch = line.match(/^-\s+(?:\[ \]\s+)?(.+?)\s*$/);
 		if (topMatch) {
@@ -79,6 +88,10 @@ export function milestonesFromProductDoc(
 
 const KIND_PATTERNS: Array<{ pattern: RegExp; kind: string }> = [
 	{
+		pattern: /\b(debug\w*|bug|fix|regression|incident|triage)\b/i,
+		kind: "debugging",
+	},
+	{
 		pattern: /\b(tests?|testing|validat\w+|verify|assert)\b/i,
 		kind: "testing",
 	},
@@ -101,6 +114,7 @@ const SKILLS_BY_KIND: Record<string, string[]> = {
 	research: ["skills/research/SKILL.md"],
 	implementation: ["skills/implementation/SKILL.md"],
 	testing: ["skills/testing/SKILL.md", "skills/code-review/SKILL.md"],
+	debugging: ["skills/debugging/SKILL.md", "skills/code-review/SKILL.md"],
 	review: ["skills/code-review/SKILL.md"],
 	deployment: ["skills/deployment/SKILL.md"],
 };
@@ -276,7 +290,7 @@ export function stateTemplate(projectName: string): HarnessState {
 			docsReady: {
 				product: true,
 				architecture: true,
-				backlog: false,
+				backlog: true,
 			},
 			approvals: {
 				planApproved: false,
@@ -311,32 +325,17 @@ export function loadState(root: string): HarnessState {
 			).discovery,
 		};
 		fallback.tasks = (fallback.tasks ?? []).map(normalizeTaskRecord);
-		fallback.projectInfo.commandSurface =
-			fallback.projectInfo.commandSurface?.length > 0
-				? [
-						...new Set([
-							...fallback.projectInfo.commandSurface,
-							"bun run harness:evaluate",
-						]),
-					]
-				: defaultCommandSurface();
+		fallback.projectInfo.commandSurface = defaultCommandSurface(root);
 		return fallback;
 	}
 	const normalized = state as HarnessState;
 	normalized.tasks = (normalized.tasks ?? []).map(normalizeTaskRecord);
-	normalized.projectInfo.commandSurface =
-		normalized.projectInfo.commandSurface?.length > 0
-			? [
-					...new Set([
-						...normalized.projectInfo.commandSurface,
-						"bun run harness:evaluate",
-					]),
-				]
-			: defaultCommandSurface();
+	normalized.projectInfo.commandSurface = defaultCommandSurface(root);
 	return normalized;
 }
 
 export function saveState(root: string, state: HarnessState): void {
+	createStateSnapshot(root, "pre-save");
 	writeJson(path.join(root, ".harness/state.json"), state);
 }
 
@@ -344,6 +343,8 @@ export function writeProgressDoc(
 	root: string,
 	milestones: MilestoneRecord[],
 	tasks: TaskRecord[],
+	activeWorktrees: ActiveWorktreeRecord[] = [],
+	readiness?: { product: boolean; architecture: boolean; backlog: boolean },
 ): void {
 	const progress = [
 		"# Delivery Progress",
@@ -357,9 +358,9 @@ export function writeProgressDoc(
 		"",
 		"| Surface | Status | Notes |",
 		"|--------|--------|-------|",
-		"| `docs/product.md` | Ready | PRD is complete enough to execute |",
-		"| `docs/architecture.md` | Ready | Architecture is complete enough to execute |",
-		"| Backlog sync | Ready | Milestones and tasks are synchronized |",
+		`| \`docs/product.md\` | ${readiness?.product !== false ? "Ready" : "Not Ready"} | PRD status |`,
+		`| \`docs/architecture.md\` | ${readiness?.architecture !== false ? "Ready" : "Not Ready"} | Architecture status |`,
+		`| Backlog sync | ${readiness?.backlog !== false ? "Ready" : "Not Ready"} | Milestone and task sync status |`,
 		"",
 		"---",
 		"",
@@ -389,7 +390,12 @@ export function writeProgressDoc(
 		"",
 		"| Worktree | Milestone | Branch | Status |",
 		"|----------|-----------|--------|--------|",
-		"| - | - | - | No active milestone worktrees |",
+		...(activeWorktrees.length > 0
+			? activeWorktrees.map(
+					(worktree) =>
+						`| ${worktree.worktree} | ${worktree.milestoneId} | ${worktree.branch} | ${worktree.status} |`,
+				)
+			: ["| - | - | - | No active milestone worktrees |"]),
 		"",
 		"---",
 		"",
@@ -398,5 +404,5 @@ export function writeProgressDoc(
 		`- Planning synchronized on ${new Date().toISOString()}.`,
 	].join("\n");
 
-	writeFileSync(path.join(root, "docs/progress.md"), `${progress}\n`);
+	writeTextFile(path.join(root, "docs/progress.md"), `${progress}\n`);
 }

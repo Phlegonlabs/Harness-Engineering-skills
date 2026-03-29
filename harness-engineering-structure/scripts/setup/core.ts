@@ -32,6 +32,8 @@ export async function runSetup({ context, skillRoot, logger }: SetupParams): Pro
   logger.info("  bun install")
   logger.info("  bun run harness:doctor")
   logger.info("  bun run harness:validate")
+  logger.info("  bun run harness:status --json")
+  logger.info("  bun run harness:validate:full")
 }
 
 async function runGreenfield({ context, skillRoot, logger }: SetupParams): Promise<void> {
@@ -49,6 +51,11 @@ async function runGreenfield({ context, skillRoot, logger }: SetupParams): Promi
   logger.info("Copying validation rules...")
   copyHarnessRules(skillRoot, cwd, logger)
 
+  // Copy harness profiles and command surface
+  logger.info("Copying harness profiles and command surface...")
+  copyHarnessProfiles(skillRoot, cwd, logger)
+  copyHarnessCommandSurface(skillRoot, cwd, logger)
+
   // Install git hooks
   installGitHooks(cwd, logger)
 }
@@ -62,6 +69,8 @@ async function runHydration({ context, skillRoot, logger }: SetupParams): Promis
   // Copy runtime files
   copyHarnessRuntime(skillRoot, cwd, logger)
   copyHarnessRules(skillRoot, cwd, logger)
+  copyHarnessProfiles(skillRoot, cwd, logger)
+  copyHarnessCommandSurface(skillRoot, cwd, logger)
 
   // Harness config
   const configContent = applyReplacements(
@@ -75,7 +84,7 @@ async function runHydration({ context, skillRoot, logger }: SetupParams): Promis
   writeTemplateTree(skillRoot, context, "docs", join(cwd, "docs"), logger, false)
 
   // Agent entry points (don't overwrite)
-  for (const file of ["AGENTS.md", "CLAUDE.md"]) {
+  for (const file of ["AGENTS.md", "CLAUDE.md", "CODEX.md"]) {
     const content = applyReplacements(
       readTemplate(skillRoot, `${file}.template`),
       context,
@@ -148,6 +157,23 @@ function copyHarnessRuntime(skillRoot: string, targetRoot: string, logger: Setup
     "validation-layering.ts",
     "validation-entropy.ts",
     "types.ts",
+    "state-recovery.ts",
+    "state-recover.ts",
+    "status.ts",
+    "self-review.ts",
+    "validate-full.ts",
+    "unblock.ts",
+    "command-surface.ts",
+    "test-support.ts",
+    "orchestration-test-fixtures.ts",
+    "orchestration.test.ts",
+    "validation.test.ts",
+    "command-surface.test.ts",
+    "command-flow.test.ts",
+    "install-hooks.test.ts",
+    "state-recovery.test.ts",
+    "status.test.ts",
+    "validation-template-identity.test.ts",
   ]
 
   const sourceDir = join(skillRoot, "references", "runtime")
@@ -187,6 +213,42 @@ function copyHarnessRules(skillRoot: string, targetRoot: string, logger: SetupLo
     if (existsSync(sourcePath)) {
       const content = readFileSync(sourcePath, "utf-8")
       writeFileAlways(join(targetDir, rule), content, logger)
+    }
+  }
+}
+
+function copyHarnessProfiles(skillRoot: string, targetRoot: string, logger: SetupLogger): void {
+  const profiles = ["api.json", "cli.json", "fullstack.json", "library.json"]
+
+  const sourceDir = join(skillRoot, "templates", "harness", "profiles")
+  const targetDir = join(targetRoot, "harness", "profiles")
+  ensureDir(targetDir)
+
+  for (const profile of profiles) {
+    const sourcePath = join(sourceDir, `${profile}.template`)
+    if (existsSync(sourcePath)) {
+      const content = readFileSync(sourcePath, "utf-8")
+      writeFileAlways(join(targetDir, profile), content, logger)
+    }
+  }
+}
+
+function copyHarnessCommandSurface(skillRoot: string, targetRoot: string, logger: SetupLogger): void {
+  const files = [
+    "command-surface.json",
+    "command-surface-root.json",
+    "command-surface-workspace.json",
+  ]
+
+  const sourceDir = join(skillRoot, "templates", "harness")
+  const targetDir = join(targetRoot, "harness")
+  ensureDir(targetDir)
+
+  for (const file of files) {
+    const sourcePath = join(sourceDir, `${file}.template`)
+    if (existsSync(sourcePath)) {
+      const content = readFileSync(sourcePath, "utf-8")
+      writeFileAlways(join(targetDir, file), content, logger)
     }
   }
 }

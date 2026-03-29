@@ -1,0 +1,38 @@
+# apps/api AGENTS.md
+
+Read the root [AGENTS.md](../../AGENTS.md) first. This file adds workspace-specific guidance for `apps/api`.
+
+---
+
+## Purpose
+
+`apps/api` is the runtime-oriented application workspace for server and handler code. Treat it as the boundary layer that wires shared business logic into HTTP, worker, or CLI entrypoints.
+
+---
+
+## Layer Guidance
+
+The harness linter allows all six layers in this workspace:
+
+`Types → Config → Repo → Service → Runtime → UI`
+
+Typical API usage is narrower:
+- `src/index.ts` is the unlayered workspace entrypoint.
+- `src/runtime/` owns handlers, transport glue, and process startup.
+- UI is allowed by the rule model but is not the normal shape for this workspace.
+
+---
+
+## Conventions
+
+- Keep transport-specific logic in `src/runtime/`.
+- Move reusable business rules down into `@{{projectName}}/shared` or a lower layer inside this workspace.
+- Use the shared structured logger instead of `console.*` or direct stream writes.
+- Import across workspaces only through package exports such as `@{{projectName}}/shared`.
+
+---
+
+## Validation
+
+- Run `bun run lint`, `bun run test`, and `bun run typecheck` from this workspace when changing API code.
+- Run `bun run harness:validate` from the repo root before handoff.
